@@ -1,2 +1,4 @@
 # RFD_modelling
 Project to model RREA, RFD, and similar processes. Heavily based on Dr. Dwyer's work.
+
+Requires GSL (gnu scientific library) to be installed,  and cmake
