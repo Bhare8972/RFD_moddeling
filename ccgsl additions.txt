@@ -1,0 +1,4 @@
+vector:
+	added +, +=, - and -= overloaded opperators for two vectors
+
+	added *, *=, / and /= overloaded opperators for vectors on doubles﻿

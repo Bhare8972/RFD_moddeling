@@ -22,12 +22,21 @@
 
 #include<gsl/gsl_vector.h>
 #include<new>
+#include<iostream>
 #include<iterator>
 
 #include"exception.hpp"
 #include"block.hpp"
 
 // This file is used as a template
+
+class vector_exception: public std::exception
+{
+  virtual const char* what() const throw()
+  {
+    return "vector exception";
+  }
+};
 
 namespace gsl {
   // declare matrix class
@@ -45,6 +54,125 @@ namespace gsl {
    */
   class vector {
   public:
+  //my personal additions
+		
+    //addition/subtraction
+    vector operator+(vector const& v) const
+    {
+		// check if vectors are null
+		if( ccgsl_pointer == 0 ) throw vector_exception();
+		if( v.ccgsl_pointer == 0 ) throw vector_exception();
+		//check sizes
+		if( ccgsl_pointer->size != v.ccgsl_pointer->size) throw vector_exception();
+		//ADD!
+		vector new_vector(ccgsl_pointer->size);
+		for( size_t i = 0; i<ccgsl_pointer->size; ++i )
+		{
+			new_vector[i]=(*this)[i]+v[i];
+		}
+		return new_vector;
+	}
+	
+    void operator+=(vector const& v)
+    {
+		// check if vectors are null
+		if( ccgsl_pointer == 0 ) throw vector_exception();
+		if( v.ccgsl_pointer == 0 ) throw vector_exception();
+		//check sizes
+		if( ccgsl_pointer->size != v.ccgsl_pointer->size) throw vector_exception();
+		//ADD!
+		for( size_t i = 0; i<ccgsl_pointer->size; ++i )
+		{
+			(*this)[i]+=v[i];
+		}
+	}
+	
+    vector operator-(vector const& v) const
+    {
+		// check if vectors are null
+		if( ccgsl_pointer == 0 ) throw vector_exception();
+		if( v.ccgsl_pointer == 0 ) throw vector_exception();
+		//check sizes
+		if( ccgsl_pointer->size != v.ccgsl_pointer->size) throw vector_exception();
+		//ADD!
+		vector new_vector(ccgsl_pointer->size);
+		for( size_t i = 0; i<ccgsl_pointer->size; ++i )
+		{
+			new_vector[i]=(*this)[i]-v[i];
+		}
+		return new_vector;
+	}
+	
+    void operator-=(vector const& v)
+    {
+		// check if vectors are null
+		if( ccgsl_pointer == 0 ) throw vector_exception();
+		if( v.ccgsl_pointer == 0 ) throw vector_exception();
+		//check sizes
+		if( ccgsl_pointer->size != v.ccgsl_pointer->size) throw vector_exception();
+		//ADD!
+		for( size_t i = 0; i<ccgsl_pointer->size; ++i )
+		{
+			(*this)[i]-=v[i];
+		}
+	}
+	
+	//multiplication/division
+    vector operator*(double const& v) const
+    {
+		// check if vectors are null
+		if( ccgsl_pointer == 0 ) throw vector_exception();
+		//multiply
+		vector new_vector(ccgsl_pointer->size);
+		for( size_t i = 0; i<ccgsl_pointer->size; ++i )
+		{
+			new_vector[i]=(*this)[i]*v;
+		}
+		return new_vector;
+	}
+	
+	friend vector operator*(double const& lhs, vector const& rhs) 
+	//abuse of notation to be able to multiply in front of a vector
+	{ 
+		return rhs*lhs;
+	}
+	
+    void operator*=(double const& v)
+    {
+		// check if vectors are null
+		if( ccgsl_pointer == 0 ) throw vector_exception();
+		//multiply
+		for( size_t i = 0; i<ccgsl_pointer->size; ++i )
+		{
+			(*this)[i]*=v;
+		}
+	}
+	
+    vector operator/(double const& v) const
+    {
+		// check if vectors are null
+		if( ccgsl_pointer == 0 ) throw vector_exception();
+		//multiply
+		vector new_vector(ccgsl_pointer->size);
+		for( size_t i = 0; i<ccgsl_pointer->size; ++i )
+		{
+			new_vector[i]=(*this)[i]/v;
+		}
+		return new_vector;
+	}
+	
+    void operator/=(double const& v)
+    {
+		// check if vectors are null
+		if( ccgsl_pointer == 0 ) throw vector_exception();
+		//multiply
+		for( size_t i = 0; i<ccgsl_pointer->size; ++i )
+		{
+			(*this)[i]/=v;
+		}
+	}
+  
+  
     /**
      * The default constructor is only really useful for assigning to.
      */
