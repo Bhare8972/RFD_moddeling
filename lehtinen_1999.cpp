@@ -11,19 +11,21 @@ using namespace std;
 double time_step=0.1; //in units of time_units
 
 //give constants
-double electron_rest_mass=510.998; //in keV
 double C=2.99792e8;  //meters per second
+double electron_rest_mass=(9.1093835e-31)*C*C;// in joules   //510.998; //in keV
 double elementary_charge=1.602e-19; //charge of electron in coulombs
 
 //some units
+double giga=1.0e9;
 double kilo=1.0e3;
+double micro=1.0e-6;
 double nano=1.0e-9;
 
 //find unit-less constant conversions
-double time_units=172.0; //nano seconds
-double distance_units=C*time_units*nano; //fundamental length scale, in meters
-double E_field_units=electron_rest_mass/(elementary_charge*C); //units of electric field in kV/m
-double B_field_units=electron_rest_mass/(elementary_charge*C*C); //units of electric field in kT
+double time_units=172.0*nano; // seconds
+double distance_units=C*time_units; //fundamental length scale, in  meters
+double E_field_units=electron_rest_mass/(elementary_charge*C*time_units); //units of electric field in V/m
+double B_field_units=E_field_units/C; //units of magnetic field in T
 
 //various classes
 class field
@@ -162,23 +164,23 @@ public:
 
 int main()
 {
-	int number_itterations=1000;
+	int number_itterations=5000;
 	
 	//initialize electric field
 	uniform_field E_field;
-	E_field.set_minimum(-kilo/distance_units, -kilo/distance_units, 0);
+	E_field.set_minimum(-kilo/distance_units, -kilo/distance_units, -1/distance_units);
 	E_field.set_maximum(kilo/distance_units, kilo/distance_units, 20*kilo/distance_units);
-	E_field.set_value(0, 0, -20*kilo/E_field_units);
+	E_field.set_value(0, 0, -1.0e5/E_field_units);
 	
 	//magnetic field is zero
 	uniform_field B_field;
-	B_field.set_minimum(-kilo/distance_units, -kilo/distance_units, 0);
+	B_field.set_minimum(-kilo/distance_units, -kilo/distance_units, -1/distance_units);
 	B_field.set_maximum(kilo/distance_units, kilo/distance_units, 20*kilo/distance_units);
-	B_field.set_value(0, 0, 0);
+	B_field.set_value(0, 0.5*50*micro, 0.866*50*micro);
 	
 	//initial particle
 	electron particle;
-	particle.set_position(0,0,1/distance_units);
+	particle.set_position(0,0,0);
 	particle.set_momentum(0,0,0);
 	
 	//output file
