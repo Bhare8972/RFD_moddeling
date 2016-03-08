@@ -2,3 +2,9 @@ vector:
 	added +, +=, - and -= overloaded opperators for two vectors
 
 	added *, *=, / and /= overloaded opperators for vectors on doubles﻿
+	
+	added vec_lessThan, vec_greaterThan, vec_equalTo to vector. Returns a vector_ushort for boolean
+	
+vector_ushort
+	added vec_and, vec_or    comparison vectors
+	and all_true and any_true   to tell if any components are true or all components are true

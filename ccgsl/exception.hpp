@@ -7,12 +7,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or (at
  * your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
@@ -77,10 +77,10 @@
  */
 namespace gsl {
   /**
-   * This class is used to handle gsl exceptions so that gsl can use these rather than 
+   * This class is used to handle gsl exceptions so that gsl can use these rather than
    * the GSL error handling. It defines its own error handler that throws exceptions. But the
    * default behaviour is to rely on the error handling of GSL. Typically C++ users should
-   * use @code gsl::exception::enable() @endcode early in their programmes to enable 
+   * use @code gsl::exception::enable() @endcode early in their programmes to enable
    * exception handling. Then if a GSL function calls the error handler, you should put this function
    * in a try block and catch gsl::exception objects.
    *
@@ -107,11 +107,11 @@ namespace gsl {
    *   throw my_exception( reason, file, line, gsl_errno );
    * }
    * @endcode
-   * Then use 
+   * Then use
    * @code
    * gsl::exception::set_handler( &my_handler );
    * @endcode
-   * instead of 
+   * instead of
    * @code
    * gsl::exception::enable();
    * @endcode
@@ -141,7 +141,7 @@ namespace gsl {
       if( reason != 0 )
 	std::clog << ": " << reason;
       std::clog << std::endl;
-    }  
+    }
     /**
      * Get the message explaining the reason for the error/exception.
      * @return the message explaining the reason for the error/exception
@@ -198,8 +198,8 @@ namespace gsl {
     /**
      * Enumerated type
      */
-    enum { 
-      GSL_SUCCESS  = 0, 
+    enum {
+      GSL_SUCCESS  = 0,
       GSL_FAILURE  = -1,
       GSL_CONTINUE = -2,  /**< iteration has not converged */
       GSL_EDOM     = 1,   /**< input domain error, e.g sqrt(-1) */
@@ -269,7 +269,17 @@ namespace gsl {
      */
     int const gsl_errno;
   };
-  
+
 }
+
+
+//my extra exceptions, these are clumsy
+class vector_exception: public std::exception //this is wrong. needs to be merged into exception .hpp and generalized
+{
+  virtual const char* what() const throw()
+  {
+    return "vector exception";
+  }
+};
 
 #endif
