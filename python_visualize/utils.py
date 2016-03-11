@@ -113,6 +113,7 @@ if __name__=='__main__':
 	#print 'classical velocity:', final_velocity
 	#print 'classical position:', final_position
 	
+	print "final pos", particle_data[1].pos_history[-1][2]
 	
 	plot_particles_XYZ(particle_data)
 	plot_particles_TIMEYZ(particle_data, 0.1)

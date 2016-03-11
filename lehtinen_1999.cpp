@@ -15,7 +15,7 @@ double micro=1.0e-6;
 double nano=1.0e-9;
 
 //inputs
-double time_step=0.1; //in units of time_units
+double time_step=0.0001; //in units of time_units
 
 //give constants
 double C=2.99792e8;  //meters per second
@@ -23,7 +23,7 @@ double electron_rest_mass=(9.1093835e-31)*C*C;// in joules   //510.998; //in keV
 double elementary_charge=1.602e-19; //charge of electron in coulombs
 
 double minimum_energy=2*kilo*elementary_charge/electron_rest_mass; //minimum energy is 2 keV.
-double inv_I_sq=electron_rest_mass*electron_rest_mass/(80.5*80.5*elementary_charge*elementary_charge); //parameter necisary for beth formula
+double inv_I_sq=electron_rest_mass*electron_rest_mass/(85.7*80.5*elementary_charge*elementary_charge); //parameter necisary for beth formula
 
 
 
@@ -32,6 +32,13 @@ double time_units=172.0*nano; // seconds
 double distance_units=C*time_units; //fundamental length scale, in  meters
 double E_field_units=electron_rest_mass/(elementary_charge*C*time_units); //units of electric field in V/m
 double B_field_units=E_field_units/C; //units of magnetic field in T
+
+//conversion_functions
+double KE_to_mom(double KE)
+//both KE and momentum are unitless
+{
+	return sqrt(pow(1+KE , 2.0) - 1.0);
+}
 
 //various classes
 class field
@@ -140,6 +147,7 @@ public:
 
 	    //electric field
 		vector force=-1.0*E_field->get(position_, time); //-1 is becouse electron has negative charge
+		
 
 		//magnetic field
 		vector B=-1*B_field->get(position_, time); //-1 is becouse electron has negative charge
@@ -159,13 +167,22 @@ public:
 		{
 		    friction=beth_force(momentum_squared);
 		}
-		if(friction>0) //friction is 0 IFF momentum_magnitude==0, and we don't want a divide by zero error
+		if(friction>0) //don't want weird stuff
 		{
+			//cout<<time<<": "<<friction<<" "<<force[2]<<endl;
+			//cout<<momentum_[2]<<endl;
             force[0]-=friction*momentum_[0]/momentum_magnitude;
             force[1]-=friction*momentum_[1]/momentum_magnitude;
             force[2]-=friction*momentum_[2]/momentum_magnitude;
+			//cout<<time<<": "<<force[2]<<endl;
+			//cout<<endl;
 		}
-
+		else
+		{
+			friction=0.0;
+			//cout<<time<<": NF "<<force[2]<<endl;
+			//cout<<endl;
+		}
 
         return force;
 	}
@@ -198,21 +215,23 @@ public:
 
 		position+=time_step*(K_1_pos + 2.0*K_2_pos + 2.0*K_3_pos + K_4_pos)/6.0;
 		momentum+=time_step*(K_1_mom + 2.0*K_2_mom + 2.0*K_3_mom + K_4_mom)/6.0;
+		
 	}
 
 	double beth_force(double momentum_squared)
 	{
         double gamma_squared=1+momentum_squared;
-        double G=sqrt(gamma_squared);
+        double gamma_=sqrt(gamma_squared);
         double inv_beta_squared=gamma_squared/momentum_squared;
 
-        if(std::isnan(log(momentum_squared))) return 0.0;
-
-        double exp_term1=inv_I_sq*momentum_squared*G;
-        double term2=(1+(2/G)-1.0/gamma_squared)*log(2.0);
-        double term3=(G-2.0-1.0/G)/8.0;
-        double term4=1/gamma_squared;
-        return inv_beta_squared*(log(exp_term1) + term2 + term3 + term4);
+        double term1=log(inv_I_sq*momentum_squared*(gamma_-1.0));
+        double term2=(1+(2.0/gamma_)-1.0/gamma_squared)*log(2.0);
+        double term3=(1.0-2.0/gamma_+1.0/gamma_)/8.0;
+        double term4=1.0/gamma_squared;
+        
+        if(std::isnan(term1)) return 0.0;
+        
+        return inv_beta_squared*(term1 - term2 + term3 + term4);
 	}
 
     double beth_force_minus_moller(double momentum_squared)
@@ -231,14 +250,14 @@ public:
 
 int main()
 {
-	int number_itterations=10000;
+	int number_itterations=100;
 
 	//initialize electric field
 	uniform_field E_field;
 	E_field.set_minimum(-kilo/distance_units, -kilo/distance_units, -1/distance_units);
 	E_field.set_maximum(kilo/distance_units, kilo/distance_units, 10*kilo/distance_units);
-	//E_field.set_value(0, 0, -1.0e5/E_field_units);
-	E_field.set_value(0, 0, -1.0e1/E_field_units);
+	//E_field.set_value(0, 0, -1.7e5/E_field_units);
+	E_field.set_value(0, 0, 0/E_field_units);
 
 	//magnetic field is zero
 	uniform_field B_field;
@@ -250,21 +269,19 @@ int main()
 	//initial particle
 	electron particle;
 	particle.set_position(0,0,0);
-	particle.set_momentum(0,0,0);
-
-
-    auto energy_test=gsl_utils::linspace(0.0, 5.0, 1000); //still in units of electron rest energy
-    ofstream fout2("beth_test.txt");
-    for(int i=0; i<1000; i++)
-    {
-        double momentum_squared=energy_test[i]*energy_test[i]-1.0;
-        double beth_friction=particle.beth_force(momentum_squared);
-        fout2<<(energy_test[i])<<' '<<beth_friction<<endl;
-    }
+	particle.set_momentum(0,0, KE_to_mom(1000.0*kilo*elementary_charge/electron_rest_mass) );
+	
+    /*
+    double KE_test_j=2000.0*1000.0*elementary_charge;
+	double mom=KE_to_mom(KE_test_j/electron_rest_mass);
+	double F=particle.beth_force(mom*mom);
+	cout<<(F*electron_rest_mass/(time_units*C))<<endl;
+    
+    return 1.0;*/
 
 	//output file
 	ofstream fout("output.txt");
-
+	cout<<"start"<<endl;
 	//simulate!
 	for(int i=0; i<number_itterations; i++)
 	{
@@ -276,6 +293,7 @@ int main()
 		fout<<'1'<<' '; //particle ID
 		fout<<particle.position[0]<<' '<<particle.position[1]<<' '<<particle.position[2]<<' '; //position
 		fout<<particle.momentum[0]<<' '<<particle.momentum[1]<<' '<<particle.momentum[2]<<' '; //position
+		cout<<"time: "<<i*time_step<<endl;
 	}
 	fout.close();
 }
