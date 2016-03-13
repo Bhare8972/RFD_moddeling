@@ -8,3 +8,21 @@ vector:
 vector_ushort
 	added vec_and, vec_or    comparison vectors
 	and all_true and any_true   to tell if any components are true or all components are true
+	
+	
+
+utilities:
+	
+gsl::vector linspace(double stop, size_t length)
+gsl::vector linspace(double start, double stop, size_t length)
+	
+	returns a vector of size 'length' of equally spaced points between start and stop. if start is not provided, it is assumed to be 0
+	
+gsl::vector logspace(double start_pow, double stop_pow, size_t length, double base=10.0)
+	
+	same as linspace, but with a logrithmic spacing
+	
+gsl::vector make_vector(size_t length, double value=0.0)
+	returns a gsl vector of length that is filled with value, where value default is zero
+	
+	

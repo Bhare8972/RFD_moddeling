@@ -2,3 +2,9 @@
 Project to model RREA, RFD, and similar processes. Heavily based on Dr. Dwyer's work.
 
 Requires GSL (gnu scientific library) to be installed,  and cmake
+
+
+important sources:
+	lehtinen et al. 1999 "Monte Carlo simulation of runaway MeV electron breakdown with application to red sprites and terrestrial gamma ray flashes"
+	Dwyer 2007 "Relativistic breakdown in planetary atmospheres"
+	Olver and Townsend 2013 "Fast inverse transform sampling in one and two dimensions"

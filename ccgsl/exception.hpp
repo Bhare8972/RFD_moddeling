@@ -282,4 +282,20 @@ class vector_exception: public std::exception //this is wrong. needs to be merge
   }
 };
 
+class gen_exception: public std::exception //this is wrong. needs to be merged into exception .hpp and generalized
+{
+    public:
+    const char* msg;
+
+    gen_exception(const char* msg_)
+    {
+        msg=msg_;
+    }
+
+    virtual const char* what() const throw()
+    {
+    return msg;
+    }
+};
+
 #endif

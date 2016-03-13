@@ -6,12 +6,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or (at
  * your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
@@ -345,7 +345,7 @@ namespace gsl {
      */
     static type const zuf(){ return gsl_rng_zuf; }
     /**
-     * Random number static type. This must be Deafult because default is reserved.
+     * Random number static type. This must be Defult because default is reserved.
      * @return the named random number type
      */
     static type const Default(){ return gsl_rng_default; }
@@ -488,7 +488,7 @@ namespace gsl {
      * standard lexicographical ordering and so is not useful,
      * for eaxmple, for checking, that a rng is nonnegative.
      * @param v The rng to be compared with @c this
-     * @return @c false or @c true according as @c this is no 
+     * @return @c false or @c true according as @c this is no
      * less than @c v lexicographically
      */
     bool operator>=( rng const& v ) const { return ccgsl_pointer >= v.ccgsl_pointer; }
@@ -525,7 +525,7 @@ namespace gsl {
     gsl_rng* get() const { return ccgsl_pointer; }
     /**
      * Find if this is the only object sharing the gsl_rng.
-     * @return @c true or @c falses according as 
+     * @return @c true or @c falses according as
      * this is the only rng object sharing the gsl_rng
      */
     bool unique() const { return count != 0 and *count == 1; }
@@ -554,86 +554,86 @@ namespace gsl {
      * @param src Source rng
      * @return Error code on failure
      */
-     int memcpy( rng const& src ){ return gsl_rng_memcpy( get(), src.get() ); } 
+     int memcpy( rng const& src ){ return gsl_rng_memcpy( get(), src.get() ); }
     /**
      * C++ version of gsl_rng_clone().
      * @return A cloned copy of @c this
      */
-     rng clone() const { return rng( gsl_rng_clone( get() ) ); } 
+     rng clone() const { return rng( gsl_rng_clone( get() ) ); }
     /**
      * C++ version of gsl_rng_set().
      * @param seed A seed for @c this
      */
-     void set( unsigned long int seed ) const { gsl_rng_set( get(), seed ); } 
+     void set( unsigned long int seed ) const { gsl_rng_set( get(), seed ); }
     /**
      * C++ version of gsl_rng_max().
      * The random variate can take a number up to and including @c max.
      * @return The maximum integer value for @c this
      */
-     unsigned long int max() const { return gsl_rng_max( get() ); } 
+     unsigned long int max() const { return gsl_rng_max( get() ); }
     /**
      * C++ version of gsl_rng_min().
      * @return The maximum integer value for @c this
      */
-     unsigned long int min() const { return gsl_rng_min( get() ); } 
+     unsigned long int min() const { return gsl_rng_min( get() ); }
     /**
      * C++ version of gsl_rng_name().
      * @return The name of @c this
      */
-     char const* name() const { return gsl_rng_name( get() ); } 
+     char const* name() const { return gsl_rng_name( get() ); }
     /**
      * C++ version of gsl_rng_fread().
      * @param stream A C file stream
      * @return Error code on failure
      */
-     int fread( FILE* stream ){ return gsl_rng_fread( stream, get() ); } 
+     int fread( FILE* stream ){ return gsl_rng_fread( stream, get() ); }
     /**
      * C++ version of gsl_rng_fwrite().
      * @param stream A C file stream
      * @return Error code on failure
      */
-     int fwrite( FILE* stream ) const { return gsl_rng_fwrite( stream, get() ); } 
+     int fwrite( FILE* stream ) const { return gsl_rng_fwrite( stream, get() ); }
     /**
      * C++ version of gsl_rng_size().
      * @return The size of the random number generator
      */
-     size_t size() const { return gsl_rng_size( get() ); } 
+     size_t size() const { return gsl_rng_size( get() ); }
     /**
      * C++ version of gsl_rng_state().
      * @return The state of the random number generator
      */
-     void* state() const { return gsl_rng_state( get() ); } 
+     void* state() const { return gsl_rng_state( get() ); }
     /**
      * C++ version of gsl_rng_print_state().
      */
-     void print_state() const { gsl_rng_print_state( get() ); } 
+     void print_state() const { gsl_rng_print_state( get() ); }
     /**
      * C++ version of gsl_rng_env_setup().
      * @return The default type for a @c rng
      */
-    static type env_setup(){ return gsl_rng_env_setup(); } 
+    static type env_setup(){ return gsl_rng_env_setup(); }
     /**
      * C++ version of gsl_rng_get().
      * @return The integer value of @c this
      */
-     unsigned long int get_value() const { return gsl_rng_get( get() ); } 
+     unsigned long int get_value() const { return gsl_rng_get( get() ); }
     /**
      * C++ version of gsl_rng_uniform().
      * @return A uniform random number in [0,1)
      */
-     double uniform() const { return gsl_rng_uniform( get() ); } 
+     double uniform() const { return gsl_rng_uniform( get() ); }
     /**
      * C++ version of gsl_rng_uniform_pos().
      * @return A uniform random number in (0,1)
      */
-     double uniform_pos() const { return gsl_rng_uniform_pos( get() ); } 
+     double uniform_pos() const { return gsl_rng_uniform_pos( get() ); }
     /**
      * C++ version of gsl_rng_uniform_int().
      * @param n A positive integer
      * @return A uniform integer in 0, ..., n - 1
      */
      unsigned long int uniform_int( unsigned long int n ) const {
-      return gsl_rng_uniform_int( get(), n ); } 
+      return gsl_rng_uniform_int( get(), n ); }
   };
 }
 
