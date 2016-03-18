@@ -2,8 +2,11 @@
 #include <iostream>
 #include <cmath>
 #include <fstream>
+
 #include "vector.hpp"
-#include "./utils/GSL_utils.h"
+
+#include "GSL_utils.h"
+#include "SC_elastic_scatt.hpp"
 
 using namespace gsl;
 using namespace std;
@@ -21,6 +24,7 @@ double time_step=0.0001; //in units of time_units
 double C=2.99792e8;  //meters per second
 double electron_rest_mass=(9.1093835e-31)*C*C;// in joules   //510.998; //in keV
 double elementary_charge=1.602e-19; //charge of electron in coulombs
+double average_air_atomic_number=14.5;
 
 double minimum_energy=2*kilo*elementary_charge/electron_rest_mass; //minimum energy is 2 keV.
 double inv_I_sq=electron_rest_mass*electron_rest_mass/(85.7*80.5*elementary_charge*elementary_charge); //parameter necisary for beth formula
@@ -32,6 +36,12 @@ double time_units=172.0*nano; // seconds
 double distance_units=C*time_units; //fundamental length scale, in  meters
 double E_field_units=electron_rest_mass/(elementary_charge*C*time_units); //units of electric field in V/m
 double B_field_units=E_field_units/C; //units of magnetic field in T
+
+
+
+//public classes
+shielded_coulomb coulomb_scattering(average_air_atomic_number);
+
 
 //conversion_functions
 double KE_to_mom(double KE)
@@ -93,7 +103,6 @@ public:
 			return vector({0,0,0});
 		}
 	}
-
 };
 
 class electron
@@ -159,6 +168,7 @@ public:
 		//ionization friction
 		double friction=0;
 
+		HERE FIX FRICTION
 		if( false)//G >= 2*minimum_energy )
 		{
 		    friction=beth_force_minus_moller(momentum_squared);
@@ -245,6 +255,15 @@ public:
         double term2=(1+(2/G)-1.0/gamma_squared)*log(term3);
         double term5=minimum_energy*minimum_energy/(2*(1.0-G));
         return (log(exp_term1) + term2 + term3 + beta_squared + term5)/beta_squared;
+	}
+	
+	void scatter()
+	{
+		double elivation=coulomb_scattering.sample_elivation();
+		double azimuth=coulomb_scattering.sample_azimuth();
+		
+		HERE ADD scATTERING
+		
 	}
 };
 

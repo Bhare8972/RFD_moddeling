@@ -1,13 +1,11 @@
 cmake_minimum_required(VERSION 2.8)
 
 project("alg_tsts")
-set(utils ../utilities)
+set(utils ../utils)
 set(ccgsl ../ccgsl)
 
 include_directories ("${utils}")
 include_directories ("${ccgsl}")
-
-
 
 SET(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
 SET(BUILD_SHARED_LIBRARIES OFF)
@@ -21,5 +19,8 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
 
 add_executable(tst_fast_isq
               ./test_fast_inverse_sq.cpp)
-
 target_link_libraries(tst_fast_isq gsl gslcblas)
+
+add_executable(tst_elastic_scatt
+              ./SC_elastic_scatt_tst.cpp)
+target_link_libraries(tst_elastic_scatt gsl gslcblas)

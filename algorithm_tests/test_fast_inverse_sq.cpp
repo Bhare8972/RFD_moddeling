@@ -3,7 +3,7 @@
 #include <cmath>
 #include <time.h>
 
-#include "../utils/GSL_utils.h"
+#include "GSL_utils.h"
 #include "vector.hpp"
 
 using namespace std;

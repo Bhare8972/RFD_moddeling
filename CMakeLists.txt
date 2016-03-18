@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 
 project("RFD__modelling")
-set(utils ./utilities)
+set(utils ./utils)
 set(ccgsl ./ccgsl)
 
 include_directories ("${utils}")
