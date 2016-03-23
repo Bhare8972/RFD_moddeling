@@ -62,7 +62,23 @@ namespace gsl {
 			y=(*this)[i] - c;
 			t=sum+y;
 			c=(t-sum)-y;
-			sum=t
+			sum=t;
+		}
+		return sum;
+	}
+	
+	double sum_of_squares() const
+    {
+		//kahan summation algorithm over the squares of components. Pray that it isn't optimized away
+		double sum = 0.0;
+		double y,t;   
+		double c = 0.0;
+		for( size_t i = 0; i<ccgsl_pointer->size; ++i )
+		{
+			y=(*this)[i]*(*this)[i] - c;
+			t=sum+y;
+			c=(t-sum)-y;
+			sum=t;
 		}
 		return sum;
 	}

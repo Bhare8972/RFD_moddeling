@@ -5,7 +5,7 @@ vector:
 	
 	added vec_lessThan, vec_greaterThan, vec_equalTo to vector. Returns a vector_ushort for boolean
 	
-	added sum
+	added sum and sum_of_squares, uses kahan summation algorithm
 	
 vector_ushort
 	added vec_and, vec_or    comparison vectors
@@ -26,5 +26,8 @@ gsl::vector logspace(double start_pow, double stop_pow, size_t length, double ba
 	
 gsl::vector make_vector(size_t length, double value=0.0)
 	returns a gsl vector of length that is filled with value, where value default is zero
+
+gsl::vector cross(gsl::vector A, gsl::vector B)
+	returns cross product of A and B. Throws exception if length of A and B are not both 3
 	
 	

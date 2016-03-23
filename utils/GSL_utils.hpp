@@ -3,22 +3,11 @@
 #define GSL_UTILS
 #include <cmath>
 #include "vector.hpp"
+#include "gen_ex.hpp"
 
 
 namespace gsl_utils
 {
-    class gsl_util_exception: public exception
-    {
-    private:
-        int error;
-    public:
-
-      virtual const char* what() const throw()
-      {
-        return "GSL error in gsl utility";
-      }
-
-    };
 
     //functions for making new vectors
     gsl::vector linspace(double start, double stop, size_t length)
@@ -76,14 +65,16 @@ namespace gsl_utils
     
     gsl::vector cross(gsl::vector A, gsl::vector B)
     {
+		if((A.size() != 3) or (B.size() != 3))
+		{
+			throw gen_exception("input vectors must both have a length of 3");
+		}
+		
 		gsl::vector out(3);
 		out[0]=A[1]*B[2] - A[2]*B[1];
-		
-		I AM HERE FIX CROSS
-		
-		force[0]+=inverse_gamma*(momentum_[1]*B[2]-momentum_[2]*B[1]);
-		force[1]+=inverse_gamma*(momentum_[2]*B[0]-momentum_[0]*B[2]);
-		force[2]+=inverse_gamma*(momentum_[0]*B[1]-momentum_[1]*B[0]);
+		out[1]=A[2]*B[0] - A[0]*B[2];
+		out[2]=A[0]*B[1] - A[1]*B[0];
+		return out;
 	}
 }
 

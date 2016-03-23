@@ -274,28 +274,12 @@ namespace gsl {
 
 
 //my extra exceptions, these are clumsy
-class vector_exception: public std::exception //this is wrong. needs to be merged into exception .hpp and generalized
+class vector_exception: public std::exception //this is wrong. Replace use of this with general exception
 {
   virtual const char* what() const throw()
   {
     return "vector exception";
   }
-};
-
-class gen_exception: public std::exception //this is wrong. needs to be merged into exception .hpp and generalized
-{
-    public:
-    const char* msg;
-
-    gen_exception(const char* msg_)
-    {
-        msg=msg_;
-    }
-
-    virtual const char* what() const throw()
-    {
-    return msg;
-    }
 };
 
 #endif

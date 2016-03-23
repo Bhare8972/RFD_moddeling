@@ -5,7 +5,7 @@
 
 #include "vector.hpp"
 
-#include "GSL_utils.h"
+#include "GSL_utils.hpp"
 #include "SC_elastic_scatt.hpp"
 
 using namespace gsl;
@@ -168,7 +168,7 @@ public:
 		//ionization friction
 		double friction=0;
 
-		HERE FIX FRICTION
+		//HERE FIX FRICTION
 		if( false)//G >= 2*minimum_energy )
 		{
 		    friction=beth_force_minus_moller(momentum_squared);
@@ -259,11 +259,36 @@ public:
 	
 	void scatter()
 	{
-		double elivation=coulomb_scattering.sample_elivation();
+		double momentum_squared=momentum.sum_of_squares();
+		////change angle of mementum according to shielded coulomb scattering
+		double inclination=coulomb_scattering.sample_inclination(momentum_squared);
 		double azimuth=coulomb_scattering.sample_azimuth();
 		
-		HERE ADD scATTERING
+		//calculate the three vector magnitudes
+		double A=cos(inclination); //basis vector is original momentum
+		double B=sin(inclination)*cos(azimuth); //basis vector will be vector Bv below
+		double C=sin(inclination)*sin(azimuth); //basis vector will be vector Cv below
 		
+		//find vector Bv, perpinduclar to momentum
+		vector init({1,0,0});
+		vector Bv=cross(init, momentum);
+		if(Bv.sum_of_squares()<0.1) //init and momentum are close to parellel. Which would cause errors below
+		{
+			init=vector({0,1,0}); //so we try a different init. momentum cannot be parrellel to both inits
+			Bv=cross(init, momentum);
+		}
+		
+		//normalize Bv
+		Bv/=sqrt(Bv.sum_of_squares());
+		
+		//now we find Cv
+		vector Cv=cross(Bv, momentum); //Bv and momentum are garenteed to be perpindicular.
+		
+		//give Bv correct magnitude
+		Bv*=sqrt(momentum_squared);
+		
+		//find new momentum
+		momentum=A*momentum + B*Bv + C*Cv;
 	}
 };
 
@@ -305,6 +330,7 @@ int main()
 	for(int i=0; i<number_itterations; i++)
 	{
 		particle.kunge_kutta_update(&E_field, &B_field, i*time_step);
+		particle.scatter();
 
 		//save data
 		fout<<i<<' '; //itteration number
