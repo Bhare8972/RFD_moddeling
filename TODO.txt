@@ -1,0 +1,17 @@
+TODO:
+
+physics:
+
+check beth friction formulas for accuracy.
+Improve shielded coulomb scattering. Perhaps replace sin(theta) or sin(theta)^2 with a variable, and do inverse transform sampling
+Do we need to test probability that shielded coulomb scattering?  If not, why not?
+Test moller scattering for accuracy. Should we improve the accuracy?
+
+note that we assume probability that a process happens is binomial. This only works for small P. In reality, it is poisson.  For each
+process, how large is the probability? How significant is the error?
+
+
+other:
+reorganize code into differant files. hpp vs cpp? - make code modular to be able to easily build different simulations
+write out notes into a latex file. VERY IMPORTANT
+improve utility documentation.  less important.
