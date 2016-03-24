@@ -10,6 +10,9 @@
 
 using namespace gsl;
 using namespace std;
+using namespace gsl_utils;
+
+bool rnd_seed=true; //seed random number generators with a random seed?  If false, use a built-in seed value (for repeatability)
 
 //some units
 double giga=1.0e9;
@@ -22,25 +25,25 @@ double time_step=0.0001; //in units of time_units
 
 //give constants
 double C=2.99792e8;  //meters per second
-double electron_rest_mass=(9.1093835e-31)*C*C;// in joules   //510.998; //in keV
+double electron_rest_energy=(9.1093835e-31)*C*C;// in joules   //510.998; //in keV
 double elementary_charge=1.602e-19; //charge of electron in coulombs
 double average_air_atomic_number=14.5;
 
-double minimum_energy=2*kilo*elementary_charge/electron_rest_mass; //minimum energy is 2 keV.
-double inv_I_sq=electron_rest_mass*electron_rest_mass/(85.7*80.5*elementary_charge*elementary_charge); //parameter necisary for beth formula
+double minimum_energy=2*kilo*elementary_charge/electron_rest_energy; //minimum energy is 2 keV.
+double inv_I_sq=electron_rest_energy*electron_rest_energy/(85.7*80.5*elementary_charge*elementary_charge); //parameter necisary for beth formula
 
 
 
 //find unit-less constant conversions
 double time_units=172.0*nano; // seconds
 double distance_units=C*time_units; //fundamental length scale, in  meters
-double E_field_units=electron_rest_mass/(elementary_charge*C*time_units); //units of electric field in V/m
+double E_field_units=electron_rest_energy/(elementary_charge*C*time_units); //units of electric field in V/m
 double B_field_units=E_field_units/C; //units of magnetic field in T
 
 
 
 //public classes
-shielded_coulomb coulomb_scattering(average_air_atomic_number);
+shielded_coulomb coulomb_scattering(average_air_atomic_number, rnd_seed);
 
 
 //conversion_functions
@@ -156,7 +159,7 @@ public:
 
 	    //electric field
 		vector force=-1.0*E_field->get(position_, time); //-1 is becouse electron has negative charge
-		
+
 
 		//magnetic field
 		vector B=-1*B_field->get(position_, time); //-1 is becouse electron has negative charge
@@ -168,8 +171,7 @@ public:
 		//ionization friction
 		double friction=0;
 
-		//HERE FIX FRICTION
-		if( false)//G >= 2*minimum_energy )
+		if( (G-1.0) >= 2*minimum_energy )
 		{
 		    friction=beth_force_minus_moller(momentum_squared);
 		}
@@ -177,21 +179,12 @@ public:
 		{
 		    friction=beth_force(momentum_squared);
 		}
+
 		if(friction>0) //don't want weird stuff
 		{
-			//cout<<time<<": "<<friction<<" "<<force[2]<<endl;
-			//cout<<momentum_[2]<<endl;
             force[0]-=friction*momentum_[0]/momentum_magnitude;
             force[1]-=friction*momentum_[1]/momentum_magnitude;
             force[2]-=friction*momentum_[2]/momentum_magnitude;
-			//cout<<time<<": "<<force[2]<<endl;
-			//cout<<endl;
-		}
-		else
-		{
-			friction=0.0;
-			//cout<<time<<": NF "<<force[2]<<endl;
-			//cout<<endl;
 		}
 
         return force;
@@ -225,7 +218,7 @@ public:
 
 		position+=time_step*(K_1_pos + 2.0*K_2_pos + 2.0*K_3_pos + K_4_pos)/6.0;
 		momentum+=time_step*(K_1_mom + 2.0*K_2_mom + 2.0*K_3_mom + K_4_mom)/6.0;
-		
+
 	}
 
 	double beth_force(double momentum_squared)
@@ -236,11 +229,11 @@ public:
 
         double term1=log(inv_I_sq*momentum_squared*(gamma_-1.0));
         double term2=(1+(2.0/gamma_)-1.0/gamma_squared)*log(2.0);
-        double term3=(1.0-2.0/gamma_+1.0/gamma_)/8.0;
+        double term3=(1.0-2.0/gamma_+1.0/gamma_squared)/8.0;
         double term4=1.0/gamma_squared;
-        
+
         if(std::isnan(term1)) return 0.0;
-        
+
         return inv_beta_squared*(term1 - term2 + term3 + term4);
 	}
 
@@ -250,25 +243,29 @@ public:
         double G=sqrt(gamma_squared);
         double beta_squared=momentum_squared/gamma_squared;
 
-        double exp_term1=2*inv_I_sq*minimum_energy*momentum_squared;
-        double term3=G/(G-minimum_energy);
-        double term2=(1+(2/G)-1.0/gamma_squared)*log(term3);
-        double term5=minimum_energy*minimum_energy/(2*(1.0-G));
-        return (log(exp_term1) + term2 + term3 + beta_squared + term5)/beta_squared;
+        double term1=log( 2*inv_I_sq*minimum_energy*momentum_squared );
+        double term2_f1=(1+(2.0/G)-1.0/gamma_squared);
+        double term2_f2=(G-1.0)/(G-minimum_energy-1.0);
+        double term3=minimum_energy/(G-minimum_energy-1.0);
+        double term5=minimum_energy*minimum_energy/(2*G*G);
+
+        //don't need to check isnan, becouse these function only runs for energy>2*minimum_energy
+
+        return ( term1 - term2_f1*log(term2_f2) + term3 - beta_squared + term5)/beta_squared;
 	}
-	
+
 	void scatter()
 	{
 		double momentum_squared=momentum.sum_of_squares();
 		////change angle of mementum according to shielded coulomb scattering
 		double inclination=coulomb_scattering.sample_inclination(momentum_squared);
 		double azimuth=coulomb_scattering.sample_azimuth();
-		
+
 		//calculate the three vector magnitudes
 		double A=cos(inclination); //basis vector is original momentum
 		double B=sin(inclination)*cos(azimuth); //basis vector will be vector Bv below
 		double C=sin(inclination)*sin(azimuth); //basis vector will be vector Cv below
-		
+
 		//find vector Bv, perpinduclar to momentum
 		vector init({1,0,0});
 		vector Bv=cross(init, momentum);
@@ -277,16 +274,16 @@ public:
 			init=vector({0,1,0}); //so we try a different init. momentum cannot be parrellel to both inits
 			Bv=cross(init, momentum);
 		}
-		
+
 		//normalize Bv
 		Bv/=sqrt(Bv.sum_of_squares());
-		
+
 		//now we find Cv
 		vector Cv=cross(Bv, momentum); //Bv and momentum are garenteed to be perpindicular.
-		
+
 		//give Bv correct magnitude
 		Bv*=sqrt(momentum_squared);
-		
+
 		//find new momentum
 		momentum=A*momentum + B*Bv + C*Cv;
 	}
@@ -300,8 +297,8 @@ int main()
 	uniform_field E_field;
 	E_field.set_minimum(-kilo/distance_units, -kilo/distance_units, -1/distance_units);
 	E_field.set_maximum(kilo/distance_units, kilo/distance_units, 10*kilo/distance_units);
-	//E_field.set_value(0, 0, -1.7e5/E_field_units);
-	E_field.set_value(0, 0, 0/E_field_units);
+	E_field.set_value(0, 0, -1.7e5/E_field_units);
+	//E_field.set_value(0, 0, 0/E_field_units);
 
 	//magnetic field is zero
 	uniform_field B_field;
@@ -313,15 +310,7 @@ int main()
 	//initial particle
 	electron particle;
 	particle.set_position(0,0,0);
-	particle.set_momentum(0,0, KE_to_mom(1000.0*kilo*elementary_charge/electron_rest_mass) );
-	
-    /*
-    double KE_test_j=2000.0*1000.0*elementary_charge;
-	double mom=KE_to_mom(KE_test_j/electron_rest_mass);
-	double F=particle.beth_force(mom*mom);
-	cout<<(F*electron_rest_mass/(time_units*C))<<endl;
-    
-    return 1.0;*/
+	particle.set_momentum(0,0, KE_to_mom(1000.0*kilo*elementary_charge/electron_rest_energy) );
 
 	//output file
 	ofstream fout("output.txt");
@@ -338,7 +327,7 @@ int main()
 		fout<<'1'<<' '; //particle ID
 		fout<<particle.position[0]<<' '<<particle.position[1]<<' '<<particle.position[2]<<' '; //position
 		fout<<particle.momentum[0]<<' '<<particle.momentum[1]<<' '<<particle.momentum[2]<<' '; //position
-		cout<<"time: "<<i*time_step<<endl;
+		//cout<<"time: "<<i*time_step<<endl;
 	}
 	fout.close();
 }

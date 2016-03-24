@@ -19,7 +19,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
 
 
-add_executable(lehtinen99
-              ./lehtinen_1999.cpp)
+add_executable(simulation
+              ./simulation.cpp)
 
-target_link_libraries(lehtinen99 gsl gslcblas)
+target_link_libraries(simulation gsl gslcblas)
