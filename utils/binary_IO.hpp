@@ -3,16 +3,19 @@
 
 #include<string>
 #include<iostream>
-#inclue<cstdint>
-#include <memory>
+#include<fstream>
+#include<cstdint>
+#include<memory>
 
 class binary_output
 {
-    public:
+   public:
     std::shared_ptr<std::ofstream> out_file;
 
-    binary_output(std::string fname) : out_file( new std::ofstream(fname.c_str(), mode = ios_base::binary))
-    {}
+    binary_output(std::string fname)
+    {
+		out_file=std::make_shared<std::ofstream>(fname.c_str(), std::ios_base::binary);
+	}
 
     void out_short(int8_t out)
     {
@@ -37,11 +40,21 @@ class binary_output
 
 class binary_input
 {
-    public:
-    std::shared_ptr<std::ofstream> in_file;
-
-    binary_output(std::string fname) : in_file( new std::ifstream(fname.c_str(), mode = ios_base::binary))
+public:
+    std::shared_ptr<std::ifstream> in_file;
+    
+    binary_input()
     {}
+    
+    binary_input(const binary_input& IN)
+    {
+		in_file=IN.in_file;// and we pray
+	}
+
+    binary_input(std::string fname)
+    {
+		in_file=std::make_shared<std::ifstream>(fname.c_str(), std::ios_base::binary);
+	}
 
     int8_t in_short()
     {

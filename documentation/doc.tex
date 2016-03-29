@@ -1,0 +1,248 @@
+\documentclass[]{article}
+\usepackage{ txfonts  }
+
+
+%opening
+\title{Documentation on simulating RREA and RFD}
+\author{Brian Hare}
+
+\begin{document}
+
+\maketitle
+
+%\begin{abstract}
+
+%\end{abstract}
+
+\section{table of constants}
+
+\begin{center}
+	\begin{tabular}{ c c c }
+		Name                          & symbol    &   value  \\ 
+		speed of light                & C         &         \\  
+		charge of electron            & -e        &         \\  
+		molecular density of air      & $N_m$     &   $2.688\times 10^{25} m^{-3} $     \\  
+		average nuclear charge of air & $Z_m$     &  14.5       \\  
+		classical electron radius     & $r_e$     &   $2.8179\times 10^{-15} m $      \\  
+        mass of electron              & $m_e$     &     \\
+        ionization potential of air   & $I$       &  85.7 ev    \\  
+	\end{tabular}
+\end{center}
+
+
+\section{unit less variables}
+
+Dimensionless variables are used in this simulation. This can complicate taking a physical equation, and relating it to a formula that can be used in the simulation, but once in the simulation the formulas tend to be simpler, thus easier to use. In the rest of this documentation, the normal symbols, e.g. $\varepsilon$ for kinetic energy and $ \vec{P} $ for momentum, will represent the values of those quantities in MKS units, alternate symbols will be used to represent the values of each quantity in dimensionless units, e.g. $E$ for kinetic energy and $\vec{\rho} $ for momentum. The table below gives the units of all the dimensionless variables used in the simulation. Brackets around a symbol, e.g.  $\left[ E\right] $ for energy and $\left[  \vec{\rho} \right] $ for momentum, represents the units of the dimensionless values, e.g. $\varepsilon = E \left[ E \right] $.
+
+\begin{center}
+	\begin{tabular}{ c c c }
+		Name                 & units                             &   alternate symbol  \\ 
+		time                 & $(2\pi N_m Z_m r^2_e C)^{-1}$     & $ \tau$    \\  
+		velocity             & C                                 &  $\vec{\beta}$       \\  
+		position             & $C\times \left[ \tau \right] $    & $ \vec{\chi} $     \\
+		momentum             & $m_e C $                          &  $\vec{\rho} $     \\
+		energy               & $m_e C^2 $                        &  E (kinetic only)      \\
+		force                & $\frac{m_e C}{ \left[ \tau \right]} $     & $ \frac{d\vec{\rho}}{d\tau}$       \\
+		electric field       & $\frac{m_e C}{ e \left[ \tau \right]} $   & $  \vec{\xi}  $   \\
+		magnetic field       & $\frac{m_e }{ e \left[ \tau \right]} $    &  $ \vec{\Upsilon} $     \\
+	\end{tabular}
+\end{center}
+
+\section{relativistic equations}
+
+This simulation deals with very relativistic particles, and so must use relativistically correct formula. Since, in the simulation, each particle stores position and momentum, of particular interest is simple formula relating momentum to other quantities.
+
+First, is the definition of gamma:
+\begin{equation}
+\gamma = \frac{1}{ \sqrt{1-\beta^2 } }
+\end{equation}
+
+Allowing us to define total energy:
+\begin{equation}
+\varepsilon_t = \gamma m_e C^2
+\end{equation}
+
+or in dimensionless units:
+
+\begin{equation}
+E_t = \gamma 
+\end{equation}
+
+The definition of kinetic energy:
+\begin{equation}
+\varepsilon_t = m_e C^2 + \varepsilon
+\end{equation}
+
+and in dimensionless units:
+\begin{equation}
+E_t = 1 + E
+\end{equation}
+
+Substitution gives us:
+\begin{equation}
+E=\gamma-1
+\end{equation}
+
+Next is the definition of momentum:
+
+\begin{equation}
+\vec{P} = \gamma m_e \vec{V}
+\end{equation}
+
+In dimensionless units:
+
+\begin{equation}
+\vec{\rho}= \gamma \vec{\beta}
+\end{equation}
+
+We can relate momentum to energy:
+\begin{equation}
+\varepsilon_t^2=(M_eC^2)^2 + (PC)^2
+\end{equation}
+
+dimensionless:
+\begin{equation}
+E_t^2=1+\rho^2
+\end{equation}
+
+Or:
+\begin{equation}
+\gamma^2=1+\rho^2
+\end{equation}
+
+thus:
+\begin{equation}
+E=\sqrt{1+\rho^2}-1
+\end{equation}
+
+Substitution gives:
+\begin{equation}
+\beta^2=\frac{\rho^2}{1+\rho^2}
+\end{equation}
+
+
+\section{forces and equations of motion}
+
+The simplest task that needs to be done in the simulation, is to simulate the motion of a particle given a electric field, magnetic field, and friction.
+
+In dimensionless units, the equations of motion for an electron are:
+
+\begin{equation}
+\frac{d \vec{\rho}}{ d \tau} = -\vec{\xi}(\vec{\chi}) -\frac{\vec{\rho} \times \vec{\Upsilon}(\vec{\chi}) }{\sqrt{ 1 + \rho^2 }} + \hat{\rho} \frac{d \rho}{d \tau}_{friction}(\rho)
+\end{equation}
+
+and 
+
+\begin{equation}
+\frac{d \vec{\chi}}{d \tau} = \frac{\vec{\rho}}{\sqrt{1+\rho^2}}
+\end{equation}
+
+This are simulated using a fourth-order runge-kutta technique. By first combining the two equations of motion into one:
+
+
+\begin{equation}
+\frac{d}{d \tau}  
+\left[ \begin{array}{c}
+\vec{ \chi }\\
+\vec{\rho} \\
+\end{array} \right]
+=
+\left[ \begin{array}{c}
+g(\tau, S )\\
+f(\tau, S ) \\
+\end{array} \right]
+\end{equation}
+
+We define the vector S so that:
+
+\begin{equation} 
+\frac{d}{d \tau} S = S'
+\end{equation}
+
+Then we can find S at the next time step, given a stepping time of $\Delta \tau$:
+
+\begin{equation}
+S_{n+1} = S_n + \frac{\Delta\tau}{6} ( K_1 + 2K_2 + 2K_3 + K_4 )
+\end{equation}
+
+where:
+
+\begin{equation} 
+K_1=S'(\tau_n, S_n)
+\end{equation}
+
+\begin{equation} 
+K_2=S'(\tau_n + \frac{\Delta\tau}{2}, S_n + \frac{\Delta\tau}{ 2}K_1)
+\end{equation}
+
+\begin{equation} 
+K_3=S'(\tau_n + \frac{\Delta\tau}{2}, S_n + \frac{\Delta\tau}{ 2}K_2)
+\end{equation}
+
+\begin{equation} 
+K_4=S'(\tau_n + \Delta\tau, S_n + \Delta\tau K_3)
+\end{equation}
+
+
+The frictional force is given by the Bethe equation:
+
+\begin{equation} 
+F_{friction}(P)  =\frac{ 2 \pi N_m Z_m r_e^2 m C^2}{\beta^2} \left\lbrace  \ln\frac{mv^2\varepsilon\gamma}{I^2}
+-\left( 1 + \frac{2}{\gamma}  - \frac{1}{\gamma^2} \right)\ln 2 + \frac{(\gamma-1)^2}{8\gamma^2}  + \frac{1}{\gamma^2} \right\rbrace 
+\end{equation}
+
+in dimensionless units:
+
+\begin{equation} 
+\frac{d \rho}{d \tau}_{friction}(\rho)  =\frac{ 1 }{\beta^2} \left\lbrace  \ln\frac{\beta^2E\gamma}{\bar{I^2}}
+-\left( 1 + \frac{2}{\gamma}  - \frac{1}{\gamma^2} \right)\ln 2 + \frac{(\gamma-1)^2}{8\gamma^2}  + \frac{1}{\gamma^2} \right\rbrace 
+\end{equation}
+
+Where $\bar{I}$ is $I/m_eC^2$.
+
+Since Moller scatter is considered for electrons that are above a  threshold kinetic energy of $E_{thresh}= \frac{2 keV}{m_e C^2}$, the energy loss due to moller scattering must be subracted off from the friction force. So, for electrons with energies above $2E_{thresh}$, the following friction function is used instead of the one above:
+
+In dimensionless units:
+
+\begin{equation} 
+\frac{d \rho}{d \tau}_{friction}(\rho)  =\frac{ 1 }{\beta^2} \left\lbrace  \ln\frac{2E_{thresh} \beta^2 \gamma}{\bar{I^2}}
+-\left( 1 + \frac{2}{\gamma}  - \frac{1}{\gamma^2} \right)\ln \frac{ E }{E- E_{thresh}} + \frac{E_{thresh}}{E-E_{thresh}} - \beta^2 + \frac{E_{thresh}^2}{2\gamma^2} \right\rbrace 
+\end{equation}
+
+
+\section{shielded coulomb scattering}
+
+As the electrons and positrons travel through the simulation, they will collide off of atomic nuclei. We simulate this by including the effects of elastic scattering off of atomic nuclei via the shielded coulomb cross section.  The differential cross section for the shielded coulomb cross section is:
+
+\begin{equation} 
+\frac{d\sigma_{Coul}}{d \Omega} = \frac{1}{4}\left(  \frac{Z_m r_e }{\beta^2 \gamma }  \right)^2\frac{1-\beta^2\sin^2(\theta/2)}{ \left(  \sin^2(\theta/2) + \frac{\hbar}{4P^2a^2}  \right)^2 }
+\end{equation}
+
+where
+\begin{equation} 
+a=183.8 \lambdabar z_m^{-1/3}
+\end{equation}
+
+Using the definition of cross-sections, we can relate the differential cross section to expected number of times a particle will be deflected into an angle:
+
+\begin{equation} 
+\frac{dn}{d \Omega} =N_m Z_m V \Delta T \frac{d \sigma}{d \Omega}
+\end{equation}
+
+where $\frac{dn}{d \Omega}$ is the expected number of times that a particle will be deflected by angle $\Omega$ during time $\Delta T$. If $\frac{dn}{d \Omega} << 1$, it can be interpreted as a probability. 
+
+In dimensionless units, this turns into:
+
+\begin{equation} 
+\frac{dn}{d \Omega} =\frac{ \beta \Delta \tau }{2 \pi r_e^2} \frac{d \sigma}{d \Omega}
+\end{equation}
+
+Plugging in the differential cross section for elastic shielded coulomb scattering gives:
+
+\begin{equation} 
+\frac{dn}{d \Omega} =\frac{ \Delta \tau }{8 \pi \beta }\left( \frac{Z_m}{\rho} \right)^2  \frac{1-\beta^2\sin^2(\theta/2)}{ \left(  \sin^2(\theta/2) + \frac{Z_m^{2/3}}{4\times 183.8^2} \frac{1}{\rho^2} \right)^2 }
+\end{equation}
+
+Presently, two decisions need to be made using this formula. 1) How many times does a particle scatter in one time step, and 2) what angles does it scatter into?  It is not presently clear what the best method is on how to make these decisions.
+
+\end{document}

@@ -20,6 +20,7 @@ namespace gsl_utils
 
 class array_output
 {
+public:
     virtual void write_out(binary_output* fout)=0;
 };
 
@@ -42,7 +43,7 @@ public:
         fout->out_int(data.size());
         for( auto out_array : data)
         {
-            data->write_out(fout);
+            out_array->write_out(fout);
         }
     }
 };
@@ -72,10 +73,10 @@ public:
 class floats_output : public array_output
 {
 private:
-    gsl::vector data;
+    gsl::vector_float data;
 
 public:
-    floats_output(gsl::vector data_)
+    floats_output(gsl::vector_float data_)
     {
         data=data_;
     }
@@ -118,7 +119,7 @@ public:
 class array_input
 {
 private:
-    int8_t type;
+    int type;
     int32_t size;
     int num_left;
     binary_input file_input;
@@ -129,7 +130,7 @@ public:
         file_input=fin;
         type=file_input.in_short();
         size=file_input.in_int();
-        num_left=size();
+        num_left=size;
     }
 
     gsl::vector_int read_ints()
@@ -137,8 +138,8 @@ public:
         if(type!=1){ throw gen_exception("cannot read integers from file"); }
         if(num_left==0){ throw gen_exception("no data left in this array"); }
 
-        gsl::vector_int out(size_t(size));
-        for(size_t i=1; i<length; i++)
+        gsl::vector_int out=gsl::vector_int(size_t(size));
+        for(int i=0; i<size; i++)
         {
             out[i]=file_input.in_int();
         }
@@ -148,11 +149,11 @@ public:
 
     gsl::vector_float read_floats()
     {
-        if(type!=2){ throw gen_exception("cannot read floats from file"); }
+        if(type!=2){ throw gen_exception("cannot read floats from file got:", type); }
         if(num_left==0){ throw gen_exception("no data left in this array");}
 
-        gsl::vector_float out(size_t(size));
-        for(size_t i=1; i<length; i++)
+        gsl::vector_float out=gsl::vector_float (size_t(size));
+        for(int i=0; i<size; i++)
         {
             out[i]=file_input.in_float();
         }
@@ -165,8 +166,8 @@ public:
         if(type!=3){ throw gen_exception("cannot read doubles from file"); }
         if(num_left==0){ throw gen_exception("no data left in this array"); }
 
-        gsl::vector out(size_t(size));
-        for(size_t i=1; i<length; i++)
+        gsl::vector out=gsl::vector(size_t(size));
+        for(int i=0; i<size; i++)
         {
             out[i]=file_input.in_double();
         }
