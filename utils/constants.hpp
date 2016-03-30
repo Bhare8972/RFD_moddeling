@@ -13,7 +13,7 @@ double elementary_charge=1.602e-19; //charge of electron in coulombs
 double average_air_atomic_number=14.5;
 
 double minimum_energy=2*kilo*elementary_charge/electron_rest_energy; //minimum energy is 2 keV.
-//double inv_I_sq=electron_rest_energy*electron_rest_energy/(85.7*80.5*elementary_charge*elementary_charge); //parameter necisary for beth formula
+double inv_I_sq=electron_rest_energy*electron_rest_energy/(85.7*80.5*elementary_charge*elementary_charge); //parameter necisary for beth formula
 
 //find unit-less constant conversions
 double time_units=172.0*nano; // seconds

@@ -2,7 +2,6 @@
 #include "vector_float.hpp"
 #include "constants.hpp"
 #include "arrays_IO.hpp"
-#include "iostream"
 using namespace std;
 using namespace gsl_utils;
 // this file reads the table written by make_ionization_tables. It is meant as a test of the IO code
@@ -15,20 +14,20 @@ double electron_classical_radius=2.8179E15;
 int main()
 {
 	// read the results
-	binary_input fin("./ionization_losses");
+	binary_input fin("../tables/ionization_losses");
 	array_input table_in(fin);
 	
 	array_input electron_mom_sq_table=table_in.get_array();
 	gsl::vector_float electron_mom_sq=electron_mom_sq_table.read_floats();
 	
 	array_input electron_SP_table=table_in.get_array();
-	gsl::vector_float electron_SP=electron_SP_table.read_floats();
+	gsl::vector electron_SP=electron_SP_table.read_doubles();
 	
 	array_input positron_mom_sq_table=table_in.get_array();
 	gsl::vector_float positron_mom_sq=positron_mom_sq_table.read_floats();
 	
 	array_input positron_SP_table=table_in.get_array();
-	gsl::vector_float positron_SP=positron_SP_table.read_floats();
+	gsl::vector positron_SP=positron_SP_table.read_doubles();
 	
 	//converion factors
 	double SP_conversion_factor=density/(2.0*3.1415926*average_air_atomic_number*electron_classical_radius*electron_rest_energy*electron_classical_radius*air_molecular_density);

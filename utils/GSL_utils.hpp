@@ -3,8 +3,8 @@
 #define GSL_UTILS
 #include <cmath>
 #include "vector.hpp"
-#include "gen_ex.hpp"
-
+#include "vector_float.hpp"
+#include "gen_ex.hpp" 
 
 namespace gsl_utils
 {
@@ -75,6 +75,43 @@ namespace gsl_utils
 		out[1]=A[2]*B[0] - A[0]*B[2];
 		out[2]=A[0]*B[1] - A[1]*B[0];
 		return out;
+	}
+	
+	size_t search_sorted(gsl::vector A, double v)
+	{
+		if(v<A[0] or v>=A[A.size()-1]) throw gen_exception("value out of range");
+		size_t lower=0;
+		size_t upper=A.size()-1;
+		while(true)
+		{
+			//check if found solution
+			if( (upper-1)==lower ) return lower;
+			//guess new solution
+			size_t guess=size_t( (upper-lower)/2 );
+			if(A[guess]>v) upper=guess;
+			else lower=guess;
+		}
+	}
+	
+#include <iostream>
+	
+	size_t search_sorted(gsl::vector_float A, float v)
+	{
+		if(v<A[0] or v>=A[A.size()-1]) throw gen_exception("value out of range");
+		size_t lower=0;
+		size_t upper=A.size()-1;
+		while(true)
+		{
+			//check if found solution
+			if( (upper-1)==lower ) 
+			{ 
+				return lower;
+			}
+			//guess new solution
+			size_t guess=size_t( (upper-lower)/2 ) + lower;
+			if(A[guess]>v) upper=guess;
+			else lower=guess;
+		}
 	}
 }
 

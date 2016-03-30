@@ -6,8 +6,9 @@
 #include "vector.hpp"
 
 #include "GSL_utils.hpp"
-#include "SC_elastic_scatt.hpp"
 #include "constants.hpp"
+
+#include "read_tables/ionization_table.hpp"
 
 using namespace gsl;
 using namespace std;
@@ -18,10 +19,11 @@ bool rnd_seed=true; //seed random number generators with a random seed?  If fals
 
 
 //inputs
-double time_step=0.0001; //in units of time_units
+double time_step=0.001; //in units of time_units
 
 //public classes
-shielded_coulomb coulomb_scattering(average_air_atomic_number, rnd_seed);
+//shielded_coulomb coulomb_scattering(average_air_atomic_number, rnd_seed);
+ionization_table ionization;
 
 
 //conversion_functions
@@ -132,6 +134,7 @@ public:
 	{
 	    //values
 	    double momentum_squared=momentum_[0]*momentum_[0]+momentum_[1]*momentum_[1]+momentum_[2]*momentum_[2];
+	    cout<<momentum_squared<<endl;
 	    double momentum_magnitude=sqrt(momentum_squared);
 	    double G=gamma(momentum_squared);
 
@@ -140,23 +143,23 @@ public:
 
 
 		//magnetic field
-		vector B=-1*B_field->get(position_, time); //-1 is becouse electron has negative charge
+		vector B=-1.0*B_field->get(position_, time); //-1 is becouse electron has negative charge
 		double inverse_gamma=1.0/G;
 		force[0]+=inverse_gamma*(momentum_[1]*B[2]-momentum_[2]*B[1]);
 		force[1]+=inverse_gamma*(momentum_[2]*B[0]-momentum_[0]*B[2]);
 		force[2]+=inverse_gamma*(momentum_[0]*B[1]-momentum_[1]*B[0]);
 
 		//ionization friction
-		double friction=0;
+		double friction=ionization.electron_lookup(momentum_squared);
 
-		if( (G-1.0) >= 2*minimum_energy )
-		{
-		    friction=beth_force_minus_moller(momentum_squared);
-		}
-		else
-		{
-		    friction=beth_force(momentum_squared);
-		}
+		//if( (G-1.0) >= 2*minimum_energy )
+		//{
+		  //  friction=beth_force_minus_moller(momentum_squared);
+		//}
+		//else
+		//{
+		//    friction=beth_force(momentum_squared);
+		//}
 
 		if(friction>0) //don't want weird stuff
 		{
@@ -199,6 +202,7 @@ public:
 
 	}
 
+	/*
 	double beth_force(double momentum_squared)
 	{
         double gamma_squared=1+momentum_squared;
@@ -230,9 +234,9 @@ public:
         //don't need to check isnan, becouse these function only runs for energy>2*minimum_energy
 
         return ( term1 - term2_f1*log(term2_f2) + term3 - beta_squared + term5)/beta_squared;
-	}
+	}*/
 
-	void scatter()
+/*	void scatter()
 	{
 		double momentum_squared=momentum.sum_of_squares();
 		////change angle of mementum according to shielded coulomb scattering
@@ -264,12 +268,12 @@ public:
 
 		//find new momentum
 		momentum=A*momentum + B*Bv + C*Cv;
-	}
+	}*/
 };
 
 int main()
 {
-	int number_itterations=100;
+	int number_itterations=1000;
 
 	//initialize electric field
 	uniform_field E_field;
@@ -297,7 +301,7 @@ int main()
 	for(int i=0; i<number_itterations; i++)
 	{
 		particle.kunge_kutta_update(&E_field, &B_field, i*time_step);
-		particle.scatter();
+		//particle.scatter();
 
 		//save data
 		fout<<i<<' '; //itteration number
