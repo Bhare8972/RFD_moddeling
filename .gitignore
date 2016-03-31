@@ -16,3 +16,5 @@ documentation/doc.synctex.gz
 documentation/doc.tex~
 
 python_visualize/constants.pyc
+
+.gitignore~

@@ -30,7 +30,7 @@
 \end{center}
 
 
-\section{unit less variables}
+\section{dimensionless variables}
 
 Dimensionless variables are used in this simulation. This can complicate taking a physical equation, and relating it to a formula that can be used in the simulation, but once in the simulation the formulas tend to be simpler, thus easier to use. In the rest of this documentation, the normal symbols, e.g. $\varepsilon$ for kinetic energy and $ \vec{P} $ for momentum, will represent the values of those quantities in MKS units, alternate symbols will be used to represent the values of each quantity in dimensionless units, e.g. $E$ for kinetic energy and $\vec{\rho} $ for momentum. The table below gives the units of all the dimensionless variables used in the simulation. Brackets around a symbol, e.g.  $\left[ E\right] $ for energy and $\left[  \vec{\rho} \right] $ for momentum, represents the units of the dimensionless values, e.g. $\varepsilon = E \left[ E \right] $.
 
@@ -183,36 +183,41 @@ K_3=S'(\tau_n + \frac{\Delta\tau}{2}, S_n + \frac{\Delta\tau}{ 2}K_2)
 K_4=S'(\tau_n + \Delta\tau, S_n + \Delta\tau K_3)
 \end{equation}
 
+Given that high-precision is not really needed in solving the equations of motion, 4th order runge-kutta may be overkill.  Work will need to be done to see if the time required to use 4th order runga-kutta is significant compared to the time required to calculate scattering processes. If so, maybe I should consider using a lower-order scheme.
 
-The frictional force is given by the Bethe equation:
+The frictional force due to ionization could be approximated using the Bethe formula, this however, produces some problems as the Bethe formula is at best an approximation, which is problematic because we care about finding the minimum electric field necessary for RREA and for RFD, which is sensitive to the energy loss due to ionization, and more worrisome is that the Bethe formula is very imprecise and unstable at low energies, and there are a large number of low energy electrons in RREA. The solution is to use tabulated values instead. Particularly, we use tabulated values from ICRU report 37, which gives the energy loss due to ionization for electrons and positrons down to a very low energy. These tables are hard-coded into a program that is separate from the main simulation. When run, this program converts the values into dimensionless units, and it converts the energy values into dimensionless momentum squared (because momentum squared is easier to calculate at runtime than energy), and stores the two tables into a binary file. At startup, the simulation loads the energy losses due to ionization tables from the binary file, then during runtime these tables can be searched and energy loss rates returned using linear interpolation. At the time of writing this, the time required to search the lookup table is, at absolute worse, twice as slow as calculating the values using the Bethe formula. It is doubtful that the algorithm can be improved, but I believe that the increase in stability at low energy warrants the slowdown, and that the slowdown will be minor compared to the time to calculate other scattering  processes (this has yet to be shown). 
 
-\begin{equation} 
-F_{friction}(P)  =\frac{ 2 \pi N_m Z_m r_e^2 m C^2}{\beta^2} \left\lbrace  \ln\frac{mv^2\varepsilon\gamma}{I^2}
--\left( 1 + \frac{2}{\gamma}  - \frac{1}{\gamma^2} \right)\ln 2 + \frac{(\gamma-1)^2}{8\gamma^2}  + \frac{1}{\gamma^2} \right\rbrace 
-\end{equation}
+The tables in ICRU 37 extend to very high energy, and so probably will not need to generate new values using the Beth formula. However, as we include Moller scattering in the simulation, the ionization table generation program will need to take Moller scattering into account by subtracting off the energy loss due to Moller scattering at the appropriate energies. This has not been implemented.
 
-in dimensionless units:
-
-\begin{equation} 
-\frac{d \rho}{d \tau}_{friction}(\rho)  =\frac{ 1 }{\beta^2} \left\lbrace  \ln\frac{\beta^2E\gamma}{\bar{I^2}}
--\left( 1 + \frac{2}{\gamma}  - \frac{1}{\gamma^2} \right)\ln 2 + \frac{(\gamma-1)^2}{8\gamma^2}  + \frac{1}{\gamma^2} \right\rbrace 
-\end{equation}
-
-Where $\bar{I}$ is $I/m_eC^2$.
-
-Since Moller scatter is considered for electrons that are above a  threshold kinetic energy of $E_{thresh}= \frac{2 keV}{m_e C^2}$, the energy loss due to moller scattering must be subracted off from the friction force. So, for electrons with energies above $2E_{thresh}$, the following friction function is used instead of the one above:
-
-In dimensionless units:
-
-\begin{equation} 
-\frac{d \rho}{d \tau}_{friction}(\rho)  =\frac{ 1 }{\beta^2} \left\lbrace  \ln\frac{2E_{thresh} \beta^2 \gamma}{\bar{I^2}}
--\left( 1 + \frac{2}{\gamma}  - \frac{1}{\gamma^2} \right)\ln \frac{ E }{E- E_{thresh}} + \frac{E_{thresh}}{E-E_{thresh}} - \beta^2 + \frac{E_{thresh}^2}{2\gamma^2} \right\rbrace 
-\end{equation}
+%The frictional force is given by the Bethe equation:
+%
+%\begin{equation} 
+%F_{friction}(P)  =\frac{ 2 \pi N_m Z_m r_e^2 m C^2}{\beta^2} \left\lbrace  \ln\frac{mv^2\varepsilon\gamma}{I^2}
+%-\left( 1 + \frac{2}{\gamma}  - \frac{1}{\gamma^2} \right)\ln 2 + \frac{(\gamma-1)^2}{8\gamma^2}  + \frac{1}{\gamma^2} \right\rbrace 
+%\end{equation}
+%
+%in dimensionless units:
+%
+%\begin{equation} 
+%\frac{d \rho}{d \tau}_{friction}(\rho)  =\frac{ 1 }{\beta^2} \left\lbrace  \ln\frac{\beta^2E\gamma}{\bar{I^2}}
+%-\left( 1 + \frac{2}{\gamma}  - \frac{1}{\gamma^2} \right)\ln 2 + \frac{(\gamma-1)^2}{8\gamma^2}  + \frac{1}{\gamma^2} \right\rbrace 
+%\end{equation}
+%
+%Where $\bar{I}$ is $I/m_eC^2$.
+%
+%Since Moller scatter is considered for electrons that are above a  threshold kinetic energy of $E_{thresh}= \frac{2 keV}{m_e C^2}$, the energy loss due to moller scattering must be subracted off from the friction force. So, for electrons with energies above $2E_{thresh}$, the following friction function is used instead of the one above:
+%
+%In dimensionless units:
+%
+%\begin{equation} 
+%\frac{d \rho}{d \tau}_{friction}(\rho)  =\frac{ 1 }{\beta^2} \left\lbrace  \ln\frac{2E_{thresh} \beta^2 \gamma}{\bar{I^2}}
+%-\left( 1 + \frac{2}{\gamma}  - \frac{1}{\gamma^2} \right)\ln \frac{ E }{E- E_{thresh}} + \frac{E_{thresh}}{E-E_{thresh}} - \beta^2 + \frac{E_{thresh}^2}{2\gamma^2} \right\rbrace 
+%\end{equation}
 
 
 \section{shielded coulomb scattering}
 
-As the electrons and positrons travel through the simulation, they will collide off of atomic nuclei. We simulate this by including the effects of elastic scattering off of atomic nuclei via the shielded coulomb cross section.  The differential cross section for the shielded coulomb cross section is:
+As the electrons and positrons travel through the simulation, they will collide off of atomic nuclei. We simulate this by including the effects of elastic scattering off of atomic nuclei via the shielded coulomb cross section. The differential cross section for the shielded coulomb cross section is:
 
 \begin{equation} 
 \frac{d\sigma_{Coul}}{d \Omega} = \frac{1}{4}\left(  \frac{Z_m r_e }{\beta^2 \gamma }  \right)^2\frac{1-\beta^2\sin^2(\theta/2)}{ \left(  \sin^2(\theta/2) + \frac{\hbar}{4P^2a^2}  \right)^2 }
