@@ -18,3 +18,7 @@ documentation/doc.tex~
 python_visualize/constants.pyc
 
 .gitignore~
+
+python_visualize/ionization_losses
+
+python_visualize/read_binary.pyc

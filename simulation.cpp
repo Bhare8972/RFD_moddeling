@@ -15,8 +15,6 @@ using namespace std;
 
 bool rnd_seed=true; //seed random number generators with a random seed?  If false, use a built-in seed value (for repeatability)
 
-
-
 //inputs
 double time_step=0.001; //in units of time_units
 
@@ -118,7 +116,6 @@ public:
 		return sqrt(1+momentum[0]*momentum[0]+momentum[1]*momentum[1]+momentum[2]*momentum[2]);
 	}
 
-
 	double gamma(vector &mom_)
 	{
 		return sqrt(1+mom_[0]*mom_[0]+mom_[1]*mom_[1]+mom_[2]*mom_[2]);
@@ -133,7 +130,6 @@ public:
 	{
 	    //values
 	    double momentum_squared=momentum_[0]*momentum_[0]+momentum_[1]*momentum_[1]+momentum_[2]*momentum_[2];
-	    cout<<momentum_squared<<endl;
 	    double momentum_magnitude=sqrt(momentum_squared);
 	    double G=gamma(momentum_squared);
 
@@ -150,15 +146,10 @@ public:
 
 		//ionization friction
 		double friction=ionization.electron_lookup(momentum_squared);
-
-		//if( (G-1.0) >= 2*minimum_energy )
-		//{
-		  //  friction=beth_force_minus_moller(momentum_squared);
-		//}
-		//else
-		//{
-		//    friction=beth_force(momentum_squared);
-		//}
+		
+		print("mom. sq:", momentum_squared);
+		print("table:", friction);
+		print("beth:", beth_force(momentum_squared) );
 
 		if(friction>0) //don't want weird stuff
 		{
@@ -201,7 +192,7 @@ public:
 
 	}
 
-	/*
+	
 	double beth_force(double momentum_squared)
 	{
         double gamma_squared=1+momentum_squared;
@@ -233,7 +224,7 @@ public:
         //don't need to check isnan, becouse these function only runs for energy>2*minimum_energy
 
         return ( term1 - term2_f1*log(term2_f2) + term3 - beta_squared + term5)/beta_squared;
-	}*/
+	}
 
 /*	void scatter()
 	{
@@ -278,8 +269,8 @@ int main()
 	uniform_field E_field;
 	E_field.set_minimum(-kilo/distance_units, -kilo/distance_units, -1/distance_units);
 	E_field.set_maximum(kilo/distance_units, kilo/distance_units, 10*kilo/distance_units);
-	E_field.set_value(0, 0, -1.7e5/E_field_units);
-	//E_field.set_value(0, 0, 0/E_field_units);
+	//E_field.set_value(0, 0, -1.7e5/E_field_units);
+	E_field.set_value(0, 0, 0/E_field_units);
 
 	//magnetic field is zero
 	uniform_field B_field;

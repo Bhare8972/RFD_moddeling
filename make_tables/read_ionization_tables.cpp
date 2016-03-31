@@ -9,7 +9,7 @@ using namespace gsl_utils;
 //extra constants
 double density=1.205E-3; // g cm^-3
 double air_molecular_density=2.688E25; // m^-3
-double electron_classical_radius=2.8179E15;
+double electron_classical_radius=2.8179E-15;
 
 int main()
 {
@@ -30,7 +30,7 @@ int main()
 	gsl::vector positron_SP=positron_SP_table.read_doubles();
 	
 	//converion factors
-	double SP_conversion_factor=density/(2.0*3.1415926*average_air_atomic_number*electron_classical_radius*electron_rest_energy*electron_classical_radius*air_molecular_density);
+	double SP_conversion_factor=100*density/(2.0*3.1415926*average_air_atomic_number*electron_classical_radius*electron_rest_energy*electron_classical_radius*air_molecular_density);
 	double kev_to_dimensionless=kilo*elementary_charge/electron_rest_energy;
 	//electron_SP/=conversion_factor;
 	//positron_SP/=conversion_factor;

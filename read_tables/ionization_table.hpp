@@ -30,8 +30,6 @@ public:
 		
 		gsl_utils::array_input positron_SP_table=table_in.get_array();
 		positron_SP=positron_SP_table.read_doubles();
-		
-		print(electron_mom_sq[0], electron_mom_sq[electron_mom_sq.size()-1]);
 	}
 	
 	double electron_lookup(double electron_mom_sq_)
