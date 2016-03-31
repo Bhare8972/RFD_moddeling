@@ -30,12 +30,14 @@ public:
 		
 		gsl_utils::array_input positron_SP_table=table_in.get_array();
 		positron_SP=positron_SP_table.read_doubles();
+		
+		print(electron_mom_sq[0], electron_mom_sq[electron_mom_sq.size()-1]);
 	}
 	
 	double electron_lookup(double electron_mom_sq_)
 	{
 		//get location
-		size_t index=gsl_utils::search_sorted(electron_mom_sq, electron_mom_sq_);
+		size_t index=search_sorted_f(electron_mom_sq, electron_mom_sq_);
 		
 		//do linear interpolation
 		return electron_SP[index] + (electron_SP[index+1] - electron_SP[index])*(electron_mom_sq[index]-electron_mom_sq_)/(electron_mom_sq[index]-electron_mom_sq[index+1]);
@@ -44,7 +46,7 @@ public:
 	double positron_lookup(double positron_mom_sq_)
 	{
 		//get location
-		size_t index=gsl_utils::search_sorted(positron_mom_sq, positron_mom_sq_);
+		size_t index=search_sorted_f(positron_mom_sq, positron_mom_sq_);
 		
 		//do linear interpolation
 		return positron_SP[index] + (positron_SP[index+1] - positron_SP[index])*(positron_mom_sq[index]-positron_mom_sq_)/(positron_mom_sq[index]-positron_mom_sq[index+1]);

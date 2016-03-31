@@ -12,7 +12,6 @@
 
 using namespace gsl;
 using namespace std;
-using namespace gsl_utils;
 
 bool rnd_seed=true; //seed random number generators with a random seed?  If false, use a built-in seed value (for repeatability)
 
