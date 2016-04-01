@@ -38,7 +38,7 @@ if __name__=='__main__':
     positron_SP=positron_SP_table.read_doubles()
 	
     ##converion factors
-    SP_conversion_factor=1.0/(2.0*3.1415926*average_air_atomic_number*electron_classical_radius*electron_rest_energy*electron_classical_radius*air_molecular_density)
+    SP_conversion_factor=elementary_charge*1.0E8/(2.0*3.1415926*average_air_atomic_number*electron_classical_radius*electron_rest_energy*electron_classical_radius*air_molecular_density)
     kev_to_dimensionless=kilo*elementary_charge/electron_rest_energy
 	
     ##print!
@@ -83,9 +83,9 @@ if __name__=='__main__':
     
     
     ##plot native units
-    plt.plot(electron_mom_sq, electron_SP_native*elementary_charge*1.0E8)
-    plt.plot(electron_mom_sq, beth_calculation)
-    plt.plot(positron_mom_sq, positron_SP_native*elementary_charge*1.0E8)
+    plt.plot(electron_mom_sq, electron_SP_native)
+    plt.plot(electron_mom_sq[1:], beth_calculation[1:])
+    plt.plot(positron_mom_sq, positron_SP_native)
     plt.xscale('log')
     plt.yscale('log')
     plt.show()

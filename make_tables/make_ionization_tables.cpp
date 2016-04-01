@@ -10,10 +10,10 @@ using namespace gsl_utils;
 // that can be used in the simulation with no conversion
 // note that the values given in ICRU 37 go to MUCH higher energy then needed for our simulation (up to 1000 Mev).
 // In these tables I have only recorded up to 35 MeV. The tables below DO include the low-energy stopping powers 
-// found in table 8.1, for electrons only
+// found in table 8.1, for electrons only. The lowest stopping power for electrons (0,0) was added by myself
 
 //energy of electrons in keV
-gsl::vector_float electron_energy({ 0.02, 0.04, 0.06, 0.1, 0.2, 0.4, 0.6, 1, 2, 
+gsl::vector_float electron_energy({ 0, 0.02, 0.04, 0.06, 0.1, 0.2, 0.4, 0.6, 1, 2, 
 4, 6, 10, 12.5, 15.0, 17.5, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0,
 60.0, 70.0, 80.0, 90.0, 100, 125, 150, 175, 200, 250, 300, 350, 400, 450, 500, 
 550, 600, 700, 800, 900, 1000, 1250, 1500, 1750, 2000, 2500, 3000, 3500, 
@@ -21,7 +21,7 @@ gsl::vector_float electron_energy({ 0.02, 0.04, 0.06, 0.1, 0.2, 0.4, 0.6, 1, 2,
 20000, 25000, 30000, 35000});
 
 //stopping power of electrons for energies in electron_energy, in units of MeV cm^2 g^-1
-gsl::vector electron_SP({26.0, 104, 170, 218, 216, 170, 139, 97.9, 65.8, 
+gsl::vector electron_SP({0, 26.0, 104, 170, 218, 216, 170, 139, 97.9, 65.8, 
 40.5, 30.1, 20.4, 16.63, 14.45, 12.83, 11.57, 9.753, 8.492, 7.563, 6.848, 
 6.281, 5.819, 5.435, 5.111, 4.593, 4.198, 3.886, 3.633, 3.172, 2.861, 2.637, 
 2.470, 2.236, 2.084, 1.978, 1.902, 1.845, 1.802, 1.769, 1.743, 1.706, 1.683, 
@@ -65,7 +65,7 @@ int main()
 	gsl::vector_float positron_mom_sq=(positron_energy*positron_energy) - 1.0;
 	
 	//convert stopping power MeV cm^2 g^-1 to dimensionless force
-	double conversion_factor=density/(2.0*3.1415926*average_air_atomic_number*electron_classical_radius*electron_rest_energy*electron_classical_radius*air_molecular_density);
+	double conversion_factor=elementary_charge*1.0E8*density/(2.0*3.1415926*average_air_atomic_number*electron_classical_radius*electron_rest_energy*electron_classical_radius*air_molecular_density);
 	electron_SP*=conversion_factor;
 	positron_SP*=conversion_factor;
 	

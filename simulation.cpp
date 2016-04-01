@@ -145,11 +145,13 @@ public:
 		force[2]+=inverse_gamma*(momentum_[0]*B[1]-momentum_[1]*B[0]);
 
 		//ionization friction
+		print("A:", (G-1)*electron_rest_energy*elementary_charge/1000.0);
 		double friction=ionization.electron_lookup(momentum_squared);
+		print('b');
 		
-		print("mom. sq:", momentum_squared);
-		print("table:", friction);
-		print("beth:", beth_force(momentum_squared) );
+		//print("mom. sq:", momentum_squared);
+		//print("table:", friction);
+		//print("beth:", beth_force(momentum_squared) );
 
 		if(friction>0) //don't want weird stuff
 		{
@@ -193,38 +195,38 @@ public:
 	}
 
 	
-	double beth_force(double momentum_squared)
-	{
-        double gamma_squared=1+momentum_squared;
-        double gamma_=sqrt(gamma_squared);
-        double inv_beta_squared=gamma_squared/momentum_squared;
-
-        double term1=log(inv_I_sq*momentum_squared*(gamma_-1.0));
-        double term2=(1+(2.0/gamma_)-1.0/gamma_squared)*log(2.0);
-        double term3=(1.0-2.0/gamma_+1.0/gamma_squared)/8.0;
-        double term4=1.0/gamma_squared;
-
-        if(std::isnan(term1)) return 0.0;
-
-        return inv_beta_squared*(term1 - term2 + term3 + term4);
-	}
-
-    double beth_force_minus_moller(double momentum_squared)
-	{
-        double gamma_squared=1+momentum_squared;
-        double G=sqrt(gamma_squared);
-        double beta_squared=momentum_squared/gamma_squared;
-
-        double term1=log( 2*inv_I_sq*minimum_energy*momentum_squared );
-        double term2_f1=(1+(2.0/G)-1.0/gamma_squared);
-        double term2_f2=(G-1.0)/(G-minimum_energy-1.0);
-        double term3=minimum_energy/(G-minimum_energy-1.0);
-        double term5=minimum_energy*minimum_energy/(2*G*G);
-
-        //don't need to check isnan, becouse these function only runs for energy>2*minimum_energy
-
-        return ( term1 - term2_f1*log(term2_f2) + term3 - beta_squared + term5)/beta_squared;
-	}
+	//~double beth_force(double momentum_squared)
+	//~{
+        //~double gamma_squared=1+momentum_squared;
+        //~double gamma_=sqrt(gamma_squared);
+        //~double inv_beta_squared=gamma_squared/momentum_squared;
+//~
+        //~double term1=log(inv_I_sq*momentum_squared*(gamma_-1.0));
+        //~double term2=(1+(2.0/gamma_)-1.0/gamma_squared)*log(2.0);
+        //~double term3=(1.0-2.0/gamma_+1.0/gamma_squared)/8.0;
+        //~double term4=1.0/gamma_squared;
+//~
+        //~if(std::isnan(term1)) return 0.0;
+//~
+        //~return inv_beta_squared*(term1 - term2 + term3 + term4);
+	//~}
+//~
+    //~double beth_force_minus_moller(double momentum_squared)
+	//~{
+        //~double gamma_squared=1+momentum_squared;
+        //~double G=sqrt(gamma_squared);
+        //~double beta_squared=momentum_squared/gamma_squared;
+//~
+        //~double term1=log( 2*inv_I_sq*minimum_energy*momentum_squared );
+        //~double term2_f1=(1+(2.0/G)-1.0/gamma_squared);
+        //~double term2_f2=(G-1.0)/(G-minimum_energy-1.0);
+        //~double term3=minimum_energy/(G-minimum_energy-1.0);
+        //~double term5=minimum_energy*minimum_energy/(2*G*G);
+//~
+        //~//don't need to check isnan, becouse these function only runs for energy>2*minimum_energy
+//~
+        //~return ( term1 - term2_f1*log(term2_f2) + term3 - beta_squared + term5)/beta_squared;
+	//~}
 
 /*	void scatter()
 	{

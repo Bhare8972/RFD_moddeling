@@ -22,3 +22,7 @@ python_visualize/constants.pyc
 python_visualize/ionization_losses
 
 python_visualize/read_binary.pyc
+
+python_visualize/output.txt
+
+python_visualize/output.txt

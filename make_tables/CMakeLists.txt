@@ -21,7 +21,7 @@ add_executable(make_ionization_tables
               ./make_ionization_tables.cpp)
 target_link_libraries(make_ionization_tables gsl gslcblas)
 
-add_executable(read_ionization_tables
-              ./read_ionization_tables.cpp)
-target_link_libraries(read_ionization_tables gsl gslcblas)
+add_executable(make_diffusion_tables
+              ./make_diffusion_tables.cpp)
+target_link_libraries(make_ionization_tables gsl gslcblas)
 
