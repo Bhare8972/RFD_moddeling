@@ -9,7 +9,7 @@ important sources:
 	Dwyer 2007 "Relativistic breakdown in planetary atmospheres"
 
 
-build location needs teh following files:
+build location needs teh following folders:
 algorithm_tests
 make_tables
 tables

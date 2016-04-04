@@ -4,7 +4,7 @@
 #include <cmath>
 #include "vector.hpp"
 #include "vector_float.hpp"
-#include "gen_ex.hpp" 
+#include "gen_ex.hpp"
 #include "iostream"
 
 //first, a python-like print function
@@ -24,12 +24,13 @@ void print(T msg_head, Ts... msg)
 gsl::vector linspace(double start, double stop, size_t length)
 {
 	gsl::vector out(length);
-	double step=(stop-start)/double(length);
 
-	if(length==0)
+    if(length==0 or length==1)
 	{
 		return out;
 	}
+
+	double step=(stop-start)/double(length-1);
 
 	out[0]=start;
 	for(size_t i=1; i<length; i++)
@@ -80,7 +81,7 @@ gsl::vector cross(gsl::vector A, gsl::vector B)
 	{
 		throw gen_exception("input vectors must both have a length of 3");
 	}
-	
+
 	gsl::vector out(3);
 	out[0]=A[1]*B[2] - A[2]*B[1];
 	out[1]=A[2]*B[0] - A[0]*B[2];
@@ -103,7 +104,7 @@ size_t search_sorted_d(gsl::vector A, double v)
 		else lower=guess;
 	}
 }
-	
+
 size_t search_sorted_f(gsl::vector_float A, float v)
 {
 	if(v<A[0] or v>=A[A.size()-1]) throw gen_exception("value out of range");
@@ -112,8 +113,8 @@ size_t search_sorted_f(gsl::vector_float A, float v)
 	while(true)
 	{
 		//check if found solution
-		if( (upper-1)==lower ) 
-		{ 
+		if( (upper-1)==lower )
+		{
 			return lower;
 		}
 		//guess new solution
@@ -122,5 +123,5 @@ size_t search_sorted_f(gsl::vector_float A, float v)
 		if(A[guess+1]<=v) lower=guess+1;
 		else return guess;
 	}
-} 
+}
 #endif
