@@ -13,8 +13,6 @@
 
 //// this is a few utilities for inputing and output arrays of numerical data in binary format
 
-namespace gsl_utils
-{
 
 ////output
 
@@ -183,8 +181,5 @@ public:
         return array_input(file_input);
     }
 };
-
-
-}//end namespace
 
 #endif

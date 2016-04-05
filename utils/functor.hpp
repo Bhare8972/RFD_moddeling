@@ -1,12 +1,15 @@
 ﻿
-#include "vector.h"
+#ifndef FUNCTOR_HPP
+#define FUNCTOR_HPP
+
+#include "vector.hpp"
 
 class functor_1D
 {
 	public:
-	
+
 	virtual double call(double)=0;
-	
+
 	gsl::vector call(const gsl::vector& data)
 	{
 		gsl::vector out(data.size());
@@ -17,4 +20,6 @@ class functor_1D
 		return out;
 	}
 };
+
+#endif
 
