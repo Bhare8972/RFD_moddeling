@@ -145,30 +145,30 @@ public:
 	        return;
 	    }
         stage=1;
-        print("ENTER");
+        //print("ENTER");
         //print(rough_quad(), left_data->rough_quad(), right_data->rough_quad(), (left_data->rough_quad()+right_data->rough_quad()));
         //print(float((rough_quad()-left_data->rough_quad()) + rough_quad()) == float(rough_quad()),  float((rough_quad()-right_data->rough_quad()) + rough_quad()) == float(rough_quad()) );
 
 		//step two, if necisary, refine the lower two sub sections
 		//if( std::abs( rough_quad() - (left_data->rough_quad()+right_data->rough_quad())) > 15*rel_tol )
 		double R=rough_quad();
-		if( float(R + ( R - (left_data->rough_quad()+right_data->rough_quad()))) != float(R*factor) )
+		if( float(R*factor + ( R - (left_data->rough_quad()+right_data->rough_quad()))) != float(R*factor) )
 		{
 		    //print("RECURE!");
-			//left_data->refine(factor);
-			//right_data->refine(factor);
+			left_data->refine(factor);
+			right_data->refine(factor);
 
-            //if(left_data->stage==3 or left_data->stage==4 or right_data->stage==3 or right_data->stage==4)
-            //{
-             //   stage=4;
-           // }
+            if(left_data->stage==3 or left_data->stage==4 or right_data->stage==3 or right_data->stage==4)
+            {
+                stage=4;
+            }
 		}
 		//else
 		//{
 		    //print("NO RECURE:", std::abs( rough_quad() - (left_data->rough_quad()+right_data->rough_quad())), 15*rel_tol );
 		//}
-		print("EXIT", stage);
-        print();
+		//print("EXIT", stage);
+        //print();
 	}
 
 	size_t size()
@@ -224,7 +224,7 @@ public:
 			if(index==1) return middle_value;
 			if(index==2) return right_value;
 		}
-		return 0; //revent warning
+		return 0; //prevent warning
 	}
 
 	double cum_quad(size_t index)
@@ -247,7 +247,7 @@ public:
 			if(index==1) return rough_quad(middle_point);
 			if(index==2) return rough_quad(right_point);
 		}
-		return 0; //revent warning
+		return 0; //prevent warning
 	}
 };
 
@@ -258,18 +258,14 @@ private:
 
 public:
 
-	cum_adap_simps(functor_1D* function, double lower_bound, double upper_bound, double tol_factor=10, unsigned int init_samples=5)
+	cum_adap_simps(functor_1D* function, double lower_bound, double upper_bound, double tol_factor=1, unsigned int init_samples=5)
 	{
 		gsl::vector test_points=linspace(lower_bound, upper_bound, init_samples);
 		gsl::vector test_values=function->call(test_points);
 
-		//double guess=(test_values.sum()-0.5*(test_values[0]+test_values[init_samples-1]))*(test_points[1]-test_points[0]); //trapezoidal guess
-		//print("guess:", guess);
-
 		sections.reserve(init_samples-1);
 		for(size_t i=0; i<init_samples-1; i++)
 		{
-		    print("SECTION:", i);
 			sections.emplace_back(function, test_points[i], test_points[i+1], test_values[i], test_values[i+1]);
 			sections.back().refine(tol_factor);
 		}
@@ -298,10 +294,10 @@ public:
 
     size_t size()
 	{
-        size_t size_=0;
+        size_t size_=1;
         for(size_t i=0; i<sections.size(); i++)
 		{
-			size_+=sections[i].size();
+			size_+=sections[i].size()-1;
 		}
 		return size_;
 
@@ -334,9 +330,9 @@ public:
 	    gsl::vector values_(size());
 	    size_t start=0;
 
-	    for(size_t section_i=start; section_i<sections.size(); section_i++)
+	    for(size_t section_i=0; section_i<sections.size(); section_i++)
 	    {
-            for(size_t section_point_j=0; section_point_j<size_t(sizes_[section_i]); section_point_j++)
+            for(size_t section_point_j=start; section_point_j<size_t(sizes_[section_i]); section_point_j++)
             {
                 values_[current_index]=sections[section_i].value(section_point_j);
                 current_index++;
@@ -382,7 +378,7 @@ public:
 	    return 0;
 	}
 
-	//gsl::vector_int infos() //return status at each sample point
+	//gsl::vector_int infos() //return status at each sample point, to be implemented
 };
 
 #endif

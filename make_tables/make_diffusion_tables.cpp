@@ -20,17 +20,12 @@ public:
 	double beta;
 	double prefactor;
 	double p_factor;
-
-	double K;
-
 	diff_cross_section(double timestep, double energy_kev=0)
 	{
 		prefactor=timestep*average_air_atomic_number*average_air_atomic_number/(8*3.1415926);
 		p_factor=pow(average_air_atomic_number, 2.0/3.0)/(4*183.3*183.3);
 
 		set_energy(energy_kev);
-
-		K=10;
 	}
 
 	void set_energy(double energy_kev)
@@ -42,48 +37,30 @@ public:
 
 	double call(double angle)
 	{
-
-        return sin(-angle*K*2*3.1415926/100.0);
-
-
-		//double S=sin(angle/2.0);
-		//double numerator=1.0-beta*beta*S*S;
-		//double denom=S*S+p_factor/momentum_sq;
-		//return numerator*prefactor/(denom*beta*momentum_sq);
+		double S=sin(angle/2.0);
+		double numerator=1.0-beta*beta*S*S;
+		double denom=S*S+p_factor/momentum_sq;
+		return numerator*prefactor/(denom*denom*beta*momentum_sq);
 	}
 };
 
 int main()
 {
-	double time_step=0.001;
+	double time_step=0.01;
 	double min_energy=0.02; //keV
 	double max_energy=30000; //kev
 	int num_energies=10; //????
 
 	gsl::vector energy_vector=linspace(min_energy, max_energy, num_energies);
-	diff_cross_section scatterer(time_step, min_energy);
+	diff_cross_section scatterer(time_step, max_energy);
 
-    cum_adap_simps integrator(&scatterer, 0, 100, 1.0E1);
+    cum_adap_simps integrator(&scatterer, 0, 3.1415926, 1.0);
     print("total integrand:", integrator.quad());
     print("state:", integrator.info());
 
     auto points=integrator.points();
     auto values=integrator.values();
     auto cum_quads=integrator.cum_quads();
-
-    I AM HERE. FIGURE OUT WHY FOLLOWING ARRAYS ARE PACKED DIFFERENTLY
-
-    for(double p : points)
-    {
-        print(p);
-    }
-    print();
-
-    for(double p : values)
-    {
-        print(p);
-    }
-    print();
 
 	shared_ptr<doubles_output> points_table(new doubles_output(points));
 	shared_ptr<doubles_output> values_table(new doubles_output(values));
