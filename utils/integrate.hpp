@@ -9,6 +9,7 @@
 #include "vector.hpp"
 #include "vector_int.hpp"
 #include "functor.hpp"
+#include "gen_ex.hpp"
 
 class cum_adap_simps_data
 {
@@ -380,5 +381,74 @@ public:
 
 	//gsl::vector_int infos() //return status at each sample point, to be implemented
 };
+
+class poly_quad_spline : public functor_1D
+{
+private:
+	class spline
+	{
+	public:
+		double weight_one;
+		double weight_two;
+		double weight_three;
+		
+		spline(double left_point, double middle_point, double right_point, double left_value, double middle_value, double right_value)
+		{
+			lowest_x=left_point;
+			highist_x=right_point;
+			
+			double weight_three_num=(middle_point-left_point)*(right_value-left_value) - (right_point-left_point)*(middle_value-left_value);
+			double weight_three_denom=(middle_point-left_point)*(right_point*right_point - left_point*left_point) - (right_point-left_point)*(middle_point*middle_point-left_point*left_point);
+			weight_three=weight_three_num/weight_three_denom;
+			weight_two=(middle_value-left_value)/(middle_point-left_point) - weight_three*(middle_point*middle_point-left_point*left_point)/(middle_point-left_point);
+			weight_one=left_value - weight_three*left_point*left_point - weight_two*left_point;
+		}
+		
+		double y(double x)
+		{
+			return weight_one + weight_two*x + weight_three*x*x;
+		}
+	};
+	
+	std::vector<spline> splines;
+	gsl::vector x_vals; //length is one greater than splines
+
+public:
+
+	poly_quad_spline(gsl::vector X, gsl::vector Y)
+	{
+		size_t num_points=Y.size();
+		if( num_points != X.size())
+		{
+			throw gen_exception("X array and Y array must have the same size");
+		}
+		if( num_points < 3))
+		{
+			throw gen_exception("array sizes must be greater than 3");
+		}
+		if( (num_points-1)%2 !=0 ))
+		{
+			throw gen_exception("array sizes must be a size of 1+2*n");
+		}
+		
+		x_vals=X;
+		size_t num_splines=(num_points-1)/2;
+		splines.reserve(num_splines);
+		for(size_t pi=0; pi<(num_points-2); pi+=2)
+		{
+			splines.emplace_back(X[pi], X[pi+1], X[pi+2], Y[pi], Y[pi+1], Y[pi+2]);
+		}
+	}
+	
+	double call(double X)
+	{
+		if(X<x_vals[0] or X>x_vals[x_vals.size()-1]) throw gen_exception("value is not in range");
+		
+		size_t spline_index=search_sorted_f(x_vals, X);
+		return splines[spline_index].y(X);
+	}
+	
+};
+
 
 #endif

@@ -30,17 +30,52 @@ public:
 
 	void set_energy(double energy_kev)
 	{
-		double energy=energy_kev/(elementary_charge*electron_rest_energy);
+		double energy=energy_kev*1000.0*elementary_charge/electron_rest_energy;
 		momentum_sq=(energy+1.0)*(energy+1.0)-1;
 		beta=sqrt(momentum_sq/(1+momentum_sq));
 	}
-
-	double call(double angle)
+	
+	double cross_section(double angle)
 	{
 		double S=sin(angle/2.0);
 		double numerator=1.0-beta*beta*S*S;
 		double denom=S*S+p_factor/momentum_sq;
 		return numerator*prefactor/(denom*denom*beta*momentum_sq);
+	}
+	
+	double integrand(double angle)
+	{
+		return cross_section(angle)*sin(angle);
+	}
+
+	double call(double angle)
+	{
+		return integrand(angle);
+	}
+};
+
+class workspace
+{
+private:
+	diff_cross_section cross_section;
+	
+	shared_ptr<poly_quad_spline> spline_sampler;
+	double num_interactions;
+	
+public:
+	workspace(double timestep, double energy) : cross_section(timestep)
+	{
+		set_energy(energy);
+	}
+	
+	void set_energy(double energy)
+	{
+		cross_section.set_energy(energy);
+		cum_adap_simps integrator(&cross_section, 0, 3.1415926, 1E4);
+		gsl::vector points=integrator.points();
+		gsl::vector cum_quads=integrator.cum_quads();
+		num_interactions=cum_quads[cum_quads.size()-1]*2*3.1415926;
+		cum_quads
 	}
 };
 
@@ -52,9 +87,9 @@ int main()
 	int num_energies=10; //????
 
 	gsl::vector energy_vector=linspace(min_energy, max_energy, num_energies);
-	diff_cross_section scatterer(time_step, max_energy);
+	diff_cross_section scatterer(time_step, min_energy);
 
-    cum_adap_simps integrator(&scatterer, 0, 3.1415926, 1.0);
+    cum_adap_simps integrator(&scatterer, 0, 3.1415926, 1E4);
     print("total integrand:", integrator.quad());
     print("state:", integrator.info());
 
