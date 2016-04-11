@@ -391,25 +391,27 @@ private:
 		double weight_one;
 		double weight_two;
 		double weight_three;
-		
+
 		spline(double left_point, double middle_point, double right_point, double left_value, double middle_value, double right_value)
 		{
-			lowest_x=left_point;
-			highist_x=right_point;
-			
 			double weight_three_num=(middle_point-left_point)*(right_value-left_value) - (right_point-left_point)*(middle_value-left_value);
 			double weight_three_denom=(middle_point-left_point)*(right_point*right_point - left_point*left_point) - (right_point-left_point)*(middle_point*middle_point-left_point*left_point);
 			weight_three=weight_three_num/weight_three_denom;
 			weight_two=(middle_value-left_value)/(middle_point-left_point) - weight_three*(middle_point*middle_point-left_point*left_point)/(middle_point-left_point);
 			weight_one=left_value - weight_three*left_point*left_point - weight_two*left_point;
+
+			if(weight_three!=weight_three or weight_two!=weight_two or weight_one!=weight_one)
+			{
+			    throw gen_exception("function cannot be represented by a spline");
+			}
 		}
-		
+
 		double y(double x)
 		{
 			return weight_one + weight_two*x + weight_three*x*x;
 		}
 	};
-	
+
 	std::vector<spline> splines;
 	gsl::vector x_vals; //length is one greater than splines
 
@@ -422,15 +424,15 @@ public:
 		{
 			throw gen_exception("X array and Y array must have the same size");
 		}
-		if( num_points < 3))
+		if( num_points < 3)
 		{
 			throw gen_exception("array sizes must be greater than 3");
 		}
-		if( (num_points-1)%2 !=0 ))
+		if( (num_points-1)%2 !=0 )
 		{
 			throw gen_exception("array sizes must be a size of 1+2*n");
 		}
-		
+
 		x_vals=X;
 		size_t num_splines=(num_points-1)/2;
 		splines.reserve(num_splines);
@@ -439,15 +441,15 @@ public:
 			splines.emplace_back(X[pi], X[pi+1], X[pi+2], Y[pi], Y[pi+1], Y[pi+2]);
 		}
 	}
-	
+
 	double call(double X)
 	{
 		if(X<x_vals[0] or X>x_vals[x_vals.size()-1]) throw gen_exception("value is not in range");
-		
-		size_t spline_index=search_sorted_f(x_vals, X);
+
+		size_t spline_index=search_sorted_d(x_vals, X);
 		return splines[spline_index].y(X);
 	}
-	
+
 };
 
 
