@@ -99,9 +99,10 @@ size_t search_sorted_d(gsl::vector A, double v)
 		//check if found solution
 		if( (upper-1)==lower ) return lower;
 		//guess new solution
-		size_t guess=size_t( (upper-lower)/2 );
+		size_t guess=size_t( (upper-lower)/2 )+lower;
 		if(A[guess]>v) upper=guess;
-		else lower=guess;
+		else if(A[guess+1]<=v) lower=guess+1;
+		else return guess;
 	}
 }
 
@@ -120,7 +121,7 @@ size_t search_sorted_f(gsl::vector_float A, float v)
 		//guess new solution
 		size_t guess=size_t( (upper-lower)/2 ) + lower;
 		if(A[guess]>v) upper=guess;
-		if(A[guess+1]<=v) lower=guess+1;
+		else if(A[guess+1]<=v) lower=guess+1;
 		else return guess;
 	}
 }

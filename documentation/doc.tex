@@ -244,10 +244,101 @@ In dimensionless units, this turns into:
 
 Plugging in the differential cross section for elastic shielded coulomb scattering gives:
 
-\begin{equation} 
+\begin{equation}
+\label{coulomb_scattering_rate_eq}
 \frac{dn}{d \Omega} =\frac{ \Delta \tau }{8 \pi \beta }\left( \frac{Z_m}{\rho} \right)^2  \frac{1-\beta^2\sin^2(\theta/2)}{ \left(  \sin^2(\theta/2) + \frac{Z_m^{2/3}}{4\times 183.8^2} \frac{1}{\rho^2} \right)^2 }
 \end{equation}
 
-Presently, two decisions need to be made using this formula. 1) How many times does a particle scatter in one time step, and 2) what angles does it scatter into?  It is not presently clear what the best method is on how to make these decisions.
+Two decisions need to be made using this formula. 1) How many times does a particle scatter in one time step, and 2) what angles does it scatter into? The first question can be answered by integrating equation \ref{coulomb_scattering_rate_eq} over the unit sphere for a given particle energy and time step, then by sampling the Poisson distribution. For shielded coulomb scattering, this turns out to be many many times for any reasonable time step. The second question is answered using inverse transform sampling. 
 
+Inverse transform sampling is performed by first integrating the distribution over the relevant variable that needs to be sampled:
+
+\begin{equation}
+N(\theta) = \int_0^{\theta} sin(\theta ) d\theta '  \int_0^{2\pi} d\phi ' \frac{dn}{d\Omega}
+\end{equation}
+
+Normalizing and inverting the function such that:
+
+\begin{equation}
+N'\left(  \frac{N(\theta)}{N(\pi)}  \right) = \theta
+\end{equation}
+
+Then we can then sample a number between 0 to 1, from the uniform distribution, $U$, and plug it into $N'$ to get a sample for our variable:
+
+\begin{equation}
+N'\left(  U  \right) = \theta
+\end{equation}
+
+Except for a few specific cases, inverse transform sampling cannot be done analytically. I will describe a method I have developed to do inverse transform sampling reliably. After sampling the inclination, the azimuth, $\phi$ can be sampled from the uniform distribution. 
+
+After the inclination and azimuth have been sampled, we can rotate the momentum vector by finding an orthogonal, but not normal, vector basis in which the momentum is one axis. First, we use cross products to find two vectors, $\vec{Bv}$ and $\vec{Cv}$ orthogonal to each other, and orthogonal to the momentum vector, $\vec{\rho}$:
+
+\begin{equation}
+\label{Bv_def}
+\vec{Bv}=\frac{\vec{\varsigma}\times \vec{\rho}}{ \left| \vec{\varsigma}\times \vec{\rho}  \right|   }
+\end{equation}
+
+Where $\vec{\varsigma}$ is any unit vector chosen so that equation \ref{Bv_def} is not singular.
+
+\begin{equation}
+\vec{Cv}=\vec{Bv}\times \vec{\rho}
+\end{equation}
+
+$\vec{Cv}$ is guaranteed to have the same magnitude as the momentum, since $\vec{Bv}$ is guaranteed to be a unit vector orthogonal to the momentum.
+
+Using these new basis vectors, we can calculate the new momentum:
+
+\begin{equation}
+\vec{\rho}_{new}= cos(\theta) \vec{\rho} + sin(\theta) cos(\phi) \vec{Bv} \left|\vec{\rho} \right| - sin(\theta) sin(\phi) \vec{Cv} 
+\end{equation}
+
+This process needs to be ran however many times scattering happened to occur for that time step. This process is very slow. So what is done, is that this process is ran many many times before the simulation, and a distribution for $\theta$ is built up for different energies and time steps. This distribution is then saved in a table and can be opened and sampled relatively quickly at simulation time.
+
+
+\section{numerical inverse transform sampling}
+
+My method for inverse transform sampling relies upon quadratic interpolation. We need a quadratic interpolant:
+
+\begin{equation}
+\label{second_order_interpolant_eq}
+\bar{Y}(x)=W_1 +W_2 x + W_3 x^2
+\end{equation}
+
+Such that $\bar{Y}$ is precise at three points:
+
+\[ \bar{Y}(X_L)=Y_L \]
+\[ \bar{Y}(X_M)=Y_M \]
+\[ \bar{Y}(X_R)=Y_R \]
+
+Solving the 3x3 matrix reveals:
+
+\begin{equation}
+W_3=\frac{(X_M-X_L)(Y_R-Y_L) - (X_R-X_L)(Y_M-Y_L)  }{ (X_M-X_L)(X_R^2-X_L^2) - (X_R-X_L)(X_M^2-X_L^2)   }
+\end{equation}
+
+\begin{equation}
+W_2=\frac{  Y_M - Y_L  }{ X_M-X_L  } - W_3 \frac{X_M^2-X_L^2}{X_M-X_L}
+\end{equation}
+
+\begin{equation}
+W_1=Y_L - W_2X_L - W_3X_L^2
+\end{equation}
+
+Integrating this interpolant gives us an approximation for the cumulative integral of our function;
+
+\begin{equation}
+\label{quadrature_eq}
+\int_{X_L}^{x} Y(x') dx' \approx \int_{X_L}^{x} \bar{Y}(x') dx' = W_1x + \frac{W_2}{2}x^2 + \frac{W_3}{3}x^3 -(W_1X_L + \frac{W_2}{2}X_L^2 + \frac{W_3}{3}X_L^3)
+\end{equation}
+
+Using this integral over multiple regions, we can have a method adaptive cumulative quadrature. This is done by first splitting the region we want to integrate over into multiple sections (say, 5). We then sample the function we want to integrate at the endpoints and at the middle of each section and estimate the area of each section using equation \ref{quadrature_eq}. We then split each section into a left and right subsections, and sample the function at the center of each subsection to get a slightly better estimate of the area.  Finally we test our precision using equation \ref{quadrature_condition_eq} below. Where $float(x)$ is the floating point representation of x. $A_s$, $A_l$, and $A_r$ are the areas of some section and its left and right subsections, and $F$ is a factor that controls our precision. 
+
+\begin{equation}
+\label{quadrature_condition_eq}
+float(F*A_s + (A_s - A_l - A_r)) == float(F*A_s)
+\end{equation}
+
+For any subsection, if this condition is true, then we are done and move onto the next section. If this condition is not true then the two subsections are each split into two subsections and this procedure is repeated until condition \ref{quadrature_condition_eq} is true. In this way we can very precisely sample the integral of any function at a number of un-equally spaced points. I am not sure how this method will behave if the value of the integral is at or close to zero. I am using low-order polynomial quadrature instead of a more advance method, say a high-order Gaussian quadrature, because this method is relatively simple and easily produced a cumulative integral.
+
+Finally, this cumulative integral is normalized and is inverted by plugging the value of the integral at each point into our interpolant (equation \ref{second_order_interpolant_eq}) for the x values and the points that the integral was sampled at for the y-values. We can then sample our distribution by sampling a variable from the uniform distribution and plugging that number into this inverse interpolant. This method can only sample one-dimensional distributions, but multi-dimensional distributions can always be turned into multiple one-dimensional distributions via integration.
 \end{document}

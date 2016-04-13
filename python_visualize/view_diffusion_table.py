@@ -31,31 +31,37 @@ class diff_cross_section(object):
 if __name__=='__main__':
     
     ##open
-    table_in=array_input( binary_input("./tst") )
+    table_in=array_input( binary_input("./tst_min") )
     
-    points_table=table_in.get_array()
-    points=points_table.read_doubles()
+    samples_table=table_in.get_array()
+    samples=samples_table.read_doubles()
+    
+    plt.hist(samples, bins=20, range=(0, np.pi))
+    plt.show()
+    
+    #points_table=table_in.get_array()
+    #points=points_table.read_doubles()
 	
-    values_table=table_in.get_array()
-    values=values_table.read_doubles()
+    #values_table=table_in.get_array()
+    #values=values_table.read_doubles()
 	
-    cum_quads_table=table_in.get_array()
-    cum_quads=cum_quads_table.read_doubles()
-    print "my integrate:", cum_quads[-1]*2*np.pi
+    #cum_quads_table=table_in.get_array()
+    #cum_quads=cum_quads_table.read_doubles()
+    #print "my integrate:", cum_quads[-1]*2*np.pi
     
     ##self plot
-    scatterer=diff_cross_section(0.01, 0.02)
-    angles=np.linspace(0, np.pi, 1000000)
-    cross_sections=scatterer.cross_section(angles)
-    print "scipy integrate:", quad(scatterer.integrand, 0, np.pi, full_output=0, epsabs=1.0e-71, limit=200)[0]*2*np.pi
-    print "num points:", len(points)
+    #scatterer=diff_cross_section(0.01, 0.02)
+    #angles=np.linspace(0, np.pi, 1000000)
+    #cross_sections=scatterer.cross_section(angles)
+    #print "scipy integrate:", quad(scatterer.integrand, 0, np.pi, full_output=0, epsabs=1.0e-71, limit=200)[0]*2*np.pi
+    #print "num points:", len(points)
     
-    plt.plot(points, values, 'bo--')
-    plt.plot(angles, cross_sections, 'b-')
+    #plt.plot(points, values, 'bo--')
+    #plt.plot(angles, cross_sections, 'b-')
     #plt.xscale('log')
-    plt.yscale('log')
-    plt.plot(points, cum_quads, 'ro--')
+    #plt.yscale('log')
+    #plt.plot(points, cum_quads, 'ro--')
     ##plt.plot(points, func(points), 'b-')
     ##plt.plot(points, I(points), 'r-')
-    plt.show()
+    #plt.show()
     

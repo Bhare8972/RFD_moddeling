@@ -382,7 +382,7 @@ public:
 	//gsl::vector_int infos() //return status at each sample point, to be implemented
 };
 
-class poly_quad_spline : public functor_1D
+class poly_quad_spline : public functor_1D //we should exted this to work for first order as well
 {
 private:
 	class spline
@@ -400,7 +400,7 @@ private:
 			weight_two=(middle_value-left_value)/(middle_point-left_point) - weight_three*(middle_point*middle_point-left_point*left_point)/(middle_point-left_point);
 			weight_one=left_value - weight_three*left_point*left_point - weight_two*left_point;
 
-			if(weight_three!=weight_three or weight_two!=weight_two or weight_one!=weight_one)
+			if(weight_three!=weight_three or weight_two!=weight_two or weight_one!=weight_one or std::isinf(weight_three) or std::isinf(weight_two) or std::isinf(weight_one))
 			{
 			    throw gen_exception("function cannot be represented by a spline");
 			}
@@ -412,10 +412,12 @@ private:
 		}
 	};
 
+public:
+
 	std::vector<spline> splines;
 	gsl::vector x_vals; //length is one greater than splines
 
-public:
+    poly_quad_spline(){}
 
 	poly_quad_spline(gsl::vector X, gsl::vector Y)
 	{
@@ -433,13 +435,16 @@ public:
 			throw gen_exception("array sizes must be a size of 1+2*n");
 		}
 
-		x_vals=X;
 		size_t num_splines=(num_points-1)/2;
+		x_vals=gsl::vector(num_splines+1);
 		splines.reserve(num_splines);
-		for(size_t pi=0; pi<(num_points-2); pi+=2)
+		for(size_t pi=0, si=0; pi<(num_points-2); pi+=2)
 		{
+            x_vals[si]=X[pi];
 			splines.emplace_back(X[pi], X[pi+1], X[pi+2], Y[pi], Y[pi+1], Y[pi+2]);
+			si++;
 		}
+		x_vals[num_splines]=X[X.size()-1];
 	}
 
 	double call(double X)
@@ -447,10 +452,45 @@ public:
 		if(X<x_vals[0] or X>x_vals[x_vals.size()-1]) throw gen_exception("value is not in range");
 
 		size_t spline_index=search_sorted_d(x_vals, X);
-		return splines[spline_index].y(X);
+		double Y= splines[spline_index].y(X);
+		if(Y!=Y)
+		{
+            throw gen_exception("spline value is nan");
+		}
+		return Y;
 	}
 
 };
+
+poly_quad_spline make_fix_spline(gsl::vector X, gsl::vector Y)
+{
+    size_t num_points=Y.size();
+    if( num_points != X.size())
+    {
+        throw gen_exception("X array and Y array must have the same size");
+    }
+    if( num_points < 3)
+    {
+        throw gen_exception("array sizes must be greater than 3");
+    }
+    if( (num_points-1)%2 !=0 )
+    {
+        throw gen_exception("array sizes must be a size of 1+2*n");
+    }
+
+    I AM HERE. MAKE THIS funcTION TO FIX SPLINES
+
+    size_t num_splines=(num_points-1)/2;
+    x_vals=gsl::vector(num_splines+1);
+    splines.reserve(num_splines);
+    for(size_t pi=0, si=0; pi<(num_points-2); pi+=2)
+    {
+        x_vals[si]=X[pi];
+        splines.emplace_back(X[pi], X[pi+1], X[pi+2], Y[pi], Y[pi+1], Y[pi+2]);
+        si++;
+    }
+    x_vals[num_splines]=X[X.size()-1];
+}
 
 
 #endif

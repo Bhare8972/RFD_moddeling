@@ -119,39 +119,41 @@ public:
 	    //get our random samples
         unsigned int num_samples=sample_num_interactions();
 
-        if(num_samples==0) return 0;
+        gsl::vector T({0,0,1});
 
-        //first scattering
-        double inclination_scattering=spline_sampler->call( sample_uniform() ); //transform the sample
-        double azimuth_scattering=sample_uniform()*2*3.1415926;
-        double Si=sin(inclination_scattering);
-        double Ci=cos(inclination_scattering);
-        double Sa=sin(azimuth_scattering);
-        double Ca=cos(azimuth_scattering);
-
-        double Tx=Si*Ca;
-        double Ty=-Si*Sa;
-        double Tz=Ci;
-        double rho=sqrt( Tx*Tx + Ty*Ty );
-
-        for(size_t i=0; i<(num_samples-1); i++)
+        for(size_t i=0; i<num_samples; i++)
         {
-            inclination_scattering=spline_sampler->call( sample_uniform() ); //transform the sample
-            azimuth_scattering=sample_uniform()*2*3.1415926;
-            Si=sin(inclination_scattering);
-            Ci=cos(inclination_scattering);
-            Sa=sin(azimuth_scattering);
-            Ca=cos(azimuth_scattering);
+            double inclination_scattering=spline_sampler->call( sample_uniform() ); //transform the sample
+            double azimuth_scattering=sample_uniform()*2*3.1415926;
 
-            double Txold=Tx;
-            //hope rho isn't approx 0
-            Tx= Tx*Tz*Si*Ca/rho + Tx*Ci - Ty*Si*Sa/rho;
-            Ty= Ty*Tz*Si*Ca/rho + Ty*Ci - Txold*Si*Sa/rho;
-            Tz= -rho*Si*Ca + Tz*Ci;
-            rho=sqrt( Tx*Tx + Ty*Ty );
+            //calculate the three vector magnitudes
+            double A=cos(inclination_scattering); //basis vector is original vector
+            double B=sin(inclination_scattering)*cos(azimuth_scattering); //basis vector will be vector Bv below
+            double C=-sin(inclination_scattering)*sin(azimuth_scattering); //basis vector will be vector Cv below
+
+            //find vector Bv, perpinduclar to momentum
+            gsl::vector init({1,0,0});
+            gsl::vector Bv=cross(init, T);
+            if(Bv.sum_of_squares()<0.1) //init and momentum are close to parellel. Which would cause errors below
+            {
+                init=gsl::vector({0,1,0}); //so we try a different init. momentum cannot be parrellel to both inits
+                Bv=cross(init, T);
+            }
+
+            //normalize Bv
+            Bv/=sqrt(Bv.sum_of_squares());
+
+            //now we find Cv
+            gsl::vector Cv=cross(Bv, T); //Bv and momentum are garenteed to be perpindicular.
+
+            //give Bv correct magnitude
+            //Bv*=sqrt(momentum_squared); //correct magnitude is 1
+
+            //find new vector
+            T=A*T + B*Bv + C*Cv;
         }
 
-        return acos(Tz);
+        return acos(T[2]);
 	}
 
 	gsl::vector sample_timestep(size_t N)
@@ -159,6 +161,7 @@ public:
 	    gsl::vector out(N);
 	    for(size_t i=0; i<N; i++)
 	    {
+            if((i%10)==0) print(i);
 	        out[i]=sample_timestep();
 	    }
 	    return out;
@@ -174,9 +177,9 @@ int main()
 	int num_energies=10; //????
 	size_t num_samples=1000;
 
-	gsl::vector energy_vector=linspace(min_energy, max_energy, num_energies);
+	gsl::vector energy_vector=linspace(min_energy, min_energy, num_energies);
 
-    workspace sampler(time_step, min_energy);
+    workspace sampler(time_step, max_energy);
     gsl::vector samples=sampler.sample_timestep(num_samples);
 
     shared_ptr<doubles_output> samples_table=make_shared<doubles_output>(samples);
