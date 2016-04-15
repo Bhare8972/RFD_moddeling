@@ -9,10 +9,10 @@ include_directories ("${ccgsl}")
 
 SET(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
 SET(BUILD_SHARED_LIBRARIES OFF)
-SET(CMAKE_EXE_LINKER_FLAGS "-static")
+SET(CMAKE_EXE_LINKER_FLAGS "-static -Wl,--no-as-needed,-u,pthread_join,-u,pthread_equal")
 
 
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -fmax-errors=10 -Wall -g")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fmax-errors=10 -Wall -g" )
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
 
@@ -23,5 +23,5 @@ target_link_libraries(make_ionization_tables gsl gslcblas)
 
 add_executable(make_diffusion_tables
               ./make_diffusion_tables.cpp)
-target_link_libraries(make_diffusion_tables gsl gslcblas)
+target_link_libraries(make_diffusion_tables gsl gslcblas pthread)
 

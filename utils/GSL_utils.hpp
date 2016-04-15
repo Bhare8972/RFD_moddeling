@@ -2,6 +2,7 @@
 #ifndef GSL_UTILS
 #define GSL_UTILS
 #include <cmath>
+#include <list>
 #include "vector.hpp"
 #include "vector_float.hpp"
 #include "gen_ex.hpp"
@@ -75,7 +76,19 @@ gsl::vector make_vector(size_t length, double value=0.0)
 	return out;
 }
 
-gsl::vector cross(gsl::vector A, gsl::vector B)
+gsl::vector make_vector(const std::list<double> &data)
+{
+	gsl::vector out(data.size());
+	size_t i=0;
+	for(double value : data)
+	{
+		out[i]=value;
+		i++;
+	}
+	return out;
+}
+
+gsl::vector cross(gsl::vector& A, gsl::vector& B)
 {
 	if((A.size() != 3) or (B.size() != 3))
 	{

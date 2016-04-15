@@ -6,6 +6,10 @@
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
 #include <ctime>
+#include <list>
+#include <thread>
+#include <mutex>
+#include <sstream>
 
 #include "constants.hpp"
 #include "GSL_utils.hpp"
@@ -16,6 +20,8 @@
 #include "gen_ex.hpp"
 
 using namespace std;
+
+mutex cout_mutex;
 
 class diff_cross_section : public functor_1D
 {
@@ -60,15 +66,24 @@ public:
 
 class workspace
 {
-private:
+public:
 	diff_cross_section cross_section;
+	double energy_;
 
 	shared_ptr<poly_quad_spline> spline_sampler;
+    mutex sampler_mutex;
 	double num_interactions;
 
-	gsl_rng* rand;
 
-public:
+	list<thread> threads;
+
+	gsl_rng* rand;
+    mutex rand_mutex;
+
+	gsl::vector final_distribution;
+    mutex dist_mutex;
+
+
 	workspace(double timestep, double energy, bool rnd_seed=false) : cross_section(timestep)
 	{
         rand=gsl_rng_alloc(gsl_rng_mt19937);
@@ -93,26 +108,51 @@ public:
     double sample_uniform()
 	//gives a uniform random sample between 0 and 1
 	{
+        lock_guard<mutex> lock(rand_mutex);
 		return gsl_rng_uniform(rand);
 	}
 
     unsigned int sample_num_interactions()
 	//samples poisson distribtion for number of diffusion interactions
 	{
+        lock_guard<mutex> lock(rand_mutex);
         return gsl_ran_poisson (rand, num_interactions);
 	}
 
 	void set_energy(double energy)
 	{
+        energy_=energy;
 		cross_section.set_energy(energy);
 		cum_adap_simps integrator(&cross_section, 0, 3.1415926, 1E4);
 		gsl::vector points=integrator.points();
 		gsl::vector cum_quads=integrator.cum_quads();
 		num_interactions=cum_quads[cum_quads.size()-1]*2*3.1415926;
 		cum_quads/=cum_quads[cum_quads.size()-1]; //normalize to values from 0 to 1
-		spline_sampler=make_shared<poly_quad_spline>(cum_quads, points);// hope the inverse can be represented by spline
-		//but don't worry. WIll throw if not!
-	}
+
+		gsl::vector quad_X;
+		gsl::vector quad_Y;
+        make_fix_spline(cum_quads, points, quad_X, quad_Y);// hope this function will fix the function if the points are singular!
+		spline_sampler=make_shared<poly_quad_spline>(quad_X, quad_Y);
+		spline_sampler->set_lower_fill(quad_X[0]);
+		spline_sampler->set_upper_fill(quad_X[quad_X.size()-1]);
+
+
+        //shared_ptr<doubles_output> cum_quad_table=make_shared<doubles_output>(cum_quads);
+        //shared_ptr<doubles_output> point_table=make_shared<doubles_output>(points);
+        //shared_ptr<doubles_output> value_table=make_shared<doubles_output>(integrator.values());
+        //shared_ptr<doubles_output> quad_X_table=make_shared<doubles_output>(quad_X);
+        //shared_ptr<doubles_output> quad_Y_table=make_shared<doubles_output>(quad_Y);
+
+        //arrays_output array_out;
+        //array_out.add_array(cum_quad_table);
+        //array_out.add_array(point_table);
+        //array_out.add_array(value_table);
+        //array_out.add_array(quad_X_table);
+        //array_out.add_array(quad_Y_table);
+
+        //binary_output fout("./quadrature_tst");
+        //array_out.write_out( &fout);
+    }
 
 	double sample_timestep()
 	{
@@ -123,8 +163,13 @@ public:
 
         for(size_t i=0; i<num_samples; i++)
         {
-            double inclination_scattering=spline_sampler->call( sample_uniform() ); //transform the sample
-            double azimuth_scattering=sample_uniform()*2*3.1415926;
+            double inclination_scattering;
+            double azimuth_scattering;
+            {
+                lock_guard<mutex> lock(sampler_mutex);
+                inclination_scattering=spline_sampler->call( sample_uniform() ); //transform the sample
+                azimuth_scattering=sample_uniform()*2*3.1415926;
+            }
 
             //calculate the three vector magnitudes
             double A=cos(inclination_scattering); //basis vector is original vector
@@ -156,16 +201,48 @@ public:
         return acos(T[2]);
 	}
 
-	gsl::vector sample_timestep(size_t N)
+	void multi_samples(size_t N, size_t lowest_index=0)
 	{
-	    gsl::vector out(N);
 	    for(size_t i=0; i<N; i++)
 	    {
-            if((i%10)==0) print(i);
-	        out[i]=sample_timestep();
+            if((i%100)==0)
+            {
+                lock_guard<mutex> lock(cout_mutex);
+                print(energy_,":", lowest_index, ":", i);
+            }
+
+            double sample=sample_timestep();
+
+            {
+                lock_guard<mutex> lock(dist_mutex);
+                //print("A:", i+lowest_index, final_distribution.size());
+                final_distribution[i+lowest_index]=sample;
+                //print("B");
+            }
 	    }
-	    return out;
 	}
+
+	void start_thread(size_t N, size_t N_threads)
+	{
+        if(threads.size() !=0 ) throw gen_exception("must join before starting more threads");
+        final_distribution=gsl::vector(N);
+        size_t samples_per_thread=int(N/N_threads);
+
+        for(size_t i=0; i<N_threads; i++)
+        {
+            threads.push_back( thread(&workspace::multi_samples, this, samples_per_thread, i*samples_per_thread) );
+            //multi_samples(samples_per_thread, i*samples_per_thread);
+        }
+	}
+
+	void join_thread()
+    {
+        for(auto& T : threads)
+        {
+            T.join();
+        }
+        threads.clear();
+    }
 
 };
 
@@ -175,40 +252,43 @@ int main()
 	double min_energy=0.02; //keV
 	double max_energy=30000; //kev
 	int num_energies=10; //????
-	size_t num_samples=1000;
+	size_t num_samples=10000;
+	size_t threads_per_energy=16; //num threads per energy
+	bool rnd_seed=false;
 
-	gsl::vector energy_vector=linspace(min_energy, min_energy, num_energies);
+	gsl::vector energy_vector=linspace(min_energy, max_energy, num_energies);
 
-    workspace sampler(time_step, max_energy);
-    gsl::vector samples=sampler.sample_timestep(num_samples);
 
-    shared_ptr<doubles_output> samples_table=make_shared<doubles_output>(samples);
+    //start procesing for each energy
+    std::list<workspace> samplers;
+    for(double energy : energy_vector)
+    {
+        samplers.emplace_back(time_step, energy, rnd_seed);
+        samplers.back().start_thread(num_samples, threads_per_energy);
+        //samplers.back().join_thread();
+    }
 
-    arrays_output array_out;
-	array_out.add_array(samples_table);
+    //join threads
+    for(workspace& W : samplers)
+    {
+        W.join_thread();
+    }
+    print("writing to file");
 
-	binary_output fout("./tst");
-	array_out.write_out( &fout);
+    //write to file
+    arrays_output tables_out;
+    shared_ptr<doubles_output> energies_table=make_shared<doubles_output>(energy_vector);
+    tables_out.add_array(energies_table);
 
-	//diff_cross_section scatterer(time_step, min_energy);
+    for(workspace& W : samplers)
+    {
+        shared_ptr<doubles_output> sample_table=make_shared<doubles_output>(W.final_distribution);
+        tables_out.add_array(sample_table);
+    }
 
-    //cum_adap_simps integrator(&scatterer, 0, 3.1415926, 1E4);
-    //print("total integrand:", integrator.quad());
-    //print("state:", integrator.info());
+    stringstream fname;
+    fname<<"../tables/diffusion"<<time_step<<endl;
+	binary_output fout(fname.str());
+	tables_out.write_out( &fout);
 
-    //auto points=integrator.points();
-    //auto values=integrator.values();
-    //auto cum_quads=integrator.cum_quads();
-
-	//shared_ptr<doubles_output> points_table(new doubles_output(points));
-	//shared_ptr<doubles_output> values_table(new doubles_output(values));
-	//shared_ptr<doubles_output> cum_quads_table(new doubles_output(cum_quads));
-
-	//arrays_output array_out;
-	//array_out.add_array(points_table);
-	//array_out.add_array(values_table);
-	//array_out.add_array(cum_quads_table);
-
-	//binary_output fout("./tst");
-	//array_out.write_out( &fout);
 }

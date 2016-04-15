@@ -24,6 +24,7 @@
 #include<new>
 #include<iostream>
 #include<iterator>
+#include<list>
 
 #include"exception.hpp"
 #include"block.hpp"
@@ -55,7 +56,7 @@ namespace gsl {
     {
 		//kahan summation algorithm. Pray that it isn't optimized away
 		double sum = 0.0;
-		double y,t;   
+		double y,t;
 		double c = 0.0;
 		for( size_t i = 0; i<ccgsl_pointer->size; ++i )
 		{
@@ -66,12 +67,12 @@ namespace gsl {
 		}
 		return sum;
 	}
-	
+
 	double sum_of_squares() const
     {
 		//kahan summation algorithm over the squares of components. Pray that it isn't optimized away
 		double sum = 0.0;
-		double y,t;   
+		double y,t;
 		double c = 0.0;
 		for( size_t i = 0; i<ccgsl_pointer->size; ++i )
 		{
@@ -340,6 +341,9 @@ namespace gsl {
       if( count != 0 ) ++*count; // block is now shared.
       return *this;
     }
+
+    //I hate the following function it always makes me unsure what will happen
+
     /**
      * Construct from an object that implements data() and size(). This is primarily intended
      * to allow you to construct from a std::vector<double> or std::array<double,size_t> object.
@@ -352,6 +356,7 @@ namespace gsl {
      * @param v The object that you want this to share data with.
      * @param stride The stride.
      */
+     /*
     template<typename V> vector( V& v, size_t const stride = 1 ){
       size_t const n = v.size() / stride;
       ccgsl_pointer = static_cast<gsl_vector*>( malloc( sizeof( gsl_vector ) ) );
@@ -368,7 +373,7 @@ namespace gsl {
 	throw e;
       }
       *count = 1; // initially there is just one reference to ccgsl_pointer
-    }
+    }*/
     // clone()
     /**
      * The clone function. Use this if you want a copy of the block that does
