@@ -9,7 +9,10 @@ important sources:
 	Dwyer 2007 "Relativistic breakdown in planetary atmospheres"
 
 
-build location needs teh following folders:
+build location needs the following folders:
 algorithm_tests
 make_tables
 tables
+
+
+note that, as of writing this, the premade tables were made on a little-endian machine, but the reading/writing code does not check for correct endianness
