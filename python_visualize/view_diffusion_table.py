@@ -29,15 +29,24 @@ class diff_cross_section(object):
 
 
 if __name__=='__main__':
-    
+    table_index=9
+    n_bins=20
     ##open
-    table_in=array_input( binary_input("./tst_max") )
+    table_in=array_input( binary_input("../tables/diffusion/0.01") )
     
-    samples_table=table_in.get_array()
-    samples=samples_table.read_doubles()
+    energies_table=table_in.get_array()
+    energies=energies_table.read_doubles()
     
-    print len(samples)
-    plt.hist(samples, bins=10, range=(0, np.pi))
+    tables=[]
+    for table_i in xrange(table_in.size-1):
+        samples_table=table_in.get_array()
+        samples=samples_table.read_doubles()
+        tables.append(samples)
+    print len(tables),"energies available"
+    
+    
+    print len(tables[table_index]), "samples at:", energies[table_index], "kev"
+    plt.hist(tables[table_index], bins=n_bins, range=(0, np.pi))
     plt.show()
     
     

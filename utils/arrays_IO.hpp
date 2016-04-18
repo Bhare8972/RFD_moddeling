@@ -131,6 +131,11 @@ public:
         num_left=size;
     }
 
+    int32_t get_size()
+    {
+        return size;
+    }
+
     gsl::vector_int read_ints()
     {
         if(type!=1){ throw gen_exception("cannot read integers from file"); }

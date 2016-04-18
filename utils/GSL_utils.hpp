@@ -3,23 +3,49 @@
 #define GSL_UTILS
 #include <cmath>
 #include <list>
+#include <mutex>
 #include "vector.hpp"
 #include "vector_float.hpp"
 #include "gen_ex.hpp"
 #include "iostream"
 
 //first, a python-like print function
-void print()
-{
-	std::cout<<std::endl;
-}
+//void print()
+//{
+//	std::cout<<std::endl;
+//}
+//
+//template< typename T, typename...Ts>
+//void print(T msg_head, Ts... msg)
+//{
+//	std::cout<<msg_head<<' ';
+//	print(msg...);
+//}
 
-template< typename T, typename...Ts>
-void print(T msg_head, Ts... msg)
+class print_class
+// to allow for python-style printing in a thread-safe maner
 {
-	std::cout<<msg_head<<' ';
-	print(msg...);
-}
+private:
+    std::mutex cout_mutex;
+
+public:
+    void operator()()
+    {
+        std::lock_guard<std::mutex> lock(cout_mutex);
+        std::cout<<std::endl;
+    }
+
+    template< typename T, typename...Ts>
+    void operator()(T msg_head, Ts... msg)
+    {
+        {
+            std::lock_guard<std::mutex> lock(cout_mutex);
+            std::cout<<msg_head<<' ';
+        }
+        (*this)(msg...);
+    }
+}print; //make available to call as 'print'
+
 
 //functions for making new vectors
 gsl::vector linspace(double start, double stop, size_t length)

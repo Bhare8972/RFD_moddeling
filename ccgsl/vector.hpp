@@ -115,6 +115,17 @@ namespace gsl {
 		}
 	}
 
+    void operator+=(double const& v)
+    {
+		// check if vectors are null
+		if( ccgsl_pointer == 0 ) throw vector_exception();
+		//ADD!
+		for( size_t i = 0; i<ccgsl_pointer->size; ++i )
+		{
+			(*this)[i]+=v;
+		}
+	}
+
     vector operator-(vector const& v) const
     {
 		// check if vectors are null
@@ -127,6 +138,18 @@ namespace gsl {
 		for( size_t i = 0; i<ccgsl_pointer->size; ++i )
 		{
 			new_vector[i]=(*this)[i]-v[i];
+		}
+		return new_vector;
+	}
+
+    vector operator-(double const& v) const
+    {
+		// check if vectors are null
+		if( ccgsl_pointer == 0 ) throw vector_exception();
+		vector new_vector(ccgsl_pointer->size);
+		for( size_t i = 0; i<ccgsl_pointer->size; ++i )
+		{
+			new_vector[i]=(*this)[i]-v;
 		}
 		return new_vector;
 	}
@@ -146,6 +169,22 @@ namespace gsl {
 	}
 
 	//multiplication/division
+    vector operator*(vector const& v) const
+    {
+		// check if vectors are null
+		if( ccgsl_pointer == 0 ) throw vector_exception();
+		if( v.ccgsl_pointer == 0 ) throw vector_exception();
+		//check sizes
+		if( ccgsl_pointer->size != v.ccgsl_pointer->size) throw vector_exception();
+		//multiply
+		vector new_vector(ccgsl_pointer->size);
+		for( size_t i = 0; i<ccgsl_pointer->size; ++i )
+		{
+			new_vector[i]=(*this)[i]*v[i];
+		}
+		return new_vector;
+	}
+
     vector operator*(double const& v) const
     {
 		// check if vectors are null

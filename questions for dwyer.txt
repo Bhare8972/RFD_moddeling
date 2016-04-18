@@ -1,0 +1,8 @@
+how to solve equations of motion?
+how to choose timesteps?
+
+source of stopping powers table? range of energies?
+
+methods and final shape of shielded coulomb scattering?
+interpolation between distributions?
+how to pick energies: number?  linear or logrithmic?

@@ -23,7 +23,7 @@ def beth_force( momentum_squared):
     return np.nan_to_num( inv_beta_squared*(term1 - term2 + term3 + term4))
 
 if __name__=='__main__':
-    table_in=array_input( binary_input("./ionization_losses") )
+    table_in=array_input( binary_input("../tables/ionization_losses") )
     
     electron_mom_sq_table=table_in.get_array()
     electron_mom_sq=electron_mom_sq_table.read_floats()

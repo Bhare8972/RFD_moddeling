@@ -21,7 +21,7 @@
 
 using namespace std;
 
-mutex cout_mutex;
+mutex cout_mutex; //remove this and hope it works!!
 
 class diff_cross_section : public functor_1D
 {
@@ -256,7 +256,7 @@ int main()
 	size_t threads_per_energy=16; //num threads per energy
 	bool rnd_seed=false;
 
-	gsl::vector energy_vector=linspace(min_energy, max_energy, num_energies);
+	gsl::vector energy_vector=linspace(min_energy, max_energy, num_energies);//maybe this needs to be logspace
 
 
     //start procesing for each energy
@@ -287,7 +287,7 @@ int main()
     }
 
     stringstream fname;
-    fname<<"../tables/diffusion"<<time_step<<endl;
+    fname<<"../tables/diffusion/"<<time_step;
 	binary_output fout(fname.str());
 	tables_out.write_out( &fout);
 

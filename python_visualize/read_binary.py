@@ -7,7 +7,7 @@ class binary_input(object):
         self.fin=file(fname, 'rb')
         
     def in_short(self):
-        return unpack('b', self.fin.read(1) )[0]
+        return unpack('b', self.fin.read(1))[0]
         
     def in_int(self):
         return unpack('i', self.fin.read(4))[0]

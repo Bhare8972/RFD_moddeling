@@ -7,6 +7,9 @@
 #include<cstdint>
 #include<memory>
 
+#include "gen_ex.hpp"
+
+
 class binary_output
 {
    public:
@@ -42,10 +45,10 @@ class binary_input
 {
 public:
     std::shared_ptr<std::ifstream> in_file;
-    
+
     binary_input()
     {}
-    
+
     binary_input(const binary_input& IN)
     {
 		in_file=IN.in_file;// and we pray
@@ -54,6 +57,7 @@ public:
     binary_input(std::string fname)
     {
 		in_file=std::make_shared<std::ifstream>(fname.c_str(), std::ios_base::binary);
+		if(not in_file->is_open()) throw gen_exception("file:", fname, "could not be opened");
 	}
 
     int8_t in_short()

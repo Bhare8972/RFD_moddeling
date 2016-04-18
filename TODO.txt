@@ -5,3 +5,9 @@ need to test integation and spline fitting to make sure it makes sence
 other:
 reorganize code into differant files. hpp vs cpp? - make code modular to be able to easily build different simulations
 improve utility documentation.  less important.
+fix print utility to be thread safe
+figure out why interpolant is not thread safe
+try to remove a few mutexes from make_diffusion_table
+consider changing energy  list in make_diffusion_table to log-spacing
+make reading/writing binary files to correctly handel big-endian machines
+

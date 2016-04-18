@@ -6,12 +6,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or (at
  * your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
@@ -43,16 +43,32 @@ namespace gsl {
      * The default constructor creates a new histogram with n elements.
      * @param n number of bins
      */
-    explicit histogram( size_t const n ){
-      ccgsl_pointer = gsl_histogram_alloc( n );
-      // just plausibly we could allocate histogram but not count
-      try { count = new size_t; } catch( std::bad_alloc& e ){
-	// try to tidy up before rethrowing
-	gsl_histogram_free( ccgsl_pointer );
-	throw e;
-      }
-      *count = 1; // initially there is just one reference to ccgsl_pointer
+    explicit histogram( size_t const n )
+    {
+          ccgsl_pointer = gsl_histogram_alloc( n );
+          // just plausibly we could allocate histogram but not count
+          try { count = new size_t; } catch( std::bad_alloc& e ){
+        // try to tidy up before rethrowing
+        gsl_histogram_free( ccgsl_pointer );
+        throw e;
+          }
+          *count = 1; // initially there is just one reference to ccgsl_pointer
     }
+
+    explicit histogram( size_t const n, double xmin, double xmax )
+    {
+          ccgsl_pointer = gsl_histogram_alloc( n );
+          // just plausibly we could allocate histogram but not count
+          try { count = new size_t; } catch( std::bad_alloc& e ){
+        // try to tidy up before rethrowing
+        gsl_histogram_free( ccgsl_pointer );
+        throw e;
+          }
+          *count = 1; // initially there is just one reference to ccgsl_pointer
+
+          gsl_histogram_set_ranges_uniform( ccgsl_pointer, xmin, xmax );
+    }
+
     /**
      * Could construct from a gsl_histogram.
      * This is not usually a good idea. In this case
@@ -170,7 +186,7 @@ namespace gsl {
      * standard lexicographical ordering and so is not useful,
      * for example, for checking, that a histogram is nonnegative.
      * @param v The histogram to be compared with @c this
-     * @return @c false or @c true according as @c this is no 
+     * @return @c false or @c true according as @c this is no
      * less than @c v lexicographically
      */
     bool operator>=( histogram const& v ) const { return ccgsl_pointer >= v.ccgsl_pointer; }
@@ -207,7 +223,7 @@ namespace gsl {
     gsl_histogram* get() const { return ccgsl_pointer; }
     /**
      * Find if this is the only object sharing the gsl_histogram.
-     * @return @c true or @c falses according as 
+     * @return @c true or @c falses according as
      * this is the only histogram object sharing the gsl_histogram.
      */
     bool unique() const { return count != 0 and *count == 1; }
@@ -242,13 +258,26 @@ namespace gsl {
      */
     inline static histogram calloc_uniform( size_t const n, double const xmin, double const xmax ){
       return histogram( gsl_histogram_calloc_uniform( n, xmin, xmax ) ); }
-    
+
     /**
      * C++ version of gsl_histogram_increment().
      * @param x A real value
      * @return Error code on failure
      */
     int increment( double x ){ return gsl_histogram_increment( get(), x ); }
+
+
+    void increment( gsl::vector X )
+    {
+        for(double v : X)
+        {
+            int i=gsl_histogram_increment( get(), v );
+            if(i!=0)
+            {
+                throw gsl::exception("histrogram increment value out of range", "histogram.hpp", 277, i);
+            }
+        }
+    }
 
     /**
      * C++ version of gsl_histogram_accumulate().
@@ -635,7 +664,7 @@ namespace gsl {
        * standard lexicographical ordering and so is not useful,
        * for example, for checking, that a pdf is nonnegative.
        * @param v The pdf to be compared with @c this
-       * @return @c false or @c true according as @c this is no 
+       * @return @c false or @c true according as @c this is no
        * less than @c v lexicographically
        */
       bool operator>=( pdf const& v ) const { return ccgsl_pointer >= v.ccgsl_pointer; }
@@ -672,7 +701,7 @@ namespace gsl {
       gsl_histogram_pdf* get() const { return ccgsl_pointer; }
       /**
        * Find if this is the only object sharing the gsl_histogram_pdf.
-       * @return @c true or @c falses according as 
+       * @return @c true or @c falses according as
        * this is the only pdf object sharing the gsl_histogram_pdf.
        */
       bool unique() const { return count != 0 and *count == 1; }
