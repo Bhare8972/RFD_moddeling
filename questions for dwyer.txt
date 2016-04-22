@@ -1,8 +1,17 @@
 how to solve equations of motion?
 how to choose timesteps?
+	Adaptive runge-kutta?
+	error tollerance? how to calculate error from vector?
 
 source of stopping powers table? range of energies?
+	subtract bhaba scattering off of positron ionization loss
 
 methods and final shape of shielded coulomb scattering?
 interpolation between distributions?
 how to pick energies: number?  linear or logrithmic?
+
+recombination of low-energy electrons?
+if particles have different timesteps, then couldn't electrons that recombine with atmosphere affect particles at wrong time?
+
+Why include should minimum energy for moller scattering be K_thresh (energy for runaway)??
+Why do I have on the order of 255 interactions per tau?

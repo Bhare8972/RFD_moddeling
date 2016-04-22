@@ -1,9 +1,13 @@
 
 #include <iostream>
+#include <string>
+#include <cmath>
 #include "vector_float.hpp"
 #include "constants.hpp"
 #include "arrays_IO.hpp"
 using namespace std;
+//TODO: change all to doubles?
+
 // this file writes the values found in the ICRU report 37 into a format that can be easily read by the program.
 // this writes the table in dimensionless units, where energy is converted to momentum^2
 // that can be used in the simulation with no conversion
@@ -49,10 +53,26 @@ double density=1.205E-3; // g cm^-3
 double air_molecular_density=2.688E25; // m^-3
 double electron_classical_radius=2.8179E-15;
 
+double moller_losses(double energy)
+//energy is dimensionless, output is dimensionless
+{
+    double gamma=energy+1;
+    double beta_sq=1-1.0/(gamma*gamma);
+    double term_1=log(energy/(2.0*minimum_energy));
+    double term_2=minimum_energy/(energy-minimum_energy);
+    double term_3_factor1=1+(2/gamma)-1.0/(gamma*gamma);
+    double term_3_factor2=log(2*(energy-minimum_energy)/energy);
+    double term_4=energy*energy/(8*gamma*gamma);
+    double term_5=minimum_energy*minimum_energy/(2*gamma*gamma);
+    return (term_1 - term_2 - term_3_factor1*term_3_factor2 + term_4 - term_5 +1)/beta_sq; 
+}
+
 int main()
 {
+    bool remove_moller_losses=true;
+    
 	//convert energies to dimensionless units
-	double kev_to_dimensionless=kilo*elementary_charge/electron_rest_energy;
+	double kev_to_dimensionless=Kilo*elementary_charge/electron_rest_energy;
 	electron_energy*=kev_to_dimensionless;
 	positron_energy*=kev_to_dimensionless;
 
@@ -68,6 +88,17 @@ int main()
 	electron_SP*=conversion_factor;
 	positron_SP*=conversion_factor;
 
+    //remove energy losses due to moller scattering, maybe?
+    if(remove_moller_losses)
+    {
+        for(size_t i=0; i<electron_energy.size(); i++)
+        {
+            if(electron_energy[i]>(minimum_energy*2.0))
+            {
+                electron_SP[i]-=moller_losses(electron_energy[i]);
+            }
+        }
+    }
 
 	//save into a table!
 	shared_ptr<floats_output> electron_energy_table(new floats_output(electron_mom_sq));
@@ -81,6 +112,12 @@ int main()
 	array_out.add_array(positron_energy_table);
 	array_out.add_array(positron_SP_table);
 
-	binary_output fout("../tables/ionization_losses");
+    string fname="../tables/ionization_losses";
+    if(remove_moller_losses)
+    {
+        fname="../tables/ionization_losses_RML";
+    }
+
+	binary_output fout(fname);
 	array_out.write_out( &fout);
 }

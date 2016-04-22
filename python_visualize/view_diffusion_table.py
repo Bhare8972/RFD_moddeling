@@ -27,29 +27,42 @@ class diff_cross_section(object):
     def integrand(self, angle):
         return self.cross_section(angle)*np.sin(angle)
 
+class histogram(object):
+    def __init__(self, table_in):
+        hist_table=table_in.get_array()
+        range_table=hist_table.get_array()
+        self.ranges=range_table.read_doubles()
+        value_table=hist_table.get_array()
+        self.values=value_table.read_doubles()
+
+    def samples(self):
+        return np.sum(self.values)
+
+    def plot(self):
+        plt.bar(self.ranges[:-1], self.values, self.ranges[1:]-self.ranges[:-1])
+
+
 
 if __name__=='__main__':
     table_index=9
-    n_bins=20
     ##open
-    table_in=array_input( binary_input("../tables/diffusion/0.01") )
-    
+    table_in=array_input( binary_input("../tables/diffusion/0.0001") )
+
     energies_table=table_in.get_array()
     energies=energies_table.read_doubles()
-    
+
     tables=[]
     for table_i in xrange(table_in.size-1):
-        samples_table=table_in.get_array()
-        samples=samples_table.read_doubles()
-        tables.append(samples)
+        tables.append(histogram(table_in))
     print len(tables),"energies available"
-    
-    
-    print len(tables[table_index]), "samples at:", energies[table_index], "kev"
-    plt.hist(tables[table_index], bins=n_bins, range=(0, np.pi))
+
+
+    print tables[table_index].samples(), "samples at:", energies[table_index], "kev"
+    ##plt.hist(tables[table_index], bins=n_bins, range=(0, np.pi))
+    tables[table_index].plot()
     plt.show()
-    
-    
+
+
     #~table_in=array_input( binary_input("./quadrature_tst") )
     #~
     #~cumquads_table=table_in.get_array()
@@ -77,4 +90,4 @@ if __name__=='__main__':
 
 
 
-    
+

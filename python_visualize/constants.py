@@ -24,6 +24,7 @@ time_units=172.0*nano # seconds
 distance_units=C*time_units #fundamental length scale, in meters
 E_field_units=electron_rest_energy/(elementary_charge*C*time_units) #units of electric field in G V/m
 B_field_units=E_field_units/C #units of magnetic field in GT
+energy_units_kev=electron_rest_energy/(1000.0*elementary_charge) ##units of energy in terms of keV
 
 ##constants not used in simulation
 electron_mass=9.1093835e-31 ## mass of electron in kg

@@ -25,3 +25,7 @@ add_executable(make_diffusion_tables
               ./make_diffusion_tables.cpp)
 target_link_libraries(make_diffusion_tables gsl gslcblas pthread)
 
+add_executable(make_moller_tables
+              ./make_moller_tables.cpp)
+target_link_libraries(make_moller_tables gsl gslcblas pthread)
+

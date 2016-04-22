@@ -2,25 +2,41 @@
 #ifndef DIFFUSION_TABLE
 #define DIFFUSION_TABLE
 #include <sstream>
-#include <map>
 #include <vector>
 #include <gsl/gsl_rng.h>
 #include <ctime>
+#include <fstream>
+#include <string>
 
-#include "directories.hpp"
 #include "arrays_IO.hpp"
 #include "GSL_utils.hpp"
 #include "histogram.hpp"
 #include "gen_ex.hpp"
-
-namespace
-{
-    size_t num_bins=20;
-}
+#include "integrate.hpp"
 
 class diffusion_table
 {
 private:
+
+    //static const size_t num_bins=20;
+
+    static
+    std::vector<std::string> available_timesteps()
+    //open up appropriate file and return the timestep files that are available.
+    //keep timesteps in string format, to avoid floating point issues, which we need to use this as a file name later
+    {
+        std::ifstream input("./tables/diffusion/timesteps.txt");
+        size_t num_timesteps=0;
+        input>>num_timesteps;
+        std::vector<std::string> output;
+        output.resize(num_timesteps);
+        for(size_t i=0; i<num_timesteps; i++)
+        {
+            input>>output[i];
+        }
+        return output; //slow copy. don't care.
+    }
+
     class timestep_table
     {
     public:
@@ -47,15 +63,15 @@ private:
             size_t i=1;
             for(double mom_squared : momentum_squareds)
             {
-                print("energy index:", i);
                 (void)mom_squared; //does nothing. silance unused variable warning
-                array_input samples_table=table_in.get_array();
-                gsl::vector samples=samples_table.read_doubles();
+                array_input distribution_table=table_in.get_array();
+                array_input ranges_table=distribution_table.get_array();
+                gsl::vector ranges=ranges_table.read_doubles();
+                array_input values_table=distribution_table.get_array();
+                gsl::vector values=values_table.read_doubles();
 
-                gsl::histogram hist(num_bins, 0, 2*3.1415926);
-                hist.increment(samples);
-
-                distributions.emplace_back(num_bins);
+                gsl::histogram hist(ranges, values);
+                distributions.emplace_back(values.size());
                 distributions.back().init(hist);
                 i++;
             }
@@ -91,16 +107,16 @@ public:
             gsl_rng_set(rand, 0);
         }
 
-        auto tables=list_dir_contents("./tables/diffusion");
-        timesteps=make_vector(tables.size(), 0.0);
-        time_tables.reserve(tables.size());
+
+        std::vector<std::string> table_fnames=available_timesteps();
+        timesteps=make_vector(table_fnames.size(), 0.0);
+        time_tables.reserve(table_fnames.size());
         size_t i=0;
-        for(auto table_name : tables)
+        for(auto table_name : table_fnames)
         {
-            CHECK IS A FILE
             std::stringstream s;
             s<<table_name;
-            s>>timesteps[i];//name of file should be timestep
+            s>>timesteps[i];//name of file is a   timestep
             std::stringstream S2;
             S2<<"./tables/diffusion/"<<table_name;
             time_tables.emplace_back(rand, S2.str());
@@ -117,6 +133,8 @@ public:
     {
         //find right timestep, using linear search becouse we want only exact match, and there may only be one element
         //maybe fix this in future
+        timestep=0.0001;//break this for now
+        
         size_t timestep_ind=0;
         bool found=false;
         for(; timestep_ind<timesteps.size(); timestep_ind++)
@@ -126,6 +144,7 @@ public:
                 found=true;
                 break;
             }
+            if(timestep<timesteps[timestep_ind]) break;//not found
         }
         if(not found) throw gen_exception("timestep:",timestep," not in tables");
 

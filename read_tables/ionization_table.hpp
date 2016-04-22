@@ -1,4 +1,5 @@
 ﻿
+#include <string>
 #include "arrays_IO.hpp"
 #include "GSL_utils.hpp"
 
@@ -14,9 +15,14 @@ private:
 	gsl::vector positron_SP;
 
 public:
-	ionization_table()
+	ionization_table(bool remove_moller_losses=true)
 	{
-		binary_input fin("./tables/ionization_losses");
+        std::string fname("./tables/ionization_losses");
+        if(remove_moller_losses)
+        {
+            fname="./tables/ionization_losses_RML";
+        }
+		binary_input fin(fname);
 		array_input table_in(fin);
 
 		array_input electron_mom_sq_table=table_in.get_array();
@@ -35,7 +41,23 @@ public:
 	double electron_lookup(double electron_mom_sq_)
 	{
 		//get location
-		size_t index=search_sorted_f(electron_mom_sq, electron_mom_sq_);
+        size_t index;
+        try
+        {
+		    index=search_sorted_f(electron_mom_sq, electron_mom_sq_);
+        }
+        catch(gen_exception)
+        {
+            if(electron_mom_sq_<electron_mom_sq[0])
+            {
+                throw gen_exception("electron momentum squared( ", electron_mom_sq_, ") below table");
+            }
+            else
+            {
+                throw gen_exception("electron momentum squared( ", electron_mom_sq_, ") above table");
+            }
+        }
+        
 
 		//do linear interpolation
 		return electron_SP[index] + (electron_SP[index+1] - electron_SP[index])*(electron_mom_sq[index]-electron_mom_sq_)/(electron_mom_sq[index]-electron_mom_sq[index+1]);

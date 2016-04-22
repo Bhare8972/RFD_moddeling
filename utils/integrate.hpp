@@ -508,7 +508,7 @@ public:
             }
         }
 
-		if(X>x_vals[1])
+		if(X>x_vals[x_vals.size()-1])
 		{
             if(upper_fill!=upper_fill)
             {

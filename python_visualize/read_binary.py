@@ -18,6 +18,14 @@ class binary_input(object):
     def in_double(self):
         return unpack('d', self.fin.read(8))[0]
         
+    def at_end(self):
+		L=self.fin.read(1)
+		if L=='':
+			return True
+		else:
+			self.fin.seek(-1,1)
+			return False
+        
 class array_input(object):
     def __init__(self, binary_in):
         self.fin=binary_in

@@ -11,6 +11,9 @@
 #include <mutex>
 #include <sstream>
 
+#include "vector.hpp"
+#include "histogram.hpp"
+
 #include "constants.hpp"
 #include "GSL_utils.hpp"
 #include "binary_IO.hpp"
@@ -20,8 +23,6 @@
 #include "gen_ex.hpp"
 
 using namespace std;
-
-mutex cout_mutex; //remove this and hope it works!!
 
 class diff_cross_section : public functor_1D
 {
@@ -70,7 +71,7 @@ public:
 	diff_cross_section cross_section;
 	double energy_;
 
-	shared_ptr<poly_quad_spline> spline_sampler;
+	shared_ptr<poly_quad_spline> spline_sampler; //why do we need a mutex for this?
     mutex sampler_mutex;
 	double num_interactions;
 
@@ -80,11 +81,12 @@ public:
 	gsl_rng* rand;
     mutex rand_mutex;
 
-	gsl::vector final_distribution;
+	gsl::histogram distribution;
     mutex dist_mutex;
+    size_t num_bins;
 
 
-	workspace(double timestep, double energy, bool rnd_seed=false) : cross_section(timestep)
+	workspace(double timestep, double energy, size_t num_bins_, bool rnd_seed=false) : cross_section(timestep)
 	{
         rand=gsl_rng_alloc(gsl_rng_mt19937);
 		if(rnd_seed)
@@ -98,6 +100,8 @@ public:
         }
 
 		set_energy(energy);
+		num_bins=num_bins_;
+		distribution=gsl::histogram(num_bins, 0, 3.1415926);
 	}
 
     ~workspace()
@@ -201,78 +205,161 @@ public:
         return acos(T[2]);
 	}
 
-	void multi_samples(size_t N, size_t lowest_index=0)
+	void multi_samples(size_t N)
 	{
 	    for(size_t i=0; i<N; i++)
 	    {
-            if((i%100)==0)
-            {
-                lock_guard<mutex> lock(cout_mutex);
-                print(energy_,":", lowest_index, ":", i);
-            }
-
             double sample=sample_timestep();
 
             {
                 lock_guard<mutex> lock(dist_mutex);
+                distribution.increment(sample);
                 //print("A:", i+lowest_index, final_distribution.size());
-                final_distribution[i+lowest_index]=sample;
+                //final_distribution[i+lowest_index]=sample;
                 //print("B");
             }
 	    }
 	}
 
-	void start_thread(size_t N, size_t N_threads)
+	void start_thread(size_t samples_perThread_perRun, size_t N_threads, double percent_error)
 	{
         if(threads.size() !=0 ) throw gen_exception("must join before starting more threads");
-        final_distribution=gsl::vector(N);
-        size_t samples_per_thread=int(N/N_threads);
 
+        //sample for the required number of times
         for(size_t i=0; i<N_threads; i++)
         {
-            threads.push_back( thread(&workspace::multi_samples, this, samples_per_thread, i*samples_per_thread) );
+            threads.push_back( thread(&workspace::multi_samples, this, samples_perThread_perRun) );
             //multi_samples(samples_per_thread, i*samples_per_thread);
         }
-	}
 
-	void join_thread()
-    {
         for(auto& T : threads)
         {
             T.join();
         }
         threads.clear();
-    }
+
+
+        bool keep_running=true;
+        size_t n_runs=0;
+        while(keep_running)
+        {
+            gsl::vector old_distribution=distribution.get_bin_values();
+
+            //sample for the required number of times
+            for(size_t i=0; i<N_threads; i++)
+            {
+                threads.push_back( thread(&workspace::multi_samples, this, samples_perThread_perRun) );
+                //multi_samples(samples_per_thread, i*samples_per_thread);
+            }
+
+            for(auto& T : threads)
+            {
+                T.join();
+            }
+            threads.clear();
+
+            //estimate error
+
+            //first bin
+//            double N_pnts=distribution[0];
+//            double DH=abs(distribution[0]-distribution[1]);
+//            double error_factor=DH/sqrt(N_pnts);
+//            if(N_pnts==0)
+//            {
+//                error_factor=0;
+//            }
+//
+//            //last_bin
+//            N_pnts=distribution[num_bins-1];
+//            DH=abs(distribution[num_bins-1]-distribution[num_bins-2]);
+//            double next_error_factor=DH/sqrt(N_pnts);
+//            if(N_pnts==0)
+//            {
+//                next_error_factor=0;
+//            }
+//            if(next_error_factor>error_factor)
+//            {
+//                error_factor=next_error_factor;
+//            }
+
+            //all the bins in the middle
+            double error_factor=0;
+            for(size_t bin_i=0; bin_i<num_bins-1; bin_i++)
+            {
+                double N_pnts=distribution[bin_i];
+                if(N_pnts==0)
+                {
+                    continue;
+                }
+
+                double DH=N_pnts-old_distribution[bin_i];
+                double next_error_factor=DH/N_pnts;
+//                double DH_L=abs(distribution[bin_i]-distribution[bin_i-1]);
+//                double DH_R=abs(distribution[bin_i]-distribution[bin_i+1]);
+//                DH=fmin(DH_L, DH_R);
+//                next_error_factor=DH/sqrt(N_pnts);
+//                if(N_pnts==0)
+//                {
+//                    next_error_factor=0; //ignore it
+//                }
+//
+                if(next_error_factor>error_factor)
+                {
+                    error_factor=next_error_factor;
+                }
+            }
+            print(energy_, ":", (n_runs+1)*samples_perThread_perRun*N_threads, "  error:", error_factor, "desired error:", percent_error);
+            if(error_factor<percent_error)
+            {
+                keep_running=false;
+            }
+
+            n_runs++;
+        }
+
+	}
+//
+//	void join_thread()
+//    {
+//        for(auto& T : threads)
+//        {
+//            T.join();
+//        }
+//        threads.clear();
+//    }
 
 };
 
 int main()
 {
-	double time_step=0.01;
+	double time_step=0.0001;
 	double min_energy=0.02; //keV
 	double max_energy=30000; //kev
 	int num_energies=10; //????
-	size_t num_samples=10000;
 	size_t threads_per_energy=16; //num threads per energy
+	size_t num_samples_per_energy_per_thread_per_run=100;
+	size_t num_bins=100; //controlls precision of final distribution
+	double error_percent=0.15; //controlls error of bins in y-direction
 	bool rnd_seed=false;
+	gsl::vector energy_vector=logspace(log10(min_energy), log10(max_energy), num_energies);
 
-	gsl::vector energy_vector=linspace(min_energy, max_energy, num_energies);//maybe this needs to be logspace
+
 
 
     //start procesing for each energy
     std::list<workspace> samplers;
     for(double energy : energy_vector)
     {
-        samplers.emplace_back(time_step, energy, rnd_seed);
-        samplers.back().start_thread(num_samples, threads_per_energy);
+        samplers.emplace_back(time_step, energy, num_bins, rnd_seed);
+        samplers.back().start_thread(num_samples_per_energy_per_thread_per_run, threads_per_energy, error_percent);
         //samplers.back().join_thread();
     }
 
     //join threads
-    for(workspace& W : samplers)
-    {
-        W.join_thread();
-    }
+//    for(workspace& W : samplers)
+//    {
+//        W.join_thread();
+//    }
     print("writing to file");
 
     //write to file
@@ -282,8 +369,15 @@ int main()
 
     for(workspace& W : samplers)
     {
-        shared_ptr<doubles_output> sample_table=make_shared<doubles_output>(W.final_distribution);
-        tables_out.add_array(sample_table);
+        shared_ptr<arrays_output> distribution_table=make_shared<arrays_output>();
+
+        shared_ptr<doubles_output> distribution_ranges_table=make_shared<doubles_output>(W.distribution.get_bin_ranges());
+        shared_ptr<doubles_output> distribution_values_table=make_shared<doubles_output>(W.distribution.get_bin_values());
+
+        distribution_table->add_array(distribution_ranges_table);
+        distribution_table->add_array(distribution_values_table);
+
+        tables_out.add_array(distribution_table);
     }
 
     stringstream fname;

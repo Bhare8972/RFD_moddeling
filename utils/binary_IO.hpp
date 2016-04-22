@@ -57,7 +57,7 @@ public:
     binary_input(std::string fname)
     {
 		in_file=std::make_shared<std::ifstream>(fname.c_str(), std::ios_base::binary);
-		if(not in_file->is_open()) throw gen_exception("file:", fname, "could not be opened");
+		if(not in_file->is_open()) throw gen_exception("file: ", fname, " could not be opened");
 	}
 
     int8_t in_short()

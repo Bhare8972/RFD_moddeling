@@ -30,6 +30,64 @@ namespace gsl {
    */
   class histogram {
   public:
+
+  /////my extra functions
+    histogram( size_t const n, double xmin, double xmax )
+    {
+          ccgsl_pointer = gsl_histogram_alloc( n );
+          // just plausibly we could allocate histogram but not count
+          try { count = new size_t; } catch( std::bad_alloc& e ){
+        // try to tidy up before rethrowing
+        gsl_histogram_free( ccgsl_pointer );
+        throw e;
+          }
+          *count = 1; // initially there is just one reference to ccgsl_pointer
+
+          gsl_histogram_set_ranges_uniform( ccgsl_pointer, xmin, xmax );
+    }
+
+    histogram( gsl::vector ranges, gsl::vector values )
+    {
+          ccgsl_pointer = gsl_histogram_alloc( values.size() );
+          // just plausibly we could allocate histogram but not count
+          try { count = new size_t; } catch( std::bad_alloc& e ){
+        // try to tidy up before rethrowing
+        gsl_histogram_free( ccgsl_pointer );
+        throw e;
+          }
+          *count = 1; // initially there is just one reference to ccgsl_pointer
+
+          gsl_histogram_set_ranges( ccgsl_pointer, ranges.data(), ranges.size() );
+
+          for(size_t bin_i=0; bin_i<values.size(); bin_i++)
+          {
+                ccgsl_pointer->bin[bin_i]=values[bin_i];
+          }
+
+    }
+
+
+    gsl::vector get_bin_ranges()
+    {
+        gsl::vector out(ccgsl_pointer->n+1);
+        for(size_t bin_i=0; bin_i<(ccgsl_pointer->n+1); bin_i++)
+        {
+            out[bin_i]=ccgsl_pointer->range[bin_i];
+        }
+        return out;
+    }
+
+    gsl::vector get_bin_values()
+    {
+        gsl::vector out(ccgsl_pointer->n);
+        for(size_t bin_i=0; bin_i<(ccgsl_pointer->n); bin_i++)
+        {
+            out[bin_i]=ccgsl_pointer->bin[bin_i];
+        }
+        return out;
+    }
+
+
     /**
      * The default constructor is only really useful for assigning to.
      */
@@ -53,20 +111,6 @@ namespace gsl {
         throw e;
           }
           *count = 1; // initially there is just one reference to ccgsl_pointer
-    }
-
-    explicit histogram( size_t const n, double xmin, double xmax )
-    {
-          ccgsl_pointer = gsl_histogram_alloc( n );
-          // just plausibly we could allocate histogram but not count
-          try { count = new size_t; } catch( std::bad_alloc& e ){
-        // try to tidy up before rethrowing
-        gsl_histogram_free( ccgsl_pointer );
-        throw e;
-          }
-          *count = 1; // initially there is just one reference to ccgsl_pointer
-
-          gsl_histogram_set_ranges_uniform( ccgsl_pointer, xmin, xmax );
     }
 
     /**
