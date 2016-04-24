@@ -46,8 +46,8 @@ public:
 
 int main()
 {
-	double max_energy=30000; //kev
-	size_t num_energies=30; //????
+	double max_energy=100000; //kev
+	size_t num_energies=100; //????
 
 
 	gsl::vector energy_vector=logspace(log10(minimum_energy*2), log10(max_energy/energy_units_kev), num_energies+1);
@@ -65,7 +65,7 @@ int main()
     //this can be parrellized, but there is presently no reason
 	for(size_t energy_i=0; energy_i<num_energies; energy_i++)//we dont want to sample the precise minimum*2 energy
 	{
-        print("energy:", energy_vector[energy_i+1]*energy_units_kev);
+        print("energy:", energy_vector[energy_i+1]*energy_units_kev, "kev");
         cross_section.set_energy(energy_vector[energy_i+1]);//we don't want to sample the energy minimum_energy*2
         cum_adap_simps integrator(&cross_section, minimum_energy, cross_section.energy/2.0, 1E4);
         gsl::vector points=integrator.points();

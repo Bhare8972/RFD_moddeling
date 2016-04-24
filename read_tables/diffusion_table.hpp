@@ -79,7 +79,25 @@ private:
 
         double sample(double mom_squared)
         {
-            size_t index=search_sorted_d(momentum_squareds, mom_squared);
+
+            size_t index;
+            try
+            {
+                index=search_sorted_d(momentum_squareds, mom_squared);
+            }
+            catch(gen_exception)
+            {
+                if(mom_squared<momentum_squareds[0])
+                {
+                    throw gen_exception("momentum squared( ", mom_squared, ") below diffusion table");
+                }
+                else
+                {
+                    throw gen_exception("momentum squared( ", mom_squared, ") above diffusion table");
+                }
+            }
+
+
             double R=gsl_rng_uniform(rand);
             double low_sample=distributions[index].sample(R);
             double high_sample=distributions[index+1].sample(R);
@@ -134,7 +152,7 @@ public:
         //find right timestep, using linear search becouse we want only exact match, and there may only be one element
         //maybe fix this in future
         timestep=0.0001;//break this for now
-        
+
         size_t timestep_ind=0;
         bool found=false;
         for(; timestep_ind<timesteps.size(); timestep_ind++)

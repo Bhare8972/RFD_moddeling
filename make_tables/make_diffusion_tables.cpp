@@ -12,7 +12,7 @@
 #include <sstream>
 
 #include "vector.hpp"
-#include "histogram.hpp"
+//#include "histogram.hpp"
 
 #include "constants.hpp"
 #include "GSL_utils.hpp"
@@ -23,6 +23,98 @@
 #include "gen_ex.hpp"
 
 using namespace std;
+
+class hist_tool
+{
+private:
+    class bin
+    {
+    public:
+        double num_counts;
+        double lower_range;
+        double upper_range;
+        list<double> values;
+
+        bin(double lower, upper)
+        {
+            lower_range=lower;
+            upper_range=upper;
+            num_counts=0;
+        }
+
+        bin(bin& splice_from)
+        {
+            lower_range=(splice_from.lower_range+splice_from.upper_range)/2.0;
+            upper_range=splice_from.upper_range;
+            bin.upper_range=lower_range;
+            auto iter=splice_from.values.begin();
+            for( ; iter!=splice_from.values.end(); ++iter)
+            {
+                if((*iter)>lower_range) break;
+            }
+            values.splice(values.begin(); iter, splice_from.values.end());
+            num_counts=values.size();
+            splice_from.num_counts=splice_from.values.size();
+        }
+
+        bool increment(double value)
+        {
+            if(value>=lower_range and value<upper_range)
+            {
+                bool inserted=false;
+                for(auto iter=values.begin(); iter!=values.end(); ++iter)
+                {
+                    if( value>=(*iter) and value<(*(++iter)))
+                    {
+                        inserted=true;
+                        break;
+                    }
+                }
+                --iter;
+                I AM HERE!!!
+
+                return true;
+            }
+            else
+            {
+                return false
+            }
+        }
+    }
+
+    list<bin> hist_bins;
+
+public:
+
+    typedef list<bin>::iterator iterator;
+
+    hist_tool(double start, double stop, size_t num_bins)
+    {
+        auto bin_ranges=linspace(start, stop, num_bins+1);
+        for(size_t bin_i=0; bin_i<num_bins; bin_i++)
+        {
+            hist_bins.emplace_back(bin_ranges[bin_i], bin_ranges[bin_i+1]);
+        }
+    }
+
+    iterator begin()
+    {
+        return hist_bins.begin();
+    }
+
+    iterator end()
+    {
+        return hist_bins.end();
+    }
+
+    void increment(double value)
+    {
+        for(bin &B : hist_bins)
+        {
+
+        }
+    }
+};
 
 class diff_cross_section : public functor_1D
 {
@@ -333,8 +425,8 @@ public:
 int main()
 {
 	double time_step=0.0001;
-	double min_energy=0.02; //keV
-	double max_energy=30000; //kev
+	double min_energy=0.1; //keV
+	double max_energy=10000; //kev
 	int num_energies=10; //????
 	size_t threads_per_energy=16; //num threads per energy
 	size_t num_samples_per_energy_per_thread_per_run=100;

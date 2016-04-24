@@ -22,7 +22,9 @@ bool rnd_seed=true; //seed random number generators with a random seed?  If fals
 //inputs
 //double time_step=0.0001; //in units of time_units
 double RKF_kappa=0.7; //kappa factor needed in solving system of equations
-double RKF_error_tol=1.0e-5;//?????
+double RKF_abs_pos_tol=0.00001;
+double RKF_abs_mom_tol=0.0002;//the MINIMUM of these next two errors is chosen
+double RKF_rel_mom_tol=0.001;
 
 //////// input data tables //////
 ionization_table ionization(true);// remove losses due to moller scattering
@@ -243,7 +245,7 @@ gsl::vector charged_force(gsl::vector &position, gsl::vector &momentum, int char
     return force;
 }
 
-/*
+
 void charged_particle_rungeKutta4(particle_T &particle, field* E_field, field* B_field)
 //to make this depend of time, add argument double current_time
 {
@@ -273,7 +275,7 @@ void charged_particle_rungeKutta4(particle_T &particle, field* E_field, field* B
 
     particle.position+=particle.timestep*(K_1_pos + 2.0*K_2_pos + 2.0*K_3_pos + K_4_pos)/6.0;
     particle.momentum+=particle.timestep*(K_1_mom + 2.0*K_2_mom + 2.0*K_3_mom + K_4_mom)/6.0;
-}*/
+}
 
 void charged_particle_RungeKuttaF(particle_T &particle, field* E_field, field* B_field)
 //to make this depend of time, add argument double current_time
@@ -283,9 +285,9 @@ void charged_particle_RungeKuttaF(particle_T &particle, field* E_field, field* B
     while(not acceptable)
     {
         particle.timestep=particle.next_timestep;
-        
+
         //print("T:",particle.timestep);
-        
+
         gsl::vector pos_step=particle.position;
         gsl::vector mom_step=particle.momentum;
 
@@ -327,11 +329,22 @@ void charged_particle_RungeKuttaF(particle_T &particle, field* E_field, field* B
 
         gsl::vector pos_O5=particle.position+K_1_pos*(2825.0/27648.0)+K_3_pos*(18575.0/48384.0)+K_4_pos*(13525.0/55296.0)+K_5_pos*(277.0/14336.0)+K_6_pos*(1.0/4.0);
         gsl::vector mom_O5=particle.momentum+K_1_mom*(2825.0/27648.0)+K_3_mom*(18575.0/48384.0)+K_4_mom*(13525.0/55296.0)+K_5_mom*(277.0/14336.0)+K_6_mom*(1.0/4.0);
-        
-        double error=sqrt( (pos_O4-pos_O5).sum_of_squares() + (mom_O4-mom_O5).sum_of_squares() ); // I hope
-        //print(" E:", error);
-        particle.next_timestep=particle.timestep*RKF_kappa*pow(RKF_error_tol/error, 0.2);
-        if(error<RKF_error_tol)//error is good, exit
+
+        double pos_error_sq=(pos_O4-pos_O5).sum_of_squares() ;
+        double mom_error_sq=(mom_O4-mom_O5).sum_of_squares() ;
+        double rel_mom_error_sq=mom_error_sq/ mom_O5.sum_of_squares();
+        pos_error_sq=RKF_abs_pos_tol*RKF_abs_pos_tol/pos_error_sq;
+        mom_error_sq=RKF_abs_mom_tol*RKF_abs_mom_tol/mom_error_sq;
+        rel_mom_error_sq=RKF_rel_mom_tol*RKF_rel_mom_tol/rel_mom_error_sq;
+
+        //print("  errors:", pos_error_sq, mom_error_sq, rel_mom_error_sq);
+
+        double err_f=min(pos_error_sq, max(mom_error_sq, rel_mom_error_sq));//note the inverses
+
+        //print("  ", err_f);
+
+        particle.next_timestep=particle.timestep*RKF_kappa*pow( sqrt(err_f), 0.2);
+        if(err_f>1)//error is good, exit
         {
             particle.current_time+=particle.timestep;
             particle.position=pos_O5;
@@ -340,7 +353,7 @@ void charged_particle_RungeKuttaF(particle_T &particle, field* E_field, field* B
         }
         else
         {//repeat with new timestep
-            //print(" reject");
+            //print("  reject");
             acceptable=false;
         }
     }
@@ -487,7 +500,7 @@ int main()
         //moller scattering
         list<particle_T> new_electrons;
         particle_apply( do_moller_scattering, electrons, &new_electrons);
-        
+
         //print("D");
         //remove too-low energy electrons
         list<particle_T> removal_particles;

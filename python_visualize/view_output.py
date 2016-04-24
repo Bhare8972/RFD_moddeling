@@ -171,8 +171,20 @@ def KE_VS_time(particles):
     plt.show()
 
 def plot_timesteps(particles):
+    fig=plt.figure()
+    axis=fig.add_subplot(111)
     for p in particles.itervalues():
-        plt.plot(p.get_T()*time_units, np.array(p.timestep_history)*time_units/nano, 'o-')
+        axis.plot(p.get_T()*time_units, np.array(p.timestep_history), 'o-')
+    
+    y1, y2=axis.get_ylim()
+    x1, x2=axis.get_xlim()
+    ax2=axis.twinx()
+    ax2.set_ylim(y1*time_units/nano, y2*time_units/nano)
+    ax2.set_yticks( np.linspace((y1*time_units/nano), (y2*time_units/nano), 5) )
+    ax2.set_ylabel('step size (ns)')
+    ax2.set_xlim(x1, x2)
+    axis.set_ylabel('step size (dimensionless)')
+        
     plt.title("time step size vs time")
     plt.show()
 
