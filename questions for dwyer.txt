@@ -1,3 +1,5 @@
+langiven equations?
+
 how to solve equations of motion?
 how to choose timesteps?
 	Adaptive runge-kutta?
@@ -13,5 +15,5 @@ how to pick energies: number?  linear or logrithmic?
 recombination of low-energy electrons?
 if particles have different timesteps, then couldn't electrons that recombine with atmosphere affect particles at wrong time?
 
-Why include should minimum energy for moller scattering be K_thresh (energy for runaway)??
-Why do I have on the order of 255 interactions per tau?
+Why should minimum energy for moller scattering be K_thresh (energy for runaway)??
+Why do I have on the order of 255 interactions per tau? Is this correct?
