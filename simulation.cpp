@@ -458,9 +458,9 @@ int main()
 
 	//initialize electric field
 	uniform_field E_field;
-	E_field.set_minimum(-Kilo/distance_units, -Kilo/distance_units, -Kilo/distance_units);
-	E_field.set_maximum(Kilo/distance_units, Kilo/distance_units, 10*Kilo/distance_units);
-	E_field.set_value(0, 0, -3e5/E_field_units);
+	E_field.set_minimum(0.0/distance_units, 0.0/distance_units, 0.0/distance_units);
+	E_field.set_maximum(Kilo/distance_units, Kilo/distance_units, 200/distance_units);
+	E_field.set_value(0, 0, -4.3e5/E_field_units);
 	//E_field.set_value(0, 0, 0/E_field_units);
 
 	//magnetic field is zero
@@ -474,11 +474,11 @@ int main()
 	list<particle_T> electrons;
 	electrons.emplace_back();
 	electrons.back().set_position(0,0,0);
-	electrons.back().set_momentum(0,0, KE_to_mom(5000.0*Kilo*elementary_charge/electron_rest_energy) );
+	electrons.back().set_momentum(0,0, KE_to_mom(1000.0*Kilo*elementary_charge/electron_rest_energy) );
 
 	electrons.emplace_back();
 	electrons.back().set_position(0,0,0);
-	electrons.back().set_momentum(0,0, -KE_to_mom(5000.0*Kilo*elementary_charge/electron_rest_energy) );
+	electrons.back().set_momentum(0,0, KE_to_mom(1000.0*Kilo*elementary_charge/electron_rest_energy) );
 
 	//output file
     particle_history_out save_data;

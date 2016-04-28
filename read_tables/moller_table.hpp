@@ -68,7 +68,7 @@ public:
     {
         gsl_rng_free(rand);
     }
-    
+
     double lowest_energy()
     {
         return energies[0];
@@ -76,7 +76,22 @@ public:
 
     void set_energy(double energy)
     {
-        current_index=search_sorted_d(energies, energy);
+        try
+        {
+            current_index=search_sorted_d(energies, energy);
+        }
+        catch(gen_exception)
+        {
+            if(energy<energies[0])
+            {
+                throw gen_exception("energy( ", energy, ") below moller table");
+            }
+            else
+            {
+                throw gen_exception("energy( ", energy, ") above moller table");
+            }
+        }
+
         energy_factor=(energy-energies[current_index])/(energies[current_index+1]-energies[current_index]);
     }
 

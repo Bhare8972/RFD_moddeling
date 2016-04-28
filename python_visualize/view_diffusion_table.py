@@ -39,12 +39,15 @@ class histogram(object):
         return np.sum(self.values)
 
     def plot(self):
-        plt.bar(self.ranges[:-1], self.values, self.ranges[1:]-self.ranges[:-1])
+        print self.ranges
+        S=self.samples()
+        R=self.ranges[1:]-self.ranges[:-1]
+        plt.bar(self.ranges[:-1], self.values/(S*R), R)
 
 
 
 if __name__=='__main__':
-    table_index=9
+    table_index=4
     ##open
     table_in=array_input( binary_input("../tables/diffusion/0.0001") )
 
@@ -58,6 +61,7 @@ if __name__=='__main__':
 
 
     print tables[table_index].samples(), "samples at:", energies[table_index], "kev"
+    print "  ", len(tables[table_index].values), "bins"
     ##plt.hist(tables[table_index], bins=n_bins, range=(0, np.pi))
     tables[table_index].plot()
     plt.show()

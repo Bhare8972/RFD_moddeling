@@ -151,20 +151,20 @@ public:
     {
         //find right timestep, using linear search becouse we want only exact match, and there may only be one element
         //maybe fix this in future
-        timestep=0.0001;//break this for now
 
         size_t timestep_ind=0;
-        bool found=false;
-        for(; timestep_ind<timesteps.size(); timestep_ind++)
+        if(timestep<timesteps[0])
         {
-            if( float(timestep + (timestep-timesteps[timestep_ind])) == float(timestep) )
-            {
-                found=true;
-                break;
-            }
-            if(timestep<timesteps[timestep_ind]) break;//not found
+            timestep_ind=0; //for the redudant department of redundancy
         }
-        if(not found) throw gen_exception("timestep:",timestep," not in tables");
+        else if(timestep>=timesteps[timesteps.size()-1])
+        {
+            timestep_ind=timesteps.size()-1;
+        }
+        else
+        {
+            timestep_ind=search_sorted_d(timesteps, timestep);
+        }
 
         return time_tables[timestep_ind].sample(mom_squared);
     }

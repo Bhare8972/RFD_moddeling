@@ -15,6 +15,12 @@ how to pick energies: number?  linear or logrithmic?
 recombination of low-energy electrons?
 if particles have different timesteps, then couldn't electrons that recombine with atmosphere affect particles at wrong time?
 
+valid energy range for moller cross section?
+
 Why should minimum energy for moller scattering be K_thresh (energy for runaway)??
 The minimum energy in "The Physics of Lightning" is not K_thresh, it is 100 ev, and some electrons are produced at that energy
 Why do I have on the order of 255 interactions per tau? Is this correct?
+
+
+
+How to find area of CRAS network?

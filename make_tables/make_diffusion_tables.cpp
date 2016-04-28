@@ -34,53 +34,82 @@ private:
         double lower_range;
         double upper_range;
         list<double> values;
+        bool splittable;
 
-        bin(double lower, upper)
+        bin(double lower, double upper)
         {
             lower_range=lower;
             upper_range=upper;
             num_counts=0;
+            splittable=true;
         }
 
-        bin(bin& splice_from)
+        bin(bin& splice_from, int I)
         {
+            I++;//don't worry about it
             lower_range=(splice_from.lower_range+splice_from.upper_range)/2.0;
             upper_range=splice_from.upper_range;
-            bin.upper_range=lower_range;
+            splice_from.upper_range=lower_range;
             auto iter=splice_from.values.begin();
             for( ; iter!=splice_from.values.end(); ++iter)
             {
-                if((*iter)>lower_range) break;
+                if((*iter)>=lower_range) break;
             }
-            values.splice(values.begin(); iter, splice_from.values.end());
+            values.splice(values.begin(), splice_from.values, iter, splice_from.values.end());
             num_counts=values.size();
             splice_from.num_counts=splice_from.values.size();
+            //print(" lower:", splice_from.lower_range, splice_from.upper_range);
+            //print(" upper:", lower_range, upper_range);
+
+            double V=(lower_range+upper_range)/2.0;
+            if(V!=lower_range and V!=upper_range)
+            {
+                splittable=false;
+            }
+            else
+            {
+                splittable=true;
+            }
         }
 
         bool increment(double value)
         {
             if(value>=lower_range and value<upper_range)
             {
-                bool inserted=false;
-                for(auto iter=values.begin(); iter!=values.end(); ++iter)
+                if(num_counts==0)
                 {
-                    if( value>=(*iter) and value<(*(++iter)))
+                    values.push_back(value);
+                }
+                else if(value<values.front())
+                {
+                    values.push_front(value);
+                }
+                else if(value>=values.back())
+                {
+                    values.push_back(value);
+                }
+                else
+                {
+                    for(auto iter=(++values.begin()); iter!=values.end(); ++iter)
                     {
-                        inserted=true;
-                        break;
+                        if(value<(*iter))
+                        {
+                            --iter;
+                            values.insert(iter, value);
+                            break;
+                        }
                     }
                 }
-                --iter;
-                I AM HERE!!!
 
+                num_counts++;
                 return true;
             }
             else
             {
-                return false
+                return false;
             }
         }
-    }
+    };
 
     list<bin> hist_bins;
 
@@ -111,8 +140,49 @@ public:
     {
         for(bin &B : hist_bins)
         {
-
+            if(B.increment(value)) break;
         }
+    }
+
+    void split(iterator IT)
+    {
+        iterator IN=IT;
+        hist_bins.emplace(++IN, *IT, 0);
+    }
+
+    gsl::vector get_bin_ranges()
+    {
+        gsl::vector out(hist_bins.size()+1);
+
+        size_t i=0;
+        for(bin &B : hist_bins)
+        {
+            out[i]=B.lower_range;
+            i++;
+        }
+
+        out[hist_bins.size()]=hist_bins.back().upper_range;
+
+        return out;
+    }
+
+    gsl::vector get_bin_values()
+    {
+        gsl::vector out(hist_bins.size());
+
+        size_t i=0;
+        for(bin &B : hist_bins)
+        {
+            out[i]=B.num_counts;
+            i++;
+        }
+
+        return out;
+    }
+
+    size_t num_bins()
+    {
+        return hist_bins.size();
     }
 };
 
@@ -173,12 +243,11 @@ public:
 	gsl_rng* rand;
     mutex rand_mutex;
 
-	gsl::histogram distribution;
+	hist_tool distribution;
     mutex dist_mutex;
-    size_t num_bins;
 
 
-	workspace(double timestep, double energy, size_t num_bins_, bool rnd_seed=false) : cross_section(timestep)
+	workspace(double timestep, double energy, size_t num_bins_, bool rnd_seed=false) : cross_section(timestep), distribution(0, 3.1415926, num_bins_)
 	{
         rand=gsl_rng_alloc(gsl_rng_mt19937);
 		if(rnd_seed)
@@ -192,8 +261,7 @@ public:
         }
 
 		set_energy(energy);
-		num_bins=num_bins_;
-		distribution=gsl::histogram(num_bins, 0, 3.1415926);
+		//distribution=gsl::histogram(num_bins, 0, 3.1415926);
 	}
 
     ~workspace()
@@ -332,7 +400,7 @@ public:
 
 
         bool keep_running=true;
-        size_t n_runs=0;
+        size_t n_runs=1;
         while(keep_running)
         {
             gsl::vector old_distribution=distribution.get_bin_values();
@@ -351,59 +419,54 @@ public:
             threads.clear();
 
             //estimate error
+            // note that this could use some better mathematical treatment, but it seems to work well
 
-            //first bin
-//            double N_pnts=distribution[0];
-//            double DH=abs(distribution[0]-distribution[1]);
-//            double error_factor=DH/sqrt(N_pnts);
-//            if(N_pnts==0)
-//            {
-//                error_factor=0;
-//            }
-//
-//            //last_bin
-//            N_pnts=distribution[num_bins-1];
-//            DH=abs(distribution[num_bins-1]-distribution[num_bins-2]);
-//            double next_error_factor=DH/sqrt(N_pnts);
-//            if(N_pnts==0)
-//            {
-//                next_error_factor=0;
-//            }
-//            if(next_error_factor>error_factor)
-//            {
-//                error_factor=next_error_factor;
-//            }
-
-            //all the bins in the middle
             double error_factor=0;
-            for(size_t bin_i=0; bin_i<num_bins-1; bin_i++)
+
+            gsl::vector new_distribution=distribution.get_bin_values();
+            for(size_t i=0; i<new_distribution.size(); i++)
             {
-                double N_pnts=distribution[bin_i];
+                double N_pnts=new_distribution[i];
                 if(N_pnts==0)
                 {
                     continue;
                 }
 
-                double DH=N_pnts-old_distribution[bin_i];
+                double DH=N_pnts-old_distribution[i];
                 double next_error_factor=DH/N_pnts;
-//                double DH_L=abs(distribution[bin_i]-distribution[bin_i-1]);
-//                double DH_R=abs(distribution[bin_i]-distribution[bin_i+1]);
-//                DH=fmin(DH_L, DH_R);
-//                next_error_factor=DH/sqrt(N_pnts);
-//                if(N_pnts==0)
-//                {
-//                    next_error_factor=0; //ignore it
-//                }
-//
+
                 if(next_error_factor>error_factor)
                 {
                     error_factor=next_error_factor;
                 }
             }
+
             print(energy_, ":", (n_runs+1)*samples_perThread_perRun*N_threads, "  error:", error_factor, "desired error:", percent_error);
+
             if(error_factor<percent_error)
             {
                 keep_running=false;
+            }
+
+            for(auto iter=distribution.begin(); (++iter)!=distribution.end(); ++iter)
+            {
+                double next_H=iter->num_counts;
+                --iter;
+                double H=iter->num_counts;
+
+                if(iter->splittable and abs(next_H-H)>3*(sqrt(next_H)+sqrt(H)))
+                {
+                    keep_running=true;
+                    print("SPLIT!:", iter->lower_range, iter->upper_range);
+                    distribution.split(iter);
+                    //auto ranges=distribution.get_bin_ranges();
+                    //for(auto v : ranges)
+                    //{
+                        //cout<<" "<<v;
+                    //}
+                    //cout<<endl;
+                    break; //WHY IS THIS HERE?
+                }
             }
 
             n_runs++;
@@ -422,15 +485,15 @@ public:
 
 };
 
-int main()
+void do_timestep(double time_step)
 {
-	double time_step=0.0001;
-	double min_energy=0.1; //keV
-	double max_energy=10000; //kev
-	int num_energies=10; //????
+	//double time_step=0.0001;
+	double min_energy=0.05; //keV
+	double max_energy=100000; //kev
+	int num_energies=100;
 	size_t threads_per_energy=16; //num threads per energy
 	size_t num_samples_per_energy_per_thread_per_run=100;
-	size_t num_bins=100; //controlls precision of final distribution
+	size_t num_bins=20; //controlls precision of final distribution
 	double error_percent=0.15; //controlls error of bins in y-direction
 	bool rnd_seed=false;
 	gsl::vector energy_vector=logspace(log10(min_energy), log10(max_energy), num_energies);
@@ -477,4 +540,17 @@ int main()
 	binary_output fout(fname.str());
 	tables_out.write_out( &fout);
 
+}
+
+int main()
+{
+    do_timestep(0.00005);
+    do_timestep(0.0001);
+    do_timestep(0.0005);
+    do_timestep(0.001);
+    do_timestep(0.005);
+    do_timestep(0.01);
+    do_timestep(0.05);
+    do_timestep(0.1);
+    do_timestep(0.5);
 }

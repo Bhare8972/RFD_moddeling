@@ -170,6 +170,17 @@ def KE_VS_time(particles):
     plt.title("KE(keV) vs time")
     plt.show()
 
+def KE_VS_Z(particles):
+    for p in particles.itervalues():
+        Px=p.get_Px()
+        Py=p.get_Py()
+        Pz=p.get_Pz()
+        P_sq=Px*Px+Py*Py+Pz*Pz
+        E=np.sqrt(P_sq+1)-1
+        plt.plot(p.get_Z()*distance_units, E*electron_rest_energy/(kilo*elementary_charge), 'o-')
+    plt.title("KE(keV) vs altitude(meters)")
+    plt.show()
+
 def plot_timesteps(particles):
     fig=plt.figure()
     axis=fig.add_subplot(111)
@@ -220,5 +231,6 @@ if __name__=='__main__':
     plot_particles_TIMEYZ(particle_data)
     speed_VS_time(particle_data)
     KE_VS_time(particle_data)
+    KE_VS_Z(particle_data)
     plot_timesteps(particle_data)
 
