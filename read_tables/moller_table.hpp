@@ -35,7 +35,6 @@ public:
             gsl_rng_set(rand, 0);
         }
 
-
         binary_input fin("./tables/moller");
         array_input table_in(fin);
 
@@ -59,7 +58,6 @@ public:
 
             splines.emplace_back(cumquads, points);
         }
-
 
         set_energy(energies[0]);
     }

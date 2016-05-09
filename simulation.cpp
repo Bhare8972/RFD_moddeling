@@ -8,9 +8,11 @@
 #include "GSL_utils.hpp"
 #include "constants.hpp"
 
-#include "read_tables/ionization_table.hpp"
+//#include "read_tables/ionization_table.hpp"
 #include "read_tables/diffusion_table.hpp"
 #include "read_tables/moller_table.hpp"
+
+#include "physics/bethe_eq.hpp"
 
 #include "particle_history.hpp"
 
@@ -20,14 +22,15 @@ using namespace std;
 bool rnd_seed=true; //seed random number generators with a random seed?  If false, use a built-in seed value (for repeatability)
 
 //inputs
-//double time_step=0.0001; //in units of time_units
 double RKF_kappa=0.7; //kappa factor needed in solving system of equations
 double RKF_abs_pos_tol=0.00001;
 double RKF_abs_mom_tol=0.0002;//the MINIMUM of these next two errors is chosen
 double RKF_rel_mom_tol=0.001;
+double maximum_timestep=0.1;
+double minimum_timestep=0;//not implemented correctly. IF this is hit, then runge-kutta goes into infinite loop
 
 //////// input data tables //////
-ionization_table ionization(true);// remove losses due to moller scattering
+//ionization_table ionization(true);// remove losses due to moller scattering
 diffusion_table SHCdiffusion_scattering(rnd_seed);
 moller_table moller_scattering(rnd_seed);
 
@@ -200,164 +203,199 @@ public:
 size_t particle_T::next_ID=0;
 
 
-//gsl::vector charged_force(gsl::vector &position_, gsl::vector &momentum_, field* E_field, field* B_field, double time)
-
-gsl::vector charged_force(gsl::vector &position, gsl::vector &momentum, int charge, field* E_field, field* B_field)
-//to make this depend on time, add double current_time as paramenter
+class apply_charged_force
 {
-    //values
-    double momentum_squared=momentum.sum_of_squares();
-    double momentum_magnitude=sqrt(momentum_squared);
-    double G=gamma(momentum_squared);
-    double inverse_gamma=1.0/G;
+    public:
 
-    //electric field
-    gsl::vector force=charge*E_field->get(position); //to depend on time, pass current_time to electric field
+    electron_ionization_table electron_table;
+    field* E_field; //do not own these two vectors
+    field* B_field;
+    unsigned int remove_moller; //0 for not remove moller, 1 for constant_min_energy , 2 for variable min energy
+    double min_energy;
 
-    //magnetic field
-    gsl::vector B=charge*B_field->get(position); //to depend on time, pass current_time to electric field
-    force[0]+=inverse_gamma*(momentum[1]*B[2]-momentum[2]*B[1]);
-    force[1]+=inverse_gamma*(momentum[2]*B[0]-momentum[0]*B[2]);
-    force[2]+=inverse_gamma*(momentum[0]*B[1]-momentum[1]*B[0]);
+    //runge kutta variables
+    double maximum_timestep;
+    double minimum_timestep; //currently always zero. As it is not implemented correctly
 
-    //ionization friction
-    double friction;
-    if(charge==-1)
+    apply_charged_force(double const_min_energy_dimensionless, field* E_field_, field* B_field_) : electron_table(const_min_energy_dimensionless)
+    //use this constructor if the minimum_energy is constant
     {
-        friction=ionization.electron_lookup(momentum_squared);
-    }
-    else
-    {
-        friction=ionization.positron_lookup(momentum_squared);
+        E_field=E_field_;
+        B_field=B_field_;
+        remove_moller=1;
+        min_energy=const_min_energy_dimensionless;
     }
 
-    //print("mom. sq:", momentum_squared);
-    //print("table:", friction);
-    //print("beth:", beth_force(momentum_squared) );
-
-    if(friction>0) //don't want weird stuff
+    apply_charged_force(field* E_field_, field* B_field_, bool do_moller=false) : electron_table()
+    //use this constructor if the minimum_energy is variable or not doing moller scattering
     {
-        force[0]-=friction*momentum[0]/momentum_magnitude;
-        force[1]-=friction*momentum[1]/momentum_magnitude;
-        force[2]-=friction*momentum[2]/momentum_magnitude;
-    }
-
-    return force;
-}
-
-
-void charged_particle_rungeKutta4(particle_T &particle, field* E_field, field* B_field)
-//to make this depend of time, add argument double current_time
-{
-    gsl::vector pos_step=particle.position;
-    gsl::vector mom_step=particle.momentum;
-
-    gsl::vector K_1_pos=mom_step/gamma(mom_step);
-    gsl::vector K_1_mom=charged_force(pos_step, mom_step, particle.charge, E_field, B_field); //to make this depend on time, pass current_time
-
-    pos_step=particle.position+particle.timestep*K_1_pos/2.0;
-    mom_step=particle.momentum+particle.timestep*K_1_mom/2.0;
-
-    gsl::vector K_2_pos=mom_step/gamma(mom_step);
-    gsl::vector K_2_mom=charged_force(pos_step, mom_step, particle.charge, E_field, B_field); //pass , current_time+time_step/2.0
-
-    pos_step=particle.position+particle.timestep*K_2_pos/2.0;
-    mom_step=particle.momentum+particle.timestep*K_2_mom/2.0;
-
-    gsl::vector K_3_pos=mom_step/gamma(mom_step);
-    gsl::vector K_3_mom=charged_force(pos_step, mom_step, particle.charge, E_field, B_field); //pass , current_time+time_step/2.0
-
-    pos_step=particle.position+particle.timestep*K_3_pos;
-    mom_step=particle.momentum+particle.timestep*K_3_mom;
-
-    gsl::vector K_4_pos=mom_step/gamma(mom_step);
-    gsl::vector K_4_mom=charged_force(pos_step, mom_step, particle.charge, E_field, B_field); //, current_time+time_step
-
-    particle.position+=particle.timestep*(K_1_pos + 2.0*K_2_pos + 2.0*K_3_pos + K_4_pos)/6.0;
-    particle.momentum+=particle.timestep*(K_1_mom + 2.0*K_2_mom + 2.0*K_3_mom + K_4_mom)/6.0;
-}
-
-void charged_particle_RungeKuttaF(particle_T &particle, field* E_field, field* B_field)
-//to make this depend of time, add argument double current_time
-//every time you multiply or add on a vector, it makes a new vector. This can be DRASTICLY improved! make a new multiply and add opperator
-{
-    bool acceptable=false;
-    while(not acceptable)
-    {
-        particle.timestep=particle.next_timestep;
-
-        //print("T:",particle.timestep);
-
-        gsl::vector pos_step=particle.position;
-        gsl::vector mom_step=particle.momentum;
-
-        gsl::vector K_1_pos=particle.timestep*mom_step/gamma(mom_step);
-        gsl::vector K_1_mom=particle.timestep*charged_force(pos_step, mom_step, particle.charge, E_field, B_field); //to make this depend on time, pass current_time
-
-        pos_step=particle.position+K_1_pos/5.0;
-        mom_step=particle.momentum+K_1_mom/5.0;
-
-        gsl::vector K_2_pos=particle.timestep*mom_step/gamma(mom_step);
-        gsl::vector K_2_mom=particle.timestep*charged_force(pos_step, mom_step, particle.charge, E_field, B_field); //pass , current_time+time_step/5.0
-
-        pos_step=particle.position+K_1_pos*(3.0/40.0)+K_2_pos*(9.0/40.0);
-        mom_step=particle.momentum+K_1_mom*(3.0/40.0)+K_2_mom*(9.0/40.0);
-
-        gsl::vector K_3_pos=particle.timestep*mom_step/gamma(mom_step);
-        gsl::vector K_3_mom=particle.timestep*charged_force(pos_step, mom_step, particle.charge, E_field, B_field); //pass , current_time+time_step*3/10.0
-
-        pos_step=particle.position+K_1_pos*(3.0/10.0)+K_2_pos*(-9.0/10.0)+K_3_pos*(6.0/5.0);
-        mom_step=particle.momentum+K_1_mom*(3.0/10.0)+K_2_mom*(-9.0/10.0)+K_3_mom*(6.0/5.0);
-
-        gsl::vector K_4_pos=particle.timestep*mom_step/gamma(mom_step);
-        gsl::vector K_4_mom=particle.timestep*charged_force(pos_step, mom_step, particle.charge, E_field, B_field); //, current_time+time_step*3/5
-
-        pos_step=particle.position+K_1_pos*(-11.0/54.0)+K_2_pos*(5.0/2.0)+K_3_pos*(-70.0/27.0)+K_4_pos*(35.0/27.0);
-        mom_step=particle.momentum+K_1_mom*(-11.0/54.0)+K_2_mom*(5.0/2.0)+K_3_mom*(-70.0/27.0)+K_4_mom*(35.0/27.0);
-
-        gsl::vector K_5_pos=particle.timestep*mom_step/gamma(mom_step);
-        gsl::vector K_5_mom=particle.timestep*charged_force(pos_step, mom_step, particle.charge, E_field, B_field); //, current_time+time_step*1
-
-        pos_step=particle.position+K_1_pos*(1631.0/55296.0)+K_2_pos*(175.0/512.0)+K_3_pos*(575.0/13828.0)+K_4_pos*(44275.0/110592.0)+K_5_pos*(253.0/4096.0);
-        mom_step=particle.momentum+K_1_mom*(1631.0/55296.0)+K_2_mom*(175.0/512.0)+K_3_mom*(575.0/13828.0)+K_4_mom*(44275.0/110592.0)+K_5_mom*(253.0/4096.0);
-
-        gsl::vector K_6_pos=particle.timestep*mom_step/gamma(mom_step);
-        gsl::vector K_6_mom=particle.timestep*charged_force(pos_step, mom_step, particle.charge, E_field, B_field); //, current_time+time_step*7/8
-
-        gsl::vector pos_O4=particle.position+K_1_pos*(37.0/378.0)+K_3_pos*(250.0/621.0)+K_4_pos*(125.0/594.0)+K_5_pos*(512.0/1771.0);
-        gsl::vector mom_O4=particle.momentum+K_1_mom*(37.0/378.0)+K_3_mom*(250.0/621.0)+K_4_mom*(125.0/594.0)+K_5_mom*(512.0/1771.0);
-
-        gsl::vector pos_O5=particle.position+K_1_pos*(2825.0/27648.0)+K_3_pos*(18575.0/48384.0)+K_4_pos*(13525.0/55296.0)+K_5_pos*(277.0/14336.0)+K_6_pos*(1.0/4.0);
-        gsl::vector mom_O5=particle.momentum+K_1_mom*(2825.0/27648.0)+K_3_mom*(18575.0/48384.0)+K_4_mom*(13525.0/55296.0)+K_5_mom*(277.0/14336.0)+K_6_mom*(1.0/4.0);
-
-        double pos_error_sq=(pos_O4-pos_O5).sum_of_squares() ;
-        double mom_error_sq=(mom_O4-mom_O5).sum_of_squares() ;
-        double rel_mom_error_sq=mom_error_sq/ mom_O5.sum_of_squares();
-        pos_error_sq=RKF_abs_pos_tol*RKF_abs_pos_tol/pos_error_sq;
-        mom_error_sq=RKF_abs_mom_tol*RKF_abs_mom_tol/mom_error_sq;
-        rel_mom_error_sq=RKF_rel_mom_tol*RKF_rel_mom_tol/rel_mom_error_sq;
-
-        //print("  errors:", pos_error_sq, mom_error_sq, rel_mom_error_sq);
-
-        double err_f=min(pos_error_sq, max(mom_error_sq, rel_mom_error_sq));//note the inverses
-
-        //print("  ", err_f);
-
-        particle.next_timestep=particle.timestep*RKF_kappa*pow( sqrt(err_f), 0.2);
-        if(err_f>1)//error is good, exit
+        E_field=E_field_;
+        B_field=B_field_;
+        if(do_moller) //variable min_energy
         {
-            particle.current_time+=particle.timestep;
-            particle.position=pos_O5;
-            particle.momentum=mom_O5;
-            acceptable=true;
+            remove_moller=2;
         }
         else
-        {//repeat with new timestep
-            //print("  reject");
-            acceptable=false;
+        {
+            remove_moller=0;
+        }
+        min_energy=lowest_physical_energy;
+    }
+
+    void set_min_energy(double min_energy_)
+    //set min energy. Only usefull if min_energy is variable
+    {
+        min_energy=min_energy_;
+    }
+
+
+    void set_minmax_timestep(double min_timestep_, double max_timestep_)
+    {
+        maximum_timestep=max_timestep_;
+        minimum_timestep=0;//not implemented correctly. IF this is hit, then runge-kutta goes into infinite loop
+    }
+
+    I AM HERE. IMPLEMENT ERROR TOL
+
+double RKF_kappa=0.7; //kappa factor needed in solving system of equations
+double RKF_abs_pos_tol=0.00001;
+double RKF_abs_mom_tol=0.0002;
+//double RKF_rel_mom_tol=0.001;
+
+    gsl::vector force(gsl::vector &position, gsl::vector &momentum, int charge)
+    //to make this depend on time, add double current_time as paramenter
+    {
+        //values
+        double momentum_squared=momentum.sum_of_squares();
+        double momentum_magnitude=sqrt(momentum_squared);
+        double G=gamma(momentum_squared);
+        double inverse_gamma=1.0/G;
+
+        //electric field
+        gsl::vector force=charge*E_field->get(position); //to depend on time, pass current_time to electric field
+
+        //magnetic field
+        gsl::vector B=charge*B_field->get(position); //to depend on time, pass current_time to electric field
+        force[0]+=inverse_gamma*(momentum[1]*B[2]-momentum[2]*B[1]);
+        force[1]+=inverse_gamma*(momentum[2]*B[0]-momentum[0]*B[2]);
+        force[2]+=inverse_gamma*(momentum[0]*B[1]-momentum[1]*B[0]);
+
+        //ionization friction
+        double friction;
+        if(charge==-1)
+        {
+            if(remove_moller==0 or remove_moller==1)
+            {
+                friction=electron_table.electron_lookup(momentum_squared);
+            }
+            else if(remove_moller==2)
+            {
+                friction=electron_table.electron_lookup(momentum_squared, min_energy);
+            }
+        }
+        else
+        {
+            ////positrons not implemented
+            //friction=ionization.positron_lookup(momentum_squared);
+        }
+
+        if(friction>0) //don't want weird stuff
+        {
+            force[0]-=friction*momentum[0]/momentum_magnitude;
+            force[1]-=friction*momentum[1]/momentum_magnitude;
+            force[2]-=friction*momentum[2]/momentum_magnitude;
+        }
+
+        return force;
+    }
+
+    void charged_particle_RungeKuttaFehlberg(particle_T &particle)
+    //to make this depend of time, add argument double current_time
+    //every time you multiply or add on a vector, it makes a new vector. This can be DRASTICLY improved! make a new multiply and add opperator
+    {
+        bool acceptable=false;
+        while(not acceptable)
+        {
+            particle.timestep=particle.next_timestep;
+
+            gsl::vector pos_step=particle.position;
+            gsl::vector mom_step=particle.momentum;
+
+            gsl::vector K_1_pos=particle.timestep*mom_step/gamma(mom_step);
+            gsl::vector K_1_mom=particle.timestep*force(pos_step, mom_step, particle.charge, E_field, B_field); //to make this depend on time, pass current_time
+
+            pos_step=particle.position+K_1_pos/5.0;
+            mom_step=particle.momentum+K_1_mom/5.0;
+
+            gsl::vector K_2_pos=particle.timestep*mom_step/gamma(mom_step);
+            gsl::vector K_2_mom=particle.timestep*force(pos_step, mom_step, particle.charge, E_field, B_field); //pass , current_time+time_step/5.0
+
+            pos_step=particle.position+K_1_pos*(3.0/40.0)+K_2_pos*(9.0/40.0);
+            mom_step=particle.momentum+K_1_mom*(3.0/40.0)+K_2_mom*(9.0/40.0);
+
+            gsl::vector K_3_pos=particle.timestep*mom_step/gamma(mom_step);
+            gsl::vector K_3_mom=particle.timestep*force(pos_step, mom_step, particle.charge, E_field, B_field); //pass , current_time+time_step*3/10.0
+
+            pos_step=particle.position+K_1_pos*(3.0/10.0)+K_2_pos*(-9.0/10.0)+K_3_pos*(6.0/5.0);
+            mom_step=particle.momentum+K_1_mom*(3.0/10.0)+K_2_mom*(-9.0/10.0)+K_3_mom*(6.0/5.0);
+
+            gsl::vector K_4_pos=particle.timestep*mom_step/gamma(mom_step);
+            gsl::vector K_4_mom=particle.timestep*force(pos_step, mom_step, particle.charge, E_field, B_field); //, current_time+time_step*3/5
+
+            pos_step=particle.position+K_1_pos*(-11.0/54.0)+K_2_pos*(5.0/2.0)+K_3_pos*(-70.0/27.0)+K_4_pos*(35.0/27.0);
+            mom_step=particle.momentum+K_1_mom*(-11.0/54.0)+K_2_mom*(5.0/2.0)+K_3_mom*(-70.0/27.0)+K_4_mom*(35.0/27.0);
+
+            gsl::vector K_5_pos=particle.timestep*mom_step/gamma(mom_step);
+            gsl::vector K_5_mom=particle.timestep*force(pos_step, mom_step, particle.charge, E_field, B_field); //, current_time+time_step*1
+
+            pos_step=particle.position+K_1_pos*(1631.0/55296.0)+K_2_pos*(175.0/512.0)+K_3_pos*(575.0/13828.0)+K_4_pos*(44275.0/110592.0)+K_5_pos*(253.0/4096.0);
+            mom_step=particle.momentum+K_1_mom*(1631.0/55296.0)+K_2_mom*(175.0/512.0)+K_3_mom*(575.0/13828.0)+K_4_mom*(44275.0/110592.0)+K_5_mom*(253.0/4096.0);
+
+            gsl::vector K_6_pos=particle.timestep*mom_step/gamma(mom_step);
+            gsl::vector K_6_mom=particle.timestep*force(pos_step, mom_step, particle.charge, E_field, B_field); //, current_time+time_step*7/8
+
+            gsl::vector pos_O4=particle.position+K_1_pos*(37.0/378.0)+K_3_pos*(250.0/621.0)+K_4_pos*(125.0/594.0)+K_5_pos*(512.0/1771.0);
+            gsl::vector mom_O4=particle.momentum+K_1_mom*(37.0/378.0)+K_3_mom*(250.0/621.0)+K_4_mom*(125.0/594.0)+K_5_mom*(512.0/1771.0);
+
+            gsl::vector pos_O5=particle.position+K_1_pos*(2825.0/27648.0)+K_3_pos*(18575.0/48384.0)+K_4_pos*(13525.0/55296.0)+K_5_pos*(277.0/14336.0)+K_6_pos*(1.0/4.0);
+            gsl::vector mom_O5=particle.momentum+K_1_mom*(2825.0/27648.0)+K_3_mom*(18575.0/48384.0)+K_4_mom*(13525.0/55296.0)+K_5_mom*(277.0/14336.0)+K_6_mom*(1.0/4.0);
+
+            double pos_error_sq=(pos_O4-pos_O5).sum_of_squares() ;
+            double mom_error_sq=(mom_O4-mom_O5).sum_of_squares() ;
+            //double rel_mom_error_sq=mom_error_sq/ mom_O5.sum_of_squares();
+            pos_error_sq=RKF_abs_pos_tol*RKF_abs_pos_tol/pos_error_sq;
+            mom_error_sq=RKF_abs_mom_tol*RKF_abs_mom_tol/mom_error_sq;
+            //rel_mom_error_sq=RKF_rel_mom_tol*RKF_rel_mom_tol/rel_mom_error_sq;
+
+
+            double err_f=min(pos_error_sq, mom_error_sq);//note the inverses
+
+            particle.next_timestep=particle.timestep*RKF_kappa*pow( sqrt(err_f), 0.2);
+            if(particle.next_timestep>maximum_timestep)
+            {
+                particle.next_timestep=maximum_timestep;
+            }
+            else if(particle.next_timestep<minimum_timestep)
+            {
+                particle.next_timestep=minimum_timestep;
+            }
+
+            if(err_f>1)//error is good, exit
+            {
+                particle.current_time+=particle.timestep;
+                particle.position=pos_O5;
+                particle.momentum=mom_O5;
+                acceptable=true;
+            }
+            else
+            {//repeat with new timestep
+                acceptable=false;
+            }
         }
     }
+
 }
+
 
 void shielded_coulomb_scattering(particle_T &particle) //should this be a class?
 {
@@ -453,14 +491,14 @@ void particle_apply( list<particle_T> &particles, void(particle_T::*FUNC)( arg_T
 
 int main()
 {
-	int number_itterations=100000;
+	int number_itterations=10000;
     double particle_removal_energy=1/energy_units_kev; //remove particles that have energy less than this
 
 	//initialize electric field
 	uniform_field E_field;
-	E_field.set_minimum(0.0/distance_units, 0.0/distance_units, 0.0/distance_units);
-	E_field.set_maximum(Kilo/distance_units, Kilo/distance_units, 200/distance_units);
-	E_field.set_value(0, 0, -4.3e5/E_field_units);
+	E_field.set_minimum(-Kilo/distance_units, -Kilo/distance_units, -Kilo/distance_units);
+	E_field.set_maximum(Kilo/distance_units, Kilo/distance_units, 300/distance_units);
+	E_field.set_value(0, 0, -400e3/E_field_units);
 	//E_field.set_value(0, 0, 0/E_field_units);
 
 	//magnetic field is zero
@@ -474,11 +512,43 @@ int main()
 	list<particle_T> electrons;
 	electrons.emplace_back();
 	electrons.back().set_position(0,0,0);
-	electrons.back().set_momentum(0,0, KE_to_mom(1000.0*Kilo*elementary_charge/electron_rest_energy) );
+	electrons.back().set_momentum(0,0, KE_to_mom(7000.0*Kilo*elementary_charge/electron_rest_energy) );
 
 	electrons.emplace_back();
 	electrons.back().set_position(0,0,0);
-	electrons.back().set_momentum(0,0, KE_to_mom(1000.0*Kilo*elementary_charge/electron_rest_energy) );
+	electrons.back().set_momentum(0,0, KE_to_mom(7000.0*Kilo*elementary_charge/electron_rest_energy) );
+
+	electrons.emplace_back();
+	electrons.back().set_position(0,0,0);
+	electrons.back().set_momentum(0,0, KE_to_mom(7000.0*Kilo*elementary_charge/electron_rest_energy) );
+
+	electrons.emplace_back();
+	electrons.back().set_position(0,0,0);
+	electrons.back().set_momentum(0,0, KE_to_mom(7000.0*Kilo*elementary_charge/electron_rest_energy) );
+
+	electrons.emplace_back();
+	electrons.back().set_position(0,0,0);
+	electrons.back().set_momentum(0,0, KE_to_mom(7000.0*Kilo*elementary_charge/electron_rest_energy) );
+
+	electrons.emplace_back();
+	electrons.back().set_position(0,0,0);
+	electrons.back().set_momentum(0,0, KE_to_mom(7000.0*Kilo*elementary_charge/electron_rest_energy) );
+
+	electrons.emplace_back();
+	electrons.back().set_position(0,0,0);
+	electrons.back().set_momentum(0,0, KE_to_mom(7000.0*Kilo*elementary_charge/electron_rest_energy) );
+
+	electrons.emplace_back();
+	electrons.back().set_position(0,0,0);
+	electrons.back().set_momentum(0,0, KE_to_mom(7000.0*Kilo*elementary_charge/electron_rest_energy) );
+
+	electrons.emplace_back();
+	electrons.back().set_position(0,0,0);
+	electrons.back().set_momentum(0,0, KE_to_mom(7000.0*Kilo*elementary_charge/electron_rest_energy) );
+
+	electrons.emplace_back();
+	electrons.back().set_position(0,0,0);
+	electrons.back().set_momentum(0,0, KE_to_mom(7000.0*Kilo*elementary_charge/electron_rest_energy) );
 
 	//output file
     particle_history_out save_data;
@@ -487,9 +557,13 @@ int main()
 	//simulate!
 	for(int i=1; i<=number_itterations; i++)
 	{
-        //print("A");
 	    //solve equations of motion
+	    I AM HERE. FIX SOLVING EQUATIONS OF MOTION
 	    particle_apply( charged_particle_RungeKuttaF, electrons , E_field.pntr(), B_field.pntr() );
+
+
+        list<particle_T> removal_particles;
+        simple_particle_remove(electrons, removal_particles, particle_removal_energy);
 
         //print("B");
 	    //diffusion scattering
@@ -503,7 +577,6 @@ int main()
 
         //print("D");
         //remove too-low energy electrons
-        list<particle_T> removal_particles;
         simple_particle_remove(electrons, removal_particles, particle_removal_energy);
 
 		//save data

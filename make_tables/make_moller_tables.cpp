@@ -50,13 +50,13 @@ int main()
 	size_t num_energies=100; //????
 
 
-	gsl::vector energy_vector=logspace(log10(minimum_energy*2), log10(max_energy/energy_units_kev), num_energies+1);
+	gsl::vector energy_vector=logspace(log10(minimum_energy*2), log10(max_energy/energy_units_kev), num_energies+1); //we do not actually want to sample the lowest energy!
 
 	gsl::vector interactions_per_tau(num_energies);
 	moller_cross_section cross_section(minimum_energy*2);
 
     arrays_output tables_out;
-    shared_ptr<doubles_output> energies_table=make_shared<doubles_output>(energy_vector.subvector(1,num_energies));
+    shared_ptr<doubles_output> energies_table=make_shared<doubles_output>( energy_vector.subvector(1,num_energies ) );
     tables_out.add_array(energies_table);
 
     shared_ptr<doubles_output> interactions_table=make_shared<doubles_output>(interactions_per_tau);

@@ -47,9 +47,9 @@ class histogram(object):
 
 
 if __name__=='__main__':
-    table_index=4
+    table_index=0
     ##open
-    table_in=array_input( binary_input("../tables/diffusion/0.0001") )
+    table_in=array_input( binary_input("../tables/diffusion/5e-05") )
 
     energies_table=table_in.get_array()
     energies=energies_table.read_doubles()

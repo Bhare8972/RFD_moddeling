@@ -179,7 +179,8 @@ def KE_VS_Z(particles):
         E=np.sqrt(P_sq+1)-1
         plt.plot(p.get_Z()*distance_units, E*electron_rest_energy/(kilo*elementary_charge), 'o-')
     plt.title("KE(keV) vs altitude(meters)")
-    plt.show()
+    ##plt.show()
+    plt.savefig('KEvsZ.png')
 
 def plot_timesteps(particles):
     fig=plt.figure()
@@ -224,13 +225,13 @@ if __name__=='__main__':
     #print 'classical velocity:', final_velocity
     #print 'classical position:', final_position
 
-    print "final pos", particle_data[1].pos_history[-1][2]
+    ## print "final pos", particle_data[1].pos_history[-1][2]
     print len(particle_data), "particles"
 
-    plot_particles_XYZ(particle_data)
-    plot_particles_TIMEYZ(particle_data)
-    speed_VS_time(particle_data)
-    KE_VS_time(particle_data)
+    #plot_particles_XYZ(particle_data)
+    #plot_particles_TIMEYZ(particle_data)
+    #speed_VS_time(particle_data)
+    #KE_VS_time(particle_data)
     KE_VS_Z(particle_data)
-    plot_timesteps(particle_data)
+    #plot_timesteps(particle_data)
 

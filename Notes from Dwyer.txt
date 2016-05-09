@@ -1,0 +1,104 @@
+Simulation runs in two steps:
+	classical step considers motion due to E field, B field and drag force
+	Quantum step considers all other interactions
+	
+Classical Step
+	Dwyer uses 4th order runge-kutta. Adjusts timestep to be as large as possible without the energy or distance change being too large.
+		need to be many timesteps in an avalenche length
+		updates particles that a lagging in time (is there an effiecent way to do this? Is it even needed, since electrons are independant)
+	energy change needs to be not very large, or calculating cross sections can be inacurate
+		I need to implement this
+		Maybe I will go with 4 or 5th order runga-kutta, and conservativly choose next timestep to keep energy change and distance change small.
+		Figure out a way to be conservative enough to not throw away timesteps??
+		
+	Subract moller off of bethe force where necisary. Simularly for Bhaba scattering
+	
+
+Note that Dwyer's model is not good for low energies (<100 ev). So it cannot accuratly simulate the low-energy population. Thus this monte-carlo simulation is not good for calculating 
+any parameters dependant on the low-energy population. Dwyer has a seperate diffusion model to consider the low energy electrons.
+
+The Monte-Carlo simulation is used to get a number of parameters, e.g. average energy (7.3 Mev) and diffusion coeficents. These are calculated only for the runaway electrons, and AFTER the RREA has
+reached steady-state equilibrium.
+
+To force simulation to match steady-state equilibrium more quickly, seed electrons can be injected to have energies corresponding to an exponential distribution with average energy of 7.3 Mev
+
+Note that there is a differance between the absolute minimum energy that this simulation is good for (currently 100 ev), and the minimum energy that is actually used in simulation.
+
+
+Quantum step:
+	generally use inverse transform sampling and save into tables
+	if distribution is flat, then rejection sampling can be more effiecent than table look-up
+	
+	to decide if interaction hapened, then find mean-free-path (MFP):  1/MFP=cross_section * scatterer_density
+	sample the path traveled according to exponential distribution :  dP/dz=exp(-Z/MFP)/MFP
+		inverse transform sampling:  Z=-MFP*ln(1-p) where p is uniform from 0 to 1.
+	then do interactions such that:
+	
+	DT=distance_traveled_this_step
+	while true:
+		sample Z
+		if Z>DT:
+			break
+		else:
+			do interaction
+			DT-=Z
+			
+	This is better than my method (sampling poisson dist.) becouse, in this method, if interaction changes energy, the MFP can change accordingly
+	
+	Coulomb scattering is 0th order (photon-less) bremsstralung
+	
+Photons:
+	don't timestep. They travel in straight lines untill they interact. 
+	calculate MFP according to total cross section. (note that inverses of MFP add).
+	Sample the MFP, and propagate photon
+	Then choose which interaction happens, weighting by MFP
+	
+	Coherant scattering (The atom interacts coherantly):
+		-called Reileigh scattering
+		-only changes direction of photon
+		
+	incoherant scattering:
+		-called compton scattering
+		-kicks out electron
+	
+	can find tables at:
+		nist xcom
+		photon cross section database
+		
+positron
+	-only do 2 photon anihilation, many need to do 3 photon anihilation
+		do in center-of-mass then boost-forward
+		
+super-particles
+	put statitics where need it. 
+	Each electron is worth many electrons (say 100)
+	For normal electron physics pretend as each super-particle as a single electron
+	but when couple to lower-order stuff (photons, positrons), do many times
+		AKA do bremstrahlung 100 times. But only let one interaction affect electron energy (maybe average?)
+		
+	really helps emphasize feedback.
+	
+	
+Things can improve upon:
+
+Make simulation faster then Dwyer to do large numbers of feedback calculations
+add nuclear interactions (photons can kick-out nuetrons)
+Add ability to handle low-energy electrons
+	maybe add ability to modify electric fields
+add ability to interact with Corsika, to see how RREA modifies airshowers
+
+Note that Geant can't handle feedback very well. 
+	Other than Dwyer, almost no one can handle can handle feedback
+	Dwyer's work needs confirmation
+	
+	
+Jobs I could move into:
+	Medical physics (needs high-energy stuff)
+	high-energy particle physics
+	high-energy astro. physics
+	
+Job postings in E.O.S. and in Physics today.
+
+
+
+

@@ -2,9 +2,15 @@ TODO:
 
 need to test integation and spline fitting to make sure it makes sence
 
-implement adaptive runge-kutta for the equations of motion.
 Fix production of the diffusion table, so that the convergence condition has a better statisitcal basis. (Maybe use pearson chi-square test)
 	Also need to add adaptive bin sizes.
+
+Fix tables so they have no upper bound
+
+seperate absolute minimum physical energy ( 100 ev), which needs to be hard-coded
+and minimum energy for simulation, which should be a simulation input. NOT hard-coded
+remove function_apply, and loop over every particle
+turn many of the cross-section functions into classes
 
 other:
 improve utility documentation.  less important.
