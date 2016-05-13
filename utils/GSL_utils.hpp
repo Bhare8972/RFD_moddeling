@@ -164,4 +164,44 @@ size_t search_sorted_f(gsl::vector_float A, float v)
 		else return guess;
 	}
 }
+
+size_t search_sorted_exponential(gsl::vector A, double v)
+{
+	if(v<A[0] or v>=A[A.size()-1]) throw gen_exception("value out of range");
+	size_t lower=0;
+	size_t upper=A.size()-1;
+	while(true)
+	{
+		//check if found solution
+		if( (upper-1)==lower ) return lower;
+		//guess new solution
+		size_t guess=size_t( std::log(v/A[lower])*(upper-lower)/std::log(A[upper]/A[lower]) ) + lower;
+		if(guess==lower){guess++;}
+		else if(guess==upper){guess--;}
+
+		if(A[guess]>v) upper=guess;
+		else if(A[guess+1]<=v) lower=guess+1;
+		else return guess;
+	}
+}
+
+size_t search_sorted_linear(gsl::vector A, double v)
+{
+	if(v<A[0] or v>=A[A.size()-1]) throw gen_exception("value out of range");
+	size_t lower=0;
+	size_t upper=A.size()-1;
+	while(true)
+	{
+		//check if found solution
+		if( (upper-1)==lower ) return lower;
+		//guess new solution
+		size_t guess=size_t( (v-A[lower])*(upper-lower)/(A[upper]-A[lower]) ) + lower;
+		if(guess==lower){guess++;}
+		else if(guess==upper){guess--;}
+
+		if(A[guess]>v) upper=guess;
+		else if(A[guess+1]<=v) lower=guess+1;
+		else return guess;
+	}
+}
 #endif

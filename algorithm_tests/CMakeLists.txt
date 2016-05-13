@@ -27,6 +27,10 @@ add_executable(tst_elastic_scatt
               ./SC_elastic_scatt_tst.cpp)
 target_link_libraries(tst_elastic_scatt gsl gslcblas)
 
-add_executable(lookup_speed_test
-              ./lookup_speed_test.cpp)
-target_link_libraries(lookup_speed_test gsl gslcblas)
+#add_executable(lookup_speed_test
+#              ./lookup_speed_test.cpp)
+#target_link_libraries(lookup_speed_test gsl gslcblas)
+
+add_executable(lookup_speed_test_two
+              ./lookup_speed_test_two.cpp)
+target_link_libraries(lookup_speed_test_two gsl gslcblas)

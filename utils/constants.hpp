@@ -1,6 +1,6 @@
 
 #ifndef RFD_CONSTANTS
-#define RFD_CONSTAMTS
+#define RFD_CONSTANTS
 
 //some units
 double Giga=1.0e9;

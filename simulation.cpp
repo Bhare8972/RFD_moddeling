@@ -21,14 +21,6 @@ using namespace std;
 
 bool rnd_seed=true; //seed random number generators with a random seed?  If false, use a built-in seed value (for repeatability)
 
-//inputs
-double RKF_kappa=0.7; //kappa factor needed in solving system of equations
-double RKF_abs_pos_tol=0.00001;
-double RKF_abs_mom_tol=0.0002;//the MINIMUM of these next two errors is chosen
-double RKF_rel_mom_tol=0.001;
-double maximum_timestep=0.1;
-double minimum_timestep=0;//not implemented correctly. IF this is hit, then runge-kutta goes into infinite loop
-
 //////// input data tables //////
 //ionization_table ionization(true);// remove losses due to moller scattering
 diffusion_table SHCdiffusion_scattering(rnd_seed);
@@ -215,7 +207,10 @@ class apply_charged_force
 
     //runge kutta variables
     double maximum_timestep;
-    double minimum_timestep; //currently always zero. As it is not implemented correctly
+
+    double kappa;
+    double pos_tol;
+    double mom_tol;
 
     apply_charged_force(double const_min_energy_dimensionless, field* E_field_, field* B_field_) : electron_table(const_min_energy_dimensionless)
     //use this constructor if the minimum_energy is constant
@@ -249,18 +244,17 @@ class apply_charged_force
     }
 
 
-    void set_minmax_timestep(double min_timestep_, double max_timestep_)
+    void set_max_timestep(double max_timestep_)
     {
         maximum_timestep=max_timestep_;
-        minimum_timestep=0;//not implemented correctly. IF this is hit, then runge-kutta goes into infinite loop
     }
 
-    I AM HERE. IMPLEMENT ERROR TOL
-
-double RKF_kappa=0.7; //kappa factor needed in solving system of equations
-double RKF_abs_pos_tol=0.00001;
-double RKF_abs_mom_tol=0.0002;
-//double RKF_rel_mom_tol=0.001;
+    void set_errorTol(double pos_tol_, double mom_tol_, double kappa_=0.7)
+    {
+        pos_tol=pos_tol_;
+        mom_tol=mom_tol_;
+        kappa=kappa_;
+    }
 
     gsl::vector force(gsl::vector &position, gsl::vector &momentum, int charge)
     //to make this depend on time, add double current_time as paramenter
@@ -290,7 +284,7 @@ double RKF_abs_mom_tol=0.0002;
             }
             else if(remove_moller==2)
             {
-                friction=electron_table.electron_lookup(momentum_squared, min_energy);
+                friction=electron_table.electron_lookup_variable_RML(momentum_squared, min_energy);
             }
         }
         else
@@ -309,92 +303,223 @@ double RKF_abs_mom_tol=0.0002;
         return force;
     }
 
-    void charged_particle_RungeKuttaFehlberg(particle_T &particle)
+    int charged_particle_RungeKuttaCK(particle_T &particle)
     //to make this depend of time, add argument double current_time
-    //every time you multiply or add on a vector, it makes a new vector. This can be DRASTICLY improved! make a new multiply and add opperator
+    //am using cash-karp parameters for fehlberg method
+    //returns a status. 0 means good. 1 means electron went below lowest energy
     {
         bool acceptable=false;
+        //print("run:", particle.next_timestep);//(sqrt(particle.momentum.sum_of_squares()+1)-1)*510);
         while(not acceptable)
         {
+
             particle.timestep=particle.next_timestep;
+            if(particle.timestep>maximum_timestep)
+            {
+                particle.timestep=maximum_timestep;
+            }
 
             gsl::vector pos_step=particle.position;
             gsl::vector mom_step=particle.momentum;
 
-            gsl::vector K_1_pos=particle.timestep*mom_step/gamma(mom_step);
-            gsl::vector K_1_mom=particle.timestep*force(pos_step, mom_step, particle.charge, E_field, B_field); //to make this depend on time, pass current_time
-
-            pos_step=particle.position+K_1_pos/5.0;
-            mom_step=particle.momentum+K_1_mom/5.0;
-
-            gsl::vector K_2_pos=particle.timestep*mom_step/gamma(mom_step);
-            gsl::vector K_2_mom=particle.timestep*force(pos_step, mom_step, particle.charge, E_field, B_field); //pass , current_time+time_step/5.0
-
-            pos_step=particle.position+K_1_pos*(3.0/40.0)+K_2_pos*(9.0/40.0);
-            mom_step=particle.momentum+K_1_mom*(3.0/40.0)+K_2_mom*(9.0/40.0);
-
-            gsl::vector K_3_pos=particle.timestep*mom_step/gamma(mom_step);
-            gsl::vector K_3_mom=particle.timestep*force(pos_step, mom_step, particle.charge, E_field, B_field); //pass , current_time+time_step*3/10.0
-
-            pos_step=particle.position+K_1_pos*(3.0/10.0)+K_2_pos*(-9.0/10.0)+K_3_pos*(6.0/5.0);
-            mom_step=particle.momentum+K_1_mom*(3.0/10.0)+K_2_mom*(-9.0/10.0)+K_3_mom*(6.0/5.0);
-
-            gsl::vector K_4_pos=particle.timestep*mom_step/gamma(mom_step);
-            gsl::vector K_4_mom=particle.timestep*force(pos_step, mom_step, particle.charge, E_field, B_field); //, current_time+time_step*3/5
-
-            pos_step=particle.position+K_1_pos*(-11.0/54.0)+K_2_pos*(5.0/2.0)+K_3_pos*(-70.0/27.0)+K_4_pos*(35.0/27.0);
-            mom_step=particle.momentum+K_1_mom*(-11.0/54.0)+K_2_mom*(5.0/2.0)+K_3_mom*(-70.0/27.0)+K_4_mom*(35.0/27.0);
-
-            gsl::vector K_5_pos=particle.timestep*mom_step/gamma(mom_step);
-            gsl::vector K_5_mom=particle.timestep*force(pos_step, mom_step, particle.charge, E_field, B_field); //, current_time+time_step*1
-
-            pos_step=particle.position+K_1_pos*(1631.0/55296.0)+K_2_pos*(175.0/512.0)+K_3_pos*(575.0/13828.0)+K_4_pos*(44275.0/110592.0)+K_5_pos*(253.0/4096.0);
-            mom_step=particle.momentum+K_1_mom*(1631.0/55296.0)+K_2_mom*(175.0/512.0)+K_3_mom*(575.0/13828.0)+K_4_mom*(44275.0/110592.0)+K_5_mom*(253.0/4096.0);
-
-            gsl::vector K_6_pos=particle.timestep*mom_step/gamma(mom_step);
-            gsl::vector K_6_mom=particle.timestep*force(pos_step, mom_step, particle.charge, E_field, B_field); //, current_time+time_step*7/8
-
-            gsl::vector pos_O4=particle.position+K_1_pos*(37.0/378.0)+K_3_pos*(250.0/621.0)+K_4_pos*(125.0/594.0)+K_5_pos*(512.0/1771.0);
-            gsl::vector mom_O4=particle.momentum+K_1_mom*(37.0/378.0)+K_3_mom*(250.0/621.0)+K_4_mom*(125.0/594.0)+K_5_mom*(512.0/1771.0);
-
-            gsl::vector pos_O5=particle.position+K_1_pos*(2825.0/27648.0)+K_3_pos*(18575.0/48384.0)+K_4_pos*(13525.0/55296.0)+K_5_pos*(277.0/14336.0)+K_6_pos*(1.0/4.0);
-            gsl::vector mom_O5=particle.momentum+K_1_mom*(2825.0/27648.0)+K_3_mom*(18575.0/48384.0)+K_4_mom*(13525.0/55296.0)+K_5_mom*(277.0/14336.0)+K_6_mom*(1.0/4.0);
-
-            double pos_error_sq=(pos_O4-pos_O5).sum_of_squares() ;
-            double mom_error_sq=(mom_O4-mom_O5).sum_of_squares() ;
-            //double rel_mom_error_sq=mom_error_sq/ mom_O5.sum_of_squares();
-            pos_error_sq=RKF_abs_pos_tol*RKF_abs_pos_tol/pos_error_sq;
-            mom_error_sq=RKF_abs_mom_tol*RKF_abs_mom_tol/mom_error_sq;
-            //rel_mom_error_sq=RKF_rel_mom_tol*RKF_rel_mom_tol/rel_mom_error_sq;
+            gsl::vector K_1_pos=mom_step*(particle.timestep/gamma(mom_step));
+            gsl::vector K_1_mom=force(pos_step, mom_step, particle.charge);
+            K_1_mom*=particle.timestep;
 
 
-            double err_f=min(pos_error_sq, mom_error_sq);//note the inverses
+            //print("A");
 
-            particle.next_timestep=particle.timestep*RKF_kappa*pow( sqrt(err_f), 0.2);
-            if(particle.next_timestep>maximum_timestep)
+
+            pos_step=K_1_pos/5.0;
+            mom_step=K_1_mom/5.0;
+
+            pos_step+=particle.position;
+            mom_step+=particle.momentum;
+
+            gsl::vector K_2_pos=mom_step*(particle.timestep/gamma(mom_step));
+            gsl::vector K_2_mom=force(pos_step, mom_step, particle.charge);
+            K_2_mom*=particle.timestep;
+
+
+            //print("B");
+
+
+
+
+
+            pos_step=K_1_pos*(3.0/40.0);
+            mom_step=K_1_pos*(3.0/40.0);
+
+            pos_step.mult_add( K_2_pos, (9.0/40.0) );
+            mom_step.mult_add( K_2_pos, (9.0/40.0) );
+
+            pos_step+=particle.position;
+            mom_step+=particle.momentum;
+
+            gsl::vector K_3_pos=mom_step*(particle.timestep/gamma(mom_step));
+            gsl::vector K_3_mom=force(pos_step, mom_step, particle.charge);
+            K_3_mom*=particle.timestep;
+
+
+            //print("E");
+
+
+
+
+            pos_step=K_1_pos*(3.0/10.0);
+            mom_step=K_1_pos*(3.0/10.0);
+
+            pos_step.mult_add( K_2_pos, (-9.0/10.0) );
+            mom_step.mult_add( K_2_pos, (-9.0/10.0) );
+
+            pos_step.mult_add( K_3_pos, (-6.0/5.0) );
+            mom_step.mult_add( K_3_pos, (-6.0/5.0) );
+
+            pos_step+=particle.position;
+            mom_step+=particle.momentum;
+
+            gsl::vector K_4_pos=mom_step*(particle.timestep/gamma(mom_step));
+            gsl::vector K_4_mom=force(pos_step, mom_step, particle.charge);
+            K_4_mom*=particle.timestep;
+
+
+            //print("C");
+
+
+
+
+            pos_step=K_1_pos*(-11.0/54.0);
+            mom_step=K_1_pos*(-11.0/54.0);
+
+            pos_step.mult_add( K_2_pos, (5.0/2.0) );
+            mom_step.mult_add( K_2_pos, (5.0/2.0) );
+
+            pos_step.mult_add( K_3_pos, (-70.0/27.0) );
+            mom_step.mult_add( K_3_pos, (-70.0/27.0) );
+
+            pos_step.mult_add( K_4_pos, (35.0/27.0) );
+            mom_step.mult_add( K_4_pos, (35.0/27.0) );
+
+            pos_step+=particle.position;
+            mom_step+=particle.momentum;
+
+            gsl::vector K_5_pos=mom_step*(particle.timestep/gamma(mom_step));
+            gsl::vector K_5_mom=force(pos_step, mom_step, particle.charge);
+            K_5_mom*=particle.timestep;
+
+
+            //print("D");
+
+            //I AM HERE. ADD ENERGY TEST
+
+
+
+            pos_step=K_1_pos*(1631.0/55296.0);
+            mom_step=K_1_pos*(1631.0/55296.0);
+
+            pos_step.mult_add( K_2_pos, (175.0/512.0) );
+            mom_step.mult_add( K_2_pos, (175.0/512.0) );
+
+            pos_step.mult_add( K_3_pos, (575.0/13828.0) );
+            mom_step.mult_add( K_3_pos, (575.0/13828.0) );
+
+            pos_step.mult_add( K_4_pos, (44275.0/110592.0) );
+            mom_step.mult_add( K_4_pos, (44275.0/110592.0) );
+
+            pos_step.mult_add( K_5_pos, (253.0/4096.0) );
+            mom_step.mult_add( K_5_pos, (253.0/4096.0) );
+
+            pos_step+=particle.position;
+            mom_step+=particle.momentum;
+
+            gsl::vector K_6_pos=mom_step*(particle.timestep/gamma(mom_step));
+            gsl::vector K_6_mom=force(pos_step, mom_step, particle.charge);
+            K_6_mom*=particle.timestep;
+
+
+
+
+            gsl::vector pos_O4=K_1_pos*(2825.0/27648.0);
+            gsl::vector mom_O4=K_1_pos*(2825.0/27648.0);
+
+            //pos_O4.mult_add( K_2_pos, 0.0 );
+            //mom_O4.mult_add( K_2_pos, 0.0 );
+
+            pos_O4.mult_add( K_3_pos, (18575.0/48384.0) );
+            mom_O4.mult_add( K_3_pos, (18575.0/48384.0) );
+
+            pos_O4.mult_add( K_4_pos, (13525.0/55296.0) );
+            mom_O4.mult_add( K_4_pos, (13525.0/55296.0) );
+
+            pos_O4.mult_add( K_5_pos, (277.0/14336.0) );
+            mom_O4.mult_add( K_5_pos, (277.0/14336.0) );
+
+            pos_O4.mult_add( K_6_pos, (1.0/4.0) );
+            mom_O4.mult_add( K_6_pos, (1.0/4.0) );
+
+            //pos_O4+=particle.position;
+            //mom_O4+=particle.momentum;
+
+
+
+
+            gsl::vector pos_O5=K_1_pos*(37.0/378.0);
+            gsl::vector mom_O5=K_1_pos*(37.0/378.0);
+
+            //pos_O5.mult_add( K_2_pos, 0.0 );
+            //mom_O5.mult_add( K_2_pos, 0.0 );
+
+            pos_O5.mult_add( K_3_pos, (250.0/621.0) );
+            mom_O5.mult_add( K_3_pos, (250.0/621.0) );
+
+            pos_O5.mult_add( K_4_pos, (125.0/594.0) );
+            mom_O5.mult_add( K_4_pos, (125.0/594.0) );
+
+            //pos_O5.mult_add( K_5_pos, 0.0 );
+            //mom_O5.mult_add( K_5_pos, 0.0 );
+
+            pos_O5.mult_add( K_6_pos, (512.0/1771.0) );
+            mom_O5.mult_add( K_6_pos, (512.0/1771.0) );
+
+            pos_O4-=pos_O5;//for calculating the error
+            mom_O4-=mom_O5;
+
+            pos_O5+=particle.position;
+            mom_O5+=particle.momentum;
+
+            double pos_error_sq=pos_O4.sum_of_squares() ;
+            double mom_error_sq=mom_O4.sum_of_squares() ;
+
+            pos_error_sq=pos_tol*pos_tol/pos_error_sq;
+            mom_error_sq=mom_tol*mom_tol/mom_error_sq;
+
+            double err_f=min(pos_error_sq, mom_error_sq );//note the inverses
+
+            if(err_f>1 )//error is good, exit
             {
-                particle.next_timestep=maximum_timestep;
-            }
-            else if(particle.next_timestep<minimum_timestep)
-            {
-                particle.next_timestep=minimum_timestep;
-            }
+                //set timestep
+                particle.next_timestep=particle.timestep*kappa*pow( sqrt(err_f), 0.25);
 
-            if(err_f>1)//error is good, exit
-            {
                 particle.current_time+=particle.timestep;
                 particle.position=pos_O5;
                 particle.momentum=mom_O5;
+
+
                 acceptable=true;
+                //print("accept");
             }
             else
             {//repeat with new timestep
+
+                particle.next_timestep=particle.timestep*kappa*pow( sqrt(err_f), 0.20);
+
                 acceptable=false;
+                //print("reject");
             }
         }
+        return 0;
     }
-
-}
+};
 
 
 void shielded_coulomb_scattering(particle_T &particle) //should this be a class?
@@ -457,13 +582,14 @@ void do_moller_scattering(particle_T &electron, list<particle_T> *new_particles)
 
 void simple_particle_remove(list<particle_T> &current_particles, list<particle_T> &removal_particles, double energy_threshold)
 {
-    double gamma_sq_threshold=(energy_threshold+1)*(energy_threshold+1); //comparing gamma is faster
+    double gamma_sq_threshold=(energy_threshold+1)*(energy_threshold+1); //comparing gamma squared is faster
     for(auto iter=current_particles.begin(); iter!=current_particles.end(); ++iter)
     {
-        double gamma=iter->momentum.sum_of_squares()+1;
-        if(gamma<gamma_sq_threshold)
+        double gamma_sq=iter->momentum.sum_of_squares()+1;
+        if(gamma_sq<gamma_sq_threshold)
         {
             auto loc=iter--;
+            print("remove:", loc->timestep);
             removal_particles.splice(removal_particles.end(), current_particles, loc);
         }
     }
@@ -492,7 +618,12 @@ void particle_apply( list<particle_T> &particles, void(particle_T::*FUNC)( arg_T
 int main()
 {
 	int number_itterations=10000;
-    double particle_removal_energy=1/energy_units_kev; //remove particles that have energy less than this
+    double particle_removal_energy=0.008;//1.0/energy_units_kev; //remove particles that have energy less than this
+
+    double max_timestep=0.1; //this needs to be taken from diffusion tables
+
+    double pos_tol=0.0000001;
+    double mom_tol=0.0000001;
 
 	//initialize electric field
 	uniform_field E_field;
@@ -508,36 +639,17 @@ int main()
 	//B_field.set_value(0, 0.5*50*micro, 0.866*50*micro);
 	B_field.set_value(0, 0, 0);
 
-	//initial particle
+
+	////  initialize physics engines ////
+	//force
+	apply_charged_force force_engine(particle_removal_energy, E_field.pntr(), B_field.pntr() );
+    force_engine.set_max_timestep(max_timestep);
+    force_engine.set_errorTol(pos_tol, mom_tol);
+
+
+
+	////initial particle////
 	list<particle_T> electrons;
-	electrons.emplace_back();
-	electrons.back().set_position(0,0,0);
-	electrons.back().set_momentum(0,0, KE_to_mom(7000.0*Kilo*elementary_charge/electron_rest_energy) );
-
-	electrons.emplace_back();
-	electrons.back().set_position(0,0,0);
-	electrons.back().set_momentum(0,0, KE_to_mom(7000.0*Kilo*elementary_charge/electron_rest_energy) );
-
-	electrons.emplace_back();
-	electrons.back().set_position(0,0,0);
-	electrons.back().set_momentum(0,0, KE_to_mom(7000.0*Kilo*elementary_charge/electron_rest_energy) );
-
-	electrons.emplace_back();
-	electrons.back().set_position(0,0,0);
-	electrons.back().set_momentum(0,0, KE_to_mom(7000.0*Kilo*elementary_charge/electron_rest_energy) );
-
-	electrons.emplace_back();
-	electrons.back().set_position(0,0,0);
-	electrons.back().set_momentum(0,0, KE_to_mom(7000.0*Kilo*elementary_charge/electron_rest_energy) );
-
-	electrons.emplace_back();
-	electrons.back().set_position(0,0,0);
-	electrons.back().set_momentum(0,0, KE_to_mom(7000.0*Kilo*elementary_charge/electron_rest_energy) );
-
-	electrons.emplace_back();
-	electrons.back().set_position(0,0,0);
-	electrons.back().set_momentum(0,0, KE_to_mom(7000.0*Kilo*elementary_charge/electron_rest_energy) );
-
 	electrons.emplace_back();
 	electrons.back().set_position(0,0,0);
 	electrons.back().set_momentum(0,0, KE_to_mom(7000.0*Kilo*elementary_charge/electron_rest_energy) );
@@ -557,9 +669,26 @@ int main()
 	//simulate!
 	for(int i=1; i<=number_itterations; i++)
 	{
+        if(electrons.size()==0)
+        {
+            break;
+        }
 	    //solve equations of motion
-	    I AM HERE. FIX SOLVING EQUATIONS OF MOTION
-	    particle_apply( charged_particle_RungeKuttaF, electrons , E_field.pntr(), B_field.pntr() );
+	    //particle_apply( charged_particle_RungeKuttaF, electrons , E_field.pntr(), B_field.pntr() );
+        for(particle_T &part :  electrons)
+        {
+            //try
+            //{
+            force_engine.charged_particle_RungeKuttaCK(part);
+            //}
+            //catch(...)
+            //{
+              //  part.next_timestep*=0.1;
+             //   force_engine.charged_particle_RungeKuttaCK(part);
+              //  print(sqrt(part.momentum.sum_of_squares()+1)-1.0, particle_removal_energy);
+
+            //}
+        }
 
 
         list<particle_T> removal_particles;

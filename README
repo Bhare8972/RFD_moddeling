@@ -7,6 +7,8 @@ Requires GSL (gnu scientific library) to be installed,  and cmake
 important sources:
 	lehtinen et al. 1999 "Monte Carlo simulation of runaway MeV electron breakdown with application to red sprites and terrestrial gamma ray flashes"
 	Dwyer 2007 "Relativistic breakdown in planetary atmospheres"
+	
+	
 
 
 build location needs the following folders:
