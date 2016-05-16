@@ -4,8 +4,12 @@
 
 #include <cmath>
 
+
 #include "vector.hpp"
 #include "constants.hpp"
+
+#include "binary_IO.hpp"
+#include "arrays_IO.hpp"
 
 ////equations
 double bethe_formula(double mom_sq)
@@ -72,7 +76,7 @@ double electron_classical_radius=2.8179E-15;
 //4000, 4500, 5000, 5500, 6000, 7000, 8000, 9000, 10000, 12500, 15000, 17500,
 //20000, 25000, 30000, 35000});
 
-gsl::vector electron_energy({ 0,
+gsl::vector electron_energy({
 0.0105017788, 0.0108428395, 0.0110485221, 0.0112077337, 0.0114219641, 0.011639461, 0.0118585668,
 0.0121889084, 0.0124644763, 0.0127229898, 0.0129925858, 0.0132927717, 0.013602637, 0.0139941002,
 0.0144500295, 0.0149019025, 0.0153628296, 0.0159076487, 0.0164161624, 0.016833719, 0.017207197,
@@ -99,7 +103,7 @@ gsl::vector electron_energy({ 0,
 20000, 25000, 30000, 35000});
 
 //stopping power of electrons for energies in electron_energy, in units of MeV cm^2 g^-1
-gsl::vector electron_SP({ 0,
+gsl::vector electron_SP({
 10.2181796366, 10.9082117296, 11.6981237233, 12.4911033579, 13.5136247561, 14.5558880806,
 15.4736566794, 16.447311695, 16.9967274122, 17.5553802666, 18.0344911759, 18.4716847744,
 18.8503919913, 19.1000018782, 19.0967213746, 18.9782769685, 18.9495008892, 19.0228172633,
@@ -150,30 +154,6 @@ gsl::vector positron_SP({21.8, 18.25, 15.78, 13.96, 12.56, 10.53, 9.126,
 1.744, 1.766, 1.786, 1.805, 1.823, 1.854, 1.883, 1.908, 1.931, 1.980, 2.020,
 2.055, 2.085, 2.136, 2.176, 2.208});
 
-gsl::vector get_electron_energy()
-//get energies of electrons for table in terms of dimensionless momentum squared
-{
-    gsl::vector ret=electron_energy.clone();
-	ret/=energy_units_kev;
-
-	//convert energies to momentum squared
-	ret+=1.0; //now gamma
- 	ret*=ret; //square
-	ret-=1.0; //subtract one
-	return ret;
-}
-
-gsl::vector get_electron_SP()
-//get stopping powers of electrons for table as dimensionless force
-{
-    double conversion_factor=elementary_charge*1.0E8*density/(2.0*3.1415926*average_air_atomic_number*electron_classical_radius*electron_rest_energy*electron_classical_radius*air_molecular_density);
-
-    gsl::vector ret=electron_SP.clone();
-    ret*=conversion_factor;
-
-	return ret;
-}
-
 //positrons not implemented
 
 }
@@ -187,35 +167,37 @@ class electron_ionization_table
 //    3) remove moller losses, and minimum energy is variable:  use default constructor and electron_lookup_variable_RML
 {
 public:
+    const size_t table_size=100;
 
     gsl::vector electron_mom_sq;
-    gsl::vector stopping_power;
+    gsl::vector electron_interp_powers;
+    gsl::vector electron_interp_factors;
+    //gsl::vector electron_stopping_power;
     bool moller_removed;
     double min_mom_sq_for_moller;
     double min_energy;
 
-    electron_ionization_table()
+    electron_ionization_table( bool save_output_table=false)
+    //use this constructor if minimum energy is a variable
     {
-        electron_mom_sq=bethe_table::get_electron_energy();
-        stopping_power=bethe_table::get_electron_SP();
+        set_tables(save_output_table);
         min_mom_sq_for_moller=0.0;
         moller_removed=false;
         min_energy=0.0;
     }
 
-    electron_ionization_table(double const_min_energy_dimensionless)
-    //use this if the minimum energy is a constant
+    electron_ionization_table(double const_min_energy_dimensionless, bool save_output_table=false)
+    //use this if the minimum energy is a constant or not removing moller losses. const_min_energy_dimensionless should be negative is not removing moller losses
     {
-        electron_mom_sq=bethe_table::get_electron_energy();
-        stopping_power=bethe_table::get_electron_SP();
+        set_tables(save_output_table, const_min_energy_dimensionless);
 
-        for(size_t i=0; i<bethe_table::electron_energy.size(); i++)
-        {
-            if(bethe_table::electron_energy[i]>(const_min_energy_dimensionless*2.0*energy_units_kev))
-            {
-                stopping_power[i]-=moller_losses(electron_mom_sq[i], const_min_energy_dimensionless);
-            }
-        }
+        //for(size_t i=0; i<bethe_table::electron_energy.size(); i++)
+       // {
+           // if(bethe_table::electron_energy[i]>(const_min_energy_dimensionless*2.0*energy_units_kev))
+          //  {
+          //      electron_stopping_power[i]-=moller_losses(electron_mom_sq[i], const_min_energy_dimensionless);
+          //  }
+      //  }
 
         min_mom_sq_for_moller=const_min_energy_dimensionless*2+1;
         min_mom_sq_for_moller*=min_mom_sq_for_moller;
@@ -224,17 +206,95 @@ public:
         moller_removed=true;
     }
 
-    double lowest_momsq_value()
+    void set_tables(bool save_output_table, double const_min_energy_dimensionless=-1)
+    //if const_min_energy_dimensionless is positive, remove moller losses
     {
-        return electron_mom_sq[0];
+        double min_moller_removal_mom_sq=(const_min_energy_dimensionless*2+1)*(const_min_energy_dimensionless*2+1) -1;//convert min energy to min momentum sqaured
+
+        ///// convert electron tables
+        //convert electron energy to electron momentum_sq
+        gsl::vector raw_electron_mom_sq=bethe_table::electron_energy.clone();
+        raw_electron_mom_sq/=energy_units_kev;
+        raw_electron_mom_sq+=1.0; //now gamma
+        raw_electron_mom_sq*=raw_electron_mom_sq; //square
+        raw_electron_mom_sq-=1.0; //subtract one
+
+        //convert electron stopping power
+        double conversion_factor=elementary_charge*1.0E8*bethe_table::density/(2.0*3.1415926*average_air_atomic_number*bethe_table::electron_classical_radius*electron_rest_energy*
+                                                                                                    bethe_table::electron_classical_radius*bethe_table::air_molecular_density);
+        gsl::vector raw_electron_stopping_power=bethe_table::electron_SP*conversion_factor; //multiplication makes a new vector
+
+        if(save_output_table)
+        {
+            arrays_output output_table;
+
+            std::shared_ptr<doubles_output> electron_mom_sq_raw=std::make_shared<doubles_output>(raw_electron_mom_sq);
+            std::shared_ptr<doubles_output> electron_SP_raw=std::make_shared<doubles_output>(raw_electron_stopping_power);
+
+            output_table.add_array(electron_mom_sq_raw);
+            output_table.add_array(electron_SP_raw);
+            binary_output fout("./tables/bethe_info");
+            output_table.write_out(&fout);
+        }
+
+        ////// re-interpolation electron table!!
+        //first, we need a linear log-log interpolant of the raw table
+        gsl::vector powers(raw_electron_stopping_power.size()-1);
+        gsl::vector factors(raw_electron_stopping_power.size()-1);
+        for(size_t i=0; i<(raw_electron_stopping_power.size()-1); i++)
+        {
+            powers[i]=std::log(raw_electron_stopping_power[i+1]/raw_electron_stopping_power[i]) / std::log(raw_electron_mom_sq[i+1]/raw_electron_mom_sq[i]);
+            factors[i]=raw_electron_stopping_power[i]/std::pow(raw_electron_mom_sq[i], powers[i]);
+        }
+
+
+        //now we use the previous interpolant to sample the energies at a predetermined number of points, with perfect log density
+        electron_mom_sq =logspace( std::log10(raw_electron_mom_sq[0]), std::log10(raw_electron_mom_sq[raw_electron_mom_sq.size()-1]), table_size );
+        gsl::vector electron_stopping_power(table_size);
+
+        //get zeroth bit
+        electron_stopping_power[0] = raw_electron_stopping_power[0];
+        if(const_min_energy_dimensionless>0 and electron_mom_sq[0]> min_moller_removal_mom_sq )
+        {
+            electron_stopping_power[0]-=moller_losses(electron_mom_sq[0], const_min_energy_dimensionless);
+        }
+
+        //do bits larger than zero, except last one
+        for(size_t i=1; i<table_size-1; i++)
+        {
+            size_t loc=search_sorted_d(raw_electron_mom_sq, electron_mom_sq[i]);
+            electron_stopping_power[i] = factors[loc] * std::pow(electron_mom_sq[i], powers[loc]);
+            if(const_min_energy_dimensionless>0 and electron_mom_sq[i]> min_moller_removal_mom_sq )
+            {
+                electron_stopping_power[i]-=moller_losses(electron_mom_sq[i], const_min_energy_dimensionless);
+            }
+        }
+
+        //get last bit
+        electron_stopping_power[table_size-1]=raw_electron_stopping_power[raw_electron_stopping_power.size()-1];
+        if(const_min_energy_dimensionless>0 and electron_mom_sq[table_size-1]> min_moller_removal_mom_sq )
+        {
+            electron_stopping_power[table_size-1]-=moller_losses(electron_mom_sq[table_size-1], const_min_energy_dimensionless);
+        }
+
+        //finally, we interpolate the previous samples
+        electron_interp_powers=gsl::vector(table_size-1);
+        electron_interp_factors=gsl::vector(table_size-1);
+        for(size_t i=0; i<(table_size-1); i++)
+        {
+            electron_interp_powers[i]=std::log(electron_stopping_power[i+1]/electron_stopping_power[i]) / std::log(electron_mom_sq[i+1]/electron_mom_sq[i]);
+            electron_interp_factors[i]=electron_stopping_power[i]/std::pow(electron_mom_sq[i], electron_interp_powers[i]);
+        }
+        //now have interpolants of electron stopping power that is in log space and interpolants are linear in log-log
+        //which has the extra bennifit that they all(namly the first) intercept (0,0)
     }
 
     double electron_lookup(double electron_mom_sq_)
-    //give stopping power
+    //give stopping power. Use if minimum energy is a constant, or not subtracting moller losses
 	{
         if(electron_mom_sq_<electron_mom_sq[0])
         {
-            throw gen_exception("electron momentum squared( ", electron_mom_sq_, ") below bethe table");
+            return electron_interp_factors[0]*std::pow(electron_mom_sq_, electron_interp_powers[0]); //use first interpolant to extrapolate to very low energy
         }
         else if(electron_mom_sq_>electron_mom_sq[electron_mom_sq.size()-1])
         {
@@ -250,21 +310,22 @@ public:
         }
         else
         {
-            size_t index=search_sorted_d(electron_mom_sq, electron_mom_sq_);
-            return stopping_power[index] + (stopping_power[index+1] - stopping_power[index])*(electron_mom_sq[index]-electron_mom_sq_)/(electron_mom_sq[index]-electron_mom_sq[index+1]);
+            size_t index=search_sorted_exponential(electron_mom_sq, electron_mom_sq_);
+            return electron_interp_factors[index]* std::pow(electron_mom_sq_, electron_interp_powers[index]);
         }
 	}
 
-	double electron_lookup_variable_RML(double electron_mom_sq_, double min_energy)
+	double electron_lookup_variable_RML(double electron_mom_sq_, double min_energy_)
 	//use this if minimum energy can vary, and used default constructor
 	{
+	    min_energy=min_energy_;
 	    double min_mom_sq_for_moller__=min_energy*2.0+1.0;
 	    min_mom_sq_for_moller__*=min_mom_sq_for_moller__;
 	    min_mom_sq_for_moller__-=1.0;
 
         if(electron_mom_sq_<electron_mom_sq[0])
         {
-            throw gen_exception("electron momentum squared( ", electron_mom_sq_, ") below bethe table");
+            return electron_interp_factors[0]*std::pow(electron_mom_sq_, electron_interp_powers[0]); //use first interpolant to extrapolate to very low energy
         }
         else if(electron_mom_sq_>electron_mom_sq[electron_mom_sq.size()-1])
         {
@@ -280,8 +341,8 @@ public:
         }
         else
         {
-            size_t index=search_sorted_d(electron_mom_sq, electron_mom_sq_);
-            double SP=stopping_power[index] + (stopping_power[index+1] - stopping_power[index])*(electron_mom_sq[index]-electron_mom_sq_)/(electron_mom_sq[index]-electron_mom_sq[index+1]);
+            size_t index=search_sorted_exponential(electron_mom_sq, electron_mom_sq_);
+            double SP= electron_interp_factors[index]* std::pow(electron_mom_sq_, electron_interp_powers[index]);
             if( electron_mom_sq_>=min_mom_sq_for_moller__)
             {
                 return SP-=moller_losses(electron_mom_sq_, min_energy);

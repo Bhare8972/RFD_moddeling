@@ -212,7 +212,7 @@ class apply_charged_force
     double pos_tol;
     double mom_tol;
 
-    apply_charged_force(double const_min_energy_dimensionless, field* E_field_, field* B_field_) : electron_table(const_min_energy_dimensionless)
+    apply_charged_force(double const_min_energy_dimensionless, field* E_field_, field* B_field_) : electron_table(const_min_energy_dimensionless, true)
     //use this constructor if the minimum_energy is constant
     {
         E_field=E_field_;
@@ -278,11 +278,11 @@ class apply_charged_force
         double friction;
         if(charge==-1)
         {
-            if(remove_moller==0 or remove_moller==1)
+            if(remove_moller==0 or remove_moller==1) //if not removing moller losses, or constant min_energy
             {
                 friction=electron_table.electron_lookup(momentum_squared);
             }
-            else if(remove_moller==2)
+            else if(remove_moller==2) //variable min energy
             {
                 friction=electron_table.electron_lookup_variable_RML(momentum_squared, min_energy);
             }
@@ -312,7 +312,6 @@ class apply_charged_force
         //print("run:", particle.next_timestep);//(sqrt(particle.momentum.sum_of_squares()+1)-1)*510);
         while(not acceptable)
         {
-
             particle.timestep=particle.next_timestep;
             if(particle.timestep>maximum_timestep)
             {
@@ -327,8 +326,6 @@ class apply_charged_force
             K_1_mom*=particle.timestep;
 
 
-            //print("A");
-
 
             pos_step=K_1_pos/5.0;
             mom_step=K_1_mom/5.0;
@@ -339,9 +336,6 @@ class apply_charged_force
             gsl::vector K_2_pos=mom_step*(particle.timestep/gamma(mom_step));
             gsl::vector K_2_mom=force(pos_step, mom_step, particle.charge);
             K_2_mom*=particle.timestep;
-
-
-            //print("B");
 
 
 
@@ -361,9 +355,6 @@ class apply_charged_force
             K_3_mom*=particle.timestep;
 
 
-            //print("E");
-
-
 
 
             pos_step=K_1_pos*(3.0/10.0);
@@ -381,9 +372,6 @@ class apply_charged_force
             gsl::vector K_4_pos=mom_step*(particle.timestep/gamma(mom_step));
             gsl::vector K_4_mom=force(pos_step, mom_step, particle.charge);
             K_4_mom*=particle.timestep;
-
-
-            //print("C");
 
 
 
@@ -408,9 +396,6 @@ class apply_charged_force
             K_5_mom*=particle.timestep;
 
 
-            //print("D");
-
-            //I AM HERE. ADD ENERGY TEST
 
 
 
@@ -439,6 +424,7 @@ class apply_charged_force
 
 
 
+
             gsl::vector pos_O4=K_1_pos*(2825.0/27648.0);
             gsl::vector mom_O4=K_1_pos*(2825.0/27648.0);
 
@@ -457,7 +443,7 @@ class apply_charged_force
             pos_O4.mult_add( K_6_pos, (1.0/4.0) );
             mom_O4.mult_add( K_6_pos, (1.0/4.0) );
 
-            //pos_O4+=particle.position;
+            //pos_O4+=particle.position; //don't need to do this
             //mom_O4+=particle.momentum;
 
 
@@ -506,7 +492,6 @@ class apply_charged_force
 
 
                 acceptable=true;
-                //print("accept");
             }
             else
             {//repeat with new timestep
@@ -514,7 +499,6 @@ class apply_charged_force
                 particle.next_timestep=particle.timestep*kappa*pow( sqrt(err_f), 0.20);
 
                 acceptable=false;
-                //print("reject");
             }
         }
         return 0;
@@ -525,7 +509,6 @@ class apply_charged_force
 void shielded_coulomb_scattering(particle_T &particle) //should this be a class?
 {
     double I=particle.momentum.sum_of_squares();
-    //print(I, (sqrt(I+1)-1)*electron_rest_energy/(Kilo*elementary_charge));
     if((sqrt(I+1)-1)*energy_units_kev>0.02) //just for now
     {
         I=SHCdiffusion_scattering.sample_inclination(I, particle.timestep);
@@ -589,7 +572,6 @@ void simple_particle_remove(list<particle_T> &current_particles, list<particle_T
         if(gamma_sq<gamma_sq_threshold)
         {
             auto loc=iter--;
-            print("remove:", loc->timestep);
             removal_particles.splice(removal_particles.end(), current_particles, loc);
         }
     }
@@ -677,17 +659,7 @@ int main()
 	    //particle_apply( charged_particle_RungeKuttaF, electrons , E_field.pntr(), B_field.pntr() );
         for(particle_T &part :  electrons)
         {
-            //try
-            //{
             force_engine.charged_particle_RungeKuttaCK(part);
-            //}
-            //catch(...)
-            //{
-              //  part.next_timestep*=0.1;
-             //   force_engine.charged_particle_RungeKuttaCK(part);
-              //  print(sqrt(part.momentum.sum_of_squares()+1)-1.0, particle_removal_energy);
-
-            //}
         }
 
 

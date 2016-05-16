@@ -25,6 +25,7 @@
 #include<iostream>
 #include<iterator>
 #include<list>
+#include<cmath>
 
 #include"exception.hpp"
 #include"block.hpp"
@@ -276,6 +277,95 @@ namespace gsl {
 			(*this)[i]/=v;
 		}
 	}
+
+    inline vector operator/(vector const& v) const
+    {
+		// check if vectors are null
+		if( ccgsl_pointer == 0 ) throw vector_exception();
+		if( v.ccgsl_pointer == 0 ) throw vector_exception();
+		//check sizes
+		if( ccgsl_pointer->size != v.ccgsl_pointer->size) throw vector_exception();
+		//multiply
+		vector new_vector(ccgsl_pointer->size);
+		for( size_t i = 0; i<ccgsl_pointer->size; ++i )
+		{
+			new_vector[i]=(*this)[i]/v[i];
+		}
+		return new_vector;
+	}
+
+    inline void operator/=(vector const& v)
+    {
+		// check if vectors are null
+		if( ccgsl_pointer == 0 ) throw vector_exception();
+		if( v.ccgsl_pointer == 0 ) throw vector_exception();
+		//check sizes
+		if( ccgsl_pointer->size != v.ccgsl_pointer->size) throw vector_exception();
+		//multiply
+		for( size_t i = 0; i<ccgsl_pointer->size; ++i )
+		{
+			(*this)[i]/=v[i];
+		}
+	}
+
+//    inline vector pow(vector const& v) const
+//    {
+//		// check if vectors are null
+//		if( ccgsl_pointer == 0 ) throw vector_exception();
+//		if( v.ccgsl_pointer == 0 ) throw vector_exception();
+//		//check sizes
+//		if( ccgsl_pointer->size != v.ccgsl_pointer->size) throw vector_exception();
+		//multiply
+//		vector new_vector(ccgsl_pointer->size);
+//		for( size_t i = 0; i<ccgsl_pointer->size; ++i )
+//		{
+//			new_vector[i]=std::pow((*this)[i], v[i]);
+//		}
+//		return new_vector;
+//	}
+
+    inline void pow(vector const& v)
+    {
+		// check if vectors are null
+		if( ccgsl_pointer == 0 ) throw vector_exception();
+		if( v.ccgsl_pointer == 0 ) throw vector_exception();
+		//check sizes
+		if( ccgsl_pointer->size != v.ccgsl_pointer->size) throw vector_exception();
+		//multiply
+		for( size_t i = 0; i<ccgsl_pointer->size; ++i )
+		{
+			(*this)[i]=std::pow((*this)[i], v[i]);
+		}
+	}
+
+    template<typename FUNC_T, typename... ARGS_T>
+    void apply_function(FUNC_T function, ARGS_T ...arguments)
+    {
+        for( size_t i = 0; i<ccgsl_pointer->size; ++i )
+		{
+			function((*this)[i], arguments...);
+		}
+    }
+
+    template<typename FUNC_T, typename... ARGS_T>
+    void self_apply_function(FUNC_T function, ARGS_T ...arguments)
+    {
+        for( size_t i = 0; i<ccgsl_pointer->size; ++i )
+		{
+			(*this)[i]=function((*this)[i], arguments...);
+		}
+    }
+
+    template<typename FUNC_T, typename... ARGS_T>
+    vector apply_return_function(FUNC_T function, ARGS_T... arguments)
+    {
+		vector new_vector(ccgsl_pointer->size);
+        for( size_t i = 0; i<ccgsl_pointer->size; ++i )
+		{
+			new_vector[i]=function((*this)[i], arguments...);
+		}
+        return new_vector;
+    }
 
     inline void mult_add(vector const& A, double const& B)
     //multiplies A by B and adds it to vector
