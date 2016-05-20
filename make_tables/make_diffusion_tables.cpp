@@ -5,11 +5,13 @@
 #include <cmath>
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
+#include <gsl/gsl_integration.h>
 #include <ctime>
 #include <list>
 #include <thread>
 #include <mutex>
 #include <sstream>
+#include <memory>
 
 #include "vector.hpp"
 //#include "histogram.hpp"
@@ -20,10 +22,284 @@
 #include "arrays_IO.hpp"
 #include "functor.hpp"
 #include "integrate.hpp"
+#include "spline.hpp"
 #include "gen_ex.hpp"
+
+#include "../physics/shielded_coulomb_diffusion.hpp"
 
 using namespace std;
 
+class integrator
+{
+    public:
+
+    double theta;
+    double theta_prime;
+    shared_ptr<poly_spline> dp_dOmega;
+    diff_cross_section* cross_section;
+
+    int f_calls;
+
+    method_functor_1D<integrator> phi_integrand_functor;
+    gsl_function phi_integrand_GSLfunctor;
+    gsl_integration_workspace* phi_workspace;
+
+
+    method_functor_1D<integrator> theta_integrand_functor;
+    gsl_function theta_integrand_GSLfunctor;
+    gsl_integration_workspace* theta_workspace;
+
+    integrator(diff_cross_section* cross_section_) : phi_integrand_functor( this, &integrator::integrand_of_phi), theta_integrand_functor( this, &integrator::integrand_of_theta)
+    {
+        cross_section=cross_section_;
+
+        phi_integrand_GSLfunctor=phi_integrand_functor.get_gsl_func();
+        phi_workspace=gsl_integration_workspace_alloc (1000);
+
+        theta_integrand_GSLfunctor=theta_integrand_functor.get_gsl_func();
+        theta_workspace=gsl_integration_workspace_alloc (1000);
+    }
+
+    ~integrator()
+    {
+        gsl_integration_workspace_free(phi_workspace);
+        gsl_integration_workspace_free(theta_workspace);
+    }
+
+    void set_dp_dOmega(gsl::vector theta_space, gsl::vector values)
+    {
+        dp_dOmega=make_shared<poly_spline>(theta_space, values);
+    }
+
+    void set_dp_dOmega(shared_ptr<poly_spline> dp_dOmega_)
+    {
+        dp_dOmega=dp_dOmega_;
+    }
+
+    inline double angular_distance(double theta_one, double theta_two, double delta_phi)
+    {
+    //haversine forumla
+        double A=sin((theta_one-theta_two)*0.5);
+        A*=A;
+        double B=sin(delta_phi*0.5);
+        B*=B;
+        B*=sin(theta_one)*sin(theta_two); //sin instead of cos since thetas are from Z axis
+        return 2*asin(min(1.0,sqrt(A+B)));
+
+    //law of cosines
+    //ill-conditioned for small theta (supposibly not a problem for doubles), which may be worth the speed-up?
+        //return acos( min(1.0, cos(theta_one)*cos(theta_two) + sin(theta_one)*sin(theta_two)*cos(delta_phi/2.0) ) );
+    }
+
+    double integrand_of_phi(double delta_phi)
+    // the integrand
+    {
+        //f_calls++;
+        return cross_section->call( angular_distance(theta_prime, theta, delta_phi) );
+    }
+
+    double integrand_of_theta(double theta_prime_)
+    {
+        theta_prime=theta_prime_;
+
+        cum_adap_simps integrator(&phi_integrand_functor, 0, 3.1415926, 1E9, 2);
+
+        return integrator.quad()*2*dp_dOmega->call(theta_prime)*sin(theta_prime);
+
+/*
+        theta_prime=theta_prime_;
+
+        double answer;
+        double error;
+        int result= gsl_integration_qag (&phi_integrand_GSLfunctor, 0, 3.1415926, 0.01, 0.01, 1000, 6, phi_workspace, &answer, &error); //function is semetric in pi
+
+        if(result==GSL_EMAXITER)
+        {
+            print("maximum itterations exceeded");
+        }
+        else if(result==GSL_EROUND)
+        {
+            print("cannot reach tollerance due to round off");
+        }
+        else if(result==GSL_ESING)
+        {
+            print("bad integrand behavior");
+        }
+        else if(result==GSL_EDIVERGE)
+        {
+            print("integral is too divergent");
+        }
+
+        //answer*=dp_dOmega->call(theta_prime)*sin(theta_prime);
+        //double B=dp_dOmega->call(theta_prime)*sin(theta_prime);
+        //if(answer*B<0)
+        //{
+        //    print("arg:", theta*180/3.1415926, theta_prime*180/3.1415926);
+         //   print("  ", answer, dp_dOmega->call(theta_prime), sin(theta_prime));
+       // }
+        return answer*dp_dOmega->call(theta_prime)*sin(theta_prime)*2;*/
+    }
+
+    double step(double theta_)
+    {/*
+        //f_calls=0;
+        theta=theta_;
+
+        cum_adap_simps integrator(&theta_integrand_functor, 0, 3.1415926, 1E9, 2);
+
+        //print(f_calls);
+
+        return integrator.quad();*/
+
+        //f_calls=0;
+        theta=theta_;
+
+        double answer;
+        double error;
+        int result= gsl_integration_qag (&theta_integrand_GSLfunctor, 0, 3.1415926, 0.1, 0.1, 1000, 1, theta_workspace, &answer, &error);
+
+        if(result==GSL_EMAXITER)
+        {
+            print("maximum itterations exceeded");
+        }
+        else if(result==GSL_EROUND)
+        {
+            print("cannot reach tollerance due to round off");
+        }
+        else if(result==GSL_ESING)
+        {
+            print("bad integrand behavior");
+        }
+        else if(result==GSL_EDIVERGE)
+        {
+            print("integral is too divergent");
+        }
+
+        //print(f_calls);
+
+        return answer;
+    }
+};
+
+
+class output_control : public functor_1D
+{
+    public:
+
+    shared_ptr<poly_spline> current_interpolant;
+
+
+    shared_ptr<poly_spline> new_step;
+    double new_step_weight;
+
+    output_control()
+    {
+        gsl::vector points({0, 3.1415926});
+        gsl::vector values({0, 0});
+        current_interpolant=make_shared<poly_spline>(points, values);
+    }
+
+    double call(double X)
+    {
+        return current_interpolant->call(X) + new_step_weight*new_step->call(X);
+    }
+
+    void add_step(shared_ptr<poly_spline> new_step_, double new_step_weight_)
+    {
+        new_step=new_step_;
+        new_step_weight=new_step_weight_;
+
+        current_interpolant= adaptive_sample_retSpline(this, 0.1, 0, 3.1415926);
+    }
+
+    double integrand(double X)
+    {
+        return current_interpolant->call(X)*std::sin(X);
+    }
+};
+
+
+int main()
+{
+    double energy=10000/energy_units_kev;
+    double timestep=0.00001;
+
+    double probability_accuracy=0.001; //when to truncate the series
+    double sampling_precision=0.1; //required precision in sampling the functions
+
+    ////// initilize //////
+    //cross section
+    diff_cross_section cross_section(energy);
+    double interactions_per_tau=cross_section.num_interactions_per_tau;
+    print(interactions_per_tau*timestep, "interactions per timestep");
+    method_functor_1D<diff_cross_section> cross_section_functor(&cross_section, &diff_cross_section::dp_dOmega);
+
+    //integrator
+    integrator stepper(&cross_section);
+    method_functor_1D<integrator> stepper_functor(&stepper, &integrator::step);
+
+    //setup output
+    output_control output;
+
+
+    //////do first step //////
+    auto current_dp_dOmega=adaptive_sample_retSpline(&cross_section_functor, 0.001, 0, 3.1415926 );
+    current_dp_dOmega->multiply(1.0/current_dp_dOmega->integrate(3.1415926));//we need to normalize it
+    stepper.set_dp_dOmega(current_dp_dOmega);
+
+    output.add_step(current_dp_dOmega, gsl_ran_poisson_pdf(1, cross_section.num_interactions_per_tau*timestep)  );
+
+    ///////do next steps//////
+    int current_N=2;
+    bool reached_peak=false;
+    double max_p=0;
+    while(true)
+    {
+        if(current_N==5) break;
+        print("doing:", current_N);
+
+        double current_p=gsl_ran_poisson_pdf(current_N, cross_section.num_interactions_per_tau*timestep);
+        //output.mult_add(current_dp_dOmega, current_p);
+
+        if(reached_peak and current_p*probability_accuracy<max_p) break;
+        if(current_p<max_p) reached_peak=true;
+        else if(not reached_peak) max_p=current_p;
+
+        //do the step
+        current_dp_dOmega=adaptive_sample_retSpline(&stepper_functor, 0.1, 0, 3.1415926 );
+
+        print("integration complete");
+        current_dp_dOmega->multiply(1.0/current_dp_dOmega->integrate(3.1415926));//we need to normalize it
+        stepper.set_dp_dOmega(current_dp_dOmega);
+        output.add_step(current_dp_dOmega, gsl_ran_poisson_pdf(1, cross_section.num_interactions_per_tau*timestep)  );
+
+        current_N++;
+    }
+
+
+    ////// finally, do inverse transform sampling ///////
+    method_functor_1D<output_control> output_integral_functor(&output, &output_control::integrand);
+    //cum_adap_simps output_integrator(&output_integral_functor, 0, 3.1415926, 1e4);
+
+    //gsl::vector points=output_integrator.points();
+    //gsl::vector values=output_integrator.cum_quads();
+
+    gsl::vector points;
+    gsl::vector values=adaptive_sample(&output_integral_functor, 0.01, 0, 3.1415926, points );
+
+    //write to file
+    arrays_output tables_out;
+    shared_ptr<doubles_output> theta_space_table=make_shared<doubles_output>(points);
+    tables_out.add_array(theta_space_table);
+
+    shared_ptr<doubles_output> output_table=make_shared<doubles_output>(values);
+    tables_out.add_array(output_table);
+
+	binary_output fout("./out");
+	tables_out.write_out( &fout);
+}
+
+/*
 class hist_tool
 {
 private:
@@ -186,46 +462,10 @@ public:
     }
 };
 
-class diff_cross_section : public functor_1D
-{
-public:
-	double momentum_sq;
-	double beta;
-	double prefactor;
-	double p_factor;
-	diff_cross_section(double timestep, double energy_kev=0)
-	{
-		prefactor=timestep*average_air_atomic_number*average_air_atomic_number/(8*3.1415926);
-		p_factor=pow(average_air_atomic_number, 2.0/3.0)/(4*183.3*183.3);
 
-		set_energy(energy_kev);
-	}
 
-	void set_energy(double energy_kev)
-	{
-		double energy=energy_kev*1000.0*elementary_charge/electron_rest_energy;
-		momentum_sq=(energy+1.0)*(energy+1.0)-1;
-		beta=sqrt(momentum_sq/(1+momentum_sq));
-	}
+I AM HERE
 
-	double cross_section(double angle)
-	{
-		double S=sin(angle/2.0);
-		double numerator=1.0-beta*beta*S*S;
-		double denom=S*S+p_factor/momentum_sq;
-		return numerator*prefactor/(denom*denom*beta*momentum_sq);
-	}
-
-	double integrand(double angle)
-	{
-		return cross_section(angle)*sin(angle);
-	}
-
-	double call(double angle)
-	{
-		return integrand(angle);
-	}
-};
 
 class workspace
 {
@@ -553,4 +793,4 @@ int main()
     do_timestep(0.05);
     do_timestep(0.1);
     do_timestep(0.5);
-}
+}*/

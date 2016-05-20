@@ -47,6 +47,27 @@ class histogram(object):
 
 
 if __name__=='__main__':
+    
+    table_in=array_input( binary_input("./out") )
+    
+    theta_space_table=table_in.get_array()
+    angles=theta_space_table.read_doubles()
+    
+    prob_table=table_in.get_array()
+    probabilities=prob_table.read_doubles()
+    
+    ##TT=table_in.get_array()
+    ##known_angles=TT.read_doubles()
+    
+    ##PT=table_in.get_array()
+    ##known_p=PT.read_doubles()
+    print len(angles)
+    plt.plot(angles, probabilities, '-')
+    ##plt.plot(known_angles, known_p, 'o')
+    plt.show()
+    
+    exit()
+    
     table_index=0
     ##open
     table_in=array_input( binary_input("../tables/diffusion/5e-05") )

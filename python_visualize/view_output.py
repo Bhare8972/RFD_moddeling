@@ -137,6 +137,16 @@ def plot_particles_XYZ(particles):
         ax.plot(p.get_X()*distance_units, p.get_Y()*distance_units, p.get_Z()*distance_units)
     plt.show()
 
+def plot_particles_XZ(particles):
+    fig = plt.figure()
+    fig.suptitle('path of particle in XYZ')
+    ax = fig.add_subplot(1,1,1)
+    ax.set_xlabel('X axis')
+    ax.set_ylabel('Z axis')
+    for p in particle_data.itervalues():
+        ax.plot(p.get_X()*distance_units, p.get_Z()*distance_units)
+    plt.show()
+
 def plot_particles_TIMEYZ(particles):
     fig = plt.figure()
     fig.suptitle('path of particle in time and YZ')
@@ -187,7 +197,7 @@ def plot_timesteps(particles):
     axis=fig.add_subplot(111)
     for p in particles.itervalues():
         axis.plot(p.get_T()*time_units, np.array(p.timestep_history), 'o-')
-    
+
     y1, y2=axis.get_ylim()
     x1, x2=axis.get_xlim()
     ax2=axis.twinx()
@@ -196,9 +206,39 @@ def plot_timesteps(particles):
     ax2.set_ylabel('step size (ns)')
     ax2.set_xlim(x1, x2)
     axis.set_ylabel('step size (dimensionless)')
-        
+
     plt.title("time step size vs time")
     plt.show()
+
+def timesteps_vs_energy(particles):
+    minimum_timestep=6e-7
+    lowest_maximum_timestep=5e-6
+    largest_maximum_timestep=0.001
+    timestep_increase_per_KEV=0.000003
+
+    fig=plt.figure()
+    axis=fig.add_subplot(111)
+    max_E=0
+    for p in particles.itervalues():
+        Px=p.get_Px()
+        Py=p.get_Py()
+        Pz=p.get_Pz()
+        P_sq=Px*Px+Py*Py+Pz*Pz
+        E=np.sqrt(P_sq+1)-1
+        E*=electron_rest_energy/(kilo*elementary_charge)
+        max_E=max(np.max(E), max_E)
+        axis.plot(E, np.array(p.timestep_history), 'o')
+
+    axis.plot((0,max_E), (minimum_timestep,minimum_timestep))
+    ET=np.linspace(0, max_E, 10000)
+    max_TS=lowest_maximum_timestep +ET*timestep_increase_per_KEV
+    max_TS[max_TS>largest_maximum_timestep]= largest_maximum_timestep
+    plt.plot(ET, max_TS)
+
+    axis.set_ylabel('step size (dimensionless)')
+    plt.title("time step size vs energy")
+    plt.show()
+
 
 
 if __name__=='__main__':
@@ -228,10 +268,12 @@ if __name__=='__main__':
     ## print "final pos", particle_data[1].pos_history[-1][2]
     print len(particle_data), "particles"
 
-    plot_particles_XYZ(particle_data)
-    plot_particles_TIMEYZ(particle_data)
-    speed_VS_time(particle_data)
-    KE_VS_time(particle_data)
-    KE_VS_Z(particle_data)
-    plot_timesteps(particle_data)
+    #plot_particles_XYZ(particle_data)
+    ##plot_particles_XZ(particle_data)
+    #plot_particles_TIMEYZ(particle_data)
+    ##speed_VS_time(particle_data)
+    ##KE_VS_time(particle_data)
+    ##KE_VS_Z(particle_data)
+    ##plot_timesteps(particle_data)
+    timesteps_vs_energy(particle_data)
 

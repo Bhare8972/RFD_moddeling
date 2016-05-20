@@ -17,6 +17,7 @@ elementary_charge=1.602e-19 #charge of electron in coulombs
 average_air_atomic_number=14.5
 
 minimum_energy=2*kilo*elementary_charge/electron_rest_energy #minimum energy is 2 keV.
+lowest_physical_energy=100.0*elementary_charge/electron_rest_energy; ##lower energy the simulation is good for
 inv_I_sq=electron_rest_energy*electron_rest_energy/(85.7*85.7*elementary_charge*elementary_charge) #parameter necisary for beth formula
 
 ##find unit-less constant conversions

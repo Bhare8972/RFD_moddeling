@@ -34,6 +34,12 @@ double KE_to_mom(double KE)
 	return sqrt(pow(1+KE , 2.0) - 1.0);
 }
 
+double mom_to_KE(gsl::vector mom)
+//both KE and momentum are unitless
+{
+    return sqrt(mom.sum_of_squares()+1.0)-1.0;
+}
+
 double gamma(gsl::vector &mom_)
 {
     return sqrt(1+mom_[0]*mom_[0]+mom_[1]*mom_[1]+mom_[2]*mom_[2]);
@@ -303,7 +309,7 @@ class apply_charged_force
         return force;
     }
 
-    int charged_particle_RungeKuttaCK(particle_T &particle)
+    void charged_particle_RungeKuttaCK(particle_T &particle)
     //to make this depend of time, add argument double current_time
     //am using cash-karp parameters for fehlberg method
     //returns a status. 0 means good. 1 means electron went below lowest energy
@@ -326,7 +332,6 @@ class apply_charged_force
             K_1_mom*=particle.timestep;
 
 
-
             pos_step=K_1_pos/5.0;
             mom_step=K_1_mom/5.0;
 
@@ -342,10 +347,10 @@ class apply_charged_force
 
 
             pos_step=K_1_pos*(3.0/40.0);
-            mom_step=K_1_pos*(3.0/40.0);
+            mom_step=K_1_mom*(3.0/40.0);
 
             pos_step.mult_add( K_2_pos, (9.0/40.0) );
-            mom_step.mult_add( K_2_pos, (9.0/40.0) );
+            mom_step.mult_add( K_2_mom, (9.0/40.0) );
 
             pos_step+=particle.position;
             mom_step+=particle.momentum;
@@ -358,13 +363,13 @@ class apply_charged_force
 
 
             pos_step=K_1_pos*(3.0/10.0);
-            mom_step=K_1_pos*(3.0/10.0);
+            mom_step=K_1_mom*(3.0/10.0);
 
             pos_step.mult_add( K_2_pos, (-9.0/10.0) );
-            mom_step.mult_add( K_2_pos, (-9.0/10.0) );
+            mom_step.mult_add( K_2_mom, (-9.0/10.0) );
 
             pos_step.mult_add( K_3_pos, (-6.0/5.0) );
-            mom_step.mult_add( K_3_pos, (-6.0/5.0) );
+            mom_step.mult_add( K_3_mom, (-6.0/5.0) );
 
             pos_step+=particle.position;
             mom_step+=particle.momentum;
@@ -377,16 +382,16 @@ class apply_charged_force
 
 
             pos_step=K_1_pos*(-11.0/54.0);
-            mom_step=K_1_pos*(-11.0/54.0);
+            mom_step=K_1_mom*(-11.0/54.0);
 
             pos_step.mult_add( K_2_pos, (5.0/2.0) );
-            mom_step.mult_add( K_2_pos, (5.0/2.0) );
+            mom_step.mult_add( K_2_mom, (5.0/2.0) );
 
             pos_step.mult_add( K_3_pos, (-70.0/27.0) );
-            mom_step.mult_add( K_3_pos, (-70.0/27.0) );
+            mom_step.mult_add( K_3_mom, (-70.0/27.0) );
 
             pos_step.mult_add( K_4_pos, (35.0/27.0) );
-            mom_step.mult_add( K_4_pos, (35.0/27.0) );
+            mom_step.mult_add( K_4_mom, (35.0/27.0) );
 
             pos_step+=particle.position;
             mom_step+=particle.momentum;
@@ -400,19 +405,19 @@ class apply_charged_force
 
 
             pos_step=K_1_pos*(1631.0/55296.0);
-            mom_step=K_1_pos*(1631.0/55296.0);
+            mom_step=K_1_mom*(1631.0/55296.0);
 
             pos_step.mult_add( K_2_pos, (175.0/512.0) );
-            mom_step.mult_add( K_2_pos, (175.0/512.0) );
+            mom_step.mult_add( K_2_mom, (175.0/512.0) );
 
             pos_step.mult_add( K_3_pos, (575.0/13828.0) );
-            mom_step.mult_add( K_3_pos, (575.0/13828.0) );
+            mom_step.mult_add( K_3_mom, (575.0/13828.0) );
 
             pos_step.mult_add( K_4_pos, (44275.0/110592.0) );
-            mom_step.mult_add( K_4_pos, (44275.0/110592.0) );
+            mom_step.mult_add( K_4_mom, (44275.0/110592.0) );
 
             pos_step.mult_add( K_5_pos, (253.0/4096.0) );
-            mom_step.mult_add( K_5_pos, (253.0/4096.0) );
+            mom_step.mult_add( K_5_mom, (253.0/4096.0) );
 
             pos_step+=particle.position;
             mom_step+=particle.momentum;
@@ -426,22 +431,22 @@ class apply_charged_force
 
 
             gsl::vector pos_O4=K_1_pos*(2825.0/27648.0);
-            gsl::vector mom_O4=K_1_pos*(2825.0/27648.0);
+            gsl::vector mom_O4=K_1_mom*(2825.0/27648.0);
 
             //pos_O4.mult_add( K_2_pos, 0.0 );
             //mom_O4.mult_add( K_2_pos, 0.0 );
 
             pos_O4.mult_add( K_3_pos, (18575.0/48384.0) );
-            mom_O4.mult_add( K_3_pos, (18575.0/48384.0) );
+            mom_O4.mult_add( K_3_mom, (18575.0/48384.0) );
 
             pos_O4.mult_add( K_4_pos, (13525.0/55296.0) );
-            mom_O4.mult_add( K_4_pos, (13525.0/55296.0) );
+            mom_O4.mult_add( K_4_mom, (13525.0/55296.0) );
 
             pos_O4.mult_add( K_5_pos, (277.0/14336.0) );
-            mom_O4.mult_add( K_5_pos, (277.0/14336.0) );
+            mom_O4.mult_add( K_5_mom, (277.0/14336.0) );
 
             pos_O4.mult_add( K_6_pos, (1.0/4.0) );
-            mom_O4.mult_add( K_6_pos, (1.0/4.0) );
+            mom_O4.mult_add( K_6_mom, (1.0/4.0) );
 
             //pos_O4+=particle.position; //don't need to do this
             //mom_O4+=particle.momentum;
@@ -449,23 +454,24 @@ class apply_charged_force
 
 
 
+
             gsl::vector pos_O5=K_1_pos*(37.0/378.0);
-            gsl::vector mom_O5=K_1_pos*(37.0/378.0);
+            gsl::vector mom_O5=K_1_mom*(37.0/378.0);
 
             //pos_O5.mult_add( K_2_pos, 0.0 );
             //mom_O5.mult_add( K_2_pos, 0.0 );
 
             pos_O5.mult_add( K_3_pos, (250.0/621.0) );
-            mom_O5.mult_add( K_3_pos, (250.0/621.0) );
+            mom_O5.mult_add( K_3_mom, (250.0/621.0) );
 
             pos_O5.mult_add( K_4_pos, (125.0/594.0) );
-            mom_O5.mult_add( K_4_pos, (125.0/594.0) );
+            mom_O5.mult_add( K_4_mom, (125.0/594.0) );
 
             //pos_O5.mult_add( K_5_pos, 0.0 );
             //mom_O5.mult_add( K_5_pos, 0.0 );
 
             pos_O5.mult_add( K_6_pos, (512.0/1771.0) );
-            mom_O5.mult_add( K_6_pos, (512.0/1771.0) );
+            mom_O5.mult_add( K_6_mom, (512.0/1771.0) );
 
             pos_O4-=pos_O5;//for calculating the error
             mom_O4-=mom_O5;
@@ -495,13 +501,11 @@ class apply_charged_force
             }
             else
             {//repeat with new timestep
-
                 particle.next_timestep=particle.timestep*kappa*pow( sqrt(err_f), 0.20);
 
                 acceptable=false;
             }
         }
-        return 0;
     }
 };
 
@@ -599,19 +603,19 @@ void particle_apply( list<particle_T> &particles, void(particle_T::*FUNC)( arg_T
 
 int main()
 {
-	int number_itterations=10000;
-    double particle_removal_energy=0.008;//1.0/energy_units_kev; //remove particles that have energy less than this
+	int number_itterations=100000;
+    double particle_removal_energy=1.0/energy_units_kev; //remove particles that have energy less than this
 
-    double max_timestep=0.1; //this needs to be taken from diffusion tables
+    double max_timestep=0.001; //this needs to be taken from diffusion tables
 
-    double pos_tol=0.0000001;
-    double mom_tol=0.0000001;
+    double pos_tol=0.00001;
+    double mom_tol=0.00001;
 
 	//initialize electric field
 	uniform_field E_field;
 	E_field.set_minimum(-Kilo/distance_units, -Kilo/distance_units, -Kilo/distance_units);
 	E_field.set_maximum(Kilo/distance_units, Kilo/distance_units, 300/distance_units);
-	E_field.set_value(0, 0, -400e3/E_field_units);
+	E_field.set_value(0, 0, -500e3/E_field_units); //400
 	//E_field.set_value(0, 0, 0/E_field_units);
 
 	//magnetic field is zero
@@ -634,15 +638,19 @@ int main()
 	list<particle_T> electrons;
 	electrons.emplace_back();
 	electrons.back().set_position(0,0,0);
-	electrons.back().set_momentum(0,0, KE_to_mom(7000.0*Kilo*elementary_charge/electron_rest_energy) );
+	electrons.back().set_momentum(0,0, KE_to_mom(7500.0*Kilo*elementary_charge/electron_rest_energy) );
 
 	electrons.emplace_back();
 	electrons.back().set_position(0,0,0);
-	electrons.back().set_momentum(0,0, KE_to_mom(7000.0*Kilo*elementary_charge/electron_rest_energy) );
+	electrons.back().set_momentum(0,0, KE_to_mom(7500.0*Kilo*elementary_charge/electron_rest_energy) );
 
 	electrons.emplace_back();
 	electrons.back().set_position(0,0,0);
-	electrons.back().set_momentum(0,0, KE_to_mom(7000.0*Kilo*elementary_charge/electron_rest_energy) );
+	electrons.back().set_momentum(0,0, KE_to_mom(7500.0*Kilo*elementary_charge/electron_rest_energy) );
+
+	electrons.emplace_back();
+	electrons.back().set_position(0,0,0);
+	electrons.back().set_momentum(0,0, KE_to_mom(7500.0*Kilo*elementary_charge/electron_rest_energy) );
 
 	//output file
     particle_history_out save_data;
@@ -651,6 +659,7 @@ int main()
 	//simulate!
 	for(int i=1; i<=number_itterations; i++)
 	{
+
         if(electrons.size()==0)
         {
             break;

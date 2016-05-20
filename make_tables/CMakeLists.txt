@@ -16,11 +16,6 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fmax-errors=10 -Wall -g" )
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
 
-
-add_executable(make_ionization_tables
-              ./make_ionization_tables.cpp)
-target_link_libraries(make_ionization_tables gsl gslcblas)
-
 add_executable(make_diffusion_tables
               ./make_diffusion_tables.cpp)
 target_link_libraries(make_diffusion_tables gsl gslcblas pthread)
