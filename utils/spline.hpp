@@ -4,6 +4,7 @@
 
 #include <memory>
 #include <list>
+#include <vector>
 //#include <gsl/gsl_spline.h>
 
 #include "GSL_utils.hpp"
@@ -639,44 +640,362 @@ std::shared_ptr<poly_spline> adaptive_sample_all(functor_1D* F, double precision
     return out_spline;
 }
 
-class adative_bilinear_2DSpline
+class adative_2DSpline
+//not exactly memory effiecent
 {
-    private:
+    public:
+    class quad_section;
 
-    class bilinear_quad
+    class tri_section
     {
         public:
-        int state; //0 is before refinment. 1 is succsesfully refined. 2 means can not longer refine. 3 means that that one of the childern shapes is a 2
+        //these are set externally
+        int type; //0 is border is to left, 1 is up, 2 is down 3 is to right
 
-        double left_X;
-        double right_X;
-        double upper_y;
-        double lower_Y;
+        quad_section* bordering_quad;
 
-        double middle_X:
+        double X1;//lower or left point
+        double Y1;
+        double F1;
+
+        double X2;//upper or right point
+        double Y2;
+        double F2;
+
+        double X3;//middle of quad
+        double Y3;
+        double F3;
+
+        //these are calculated
+        double weight_A;
+        double weight_B;
+        double weight_C;
+
+        double Iweight_00;
+        double Iweight_01;
+        double Iweight_02;
+        double Iweight_03;
+        double Iweight_04;
+        double Iweight_05;
+
+        double Iweight_10;
+        double Iweight_11;
+        double Iweight_12;
+        double Iweight_13;
+        double Iweight_14;
+        double Iweight_15;
+
+        //own these two pointers
+        tri_section* section_A;
+        tri_section* section_B;
+
+        tri_section()
+        {
+            section_A=0;
+            section_B=0;
+        }
+
+        ~tri_section()
+        {
+            if(section_A) delete section_A;
+            if(section_B) delete section_B;
+        }
+
+        void set_weights()
+        //assume the three points have been externally set
+        {
+            //set weights for the spline
+
+            if(type==0 or type==3)//verticle style tri
+            {
+                weight_C=(F2-F1)/(Y2-Y1);
+                weight_B=( (F3-F1)-weight_C*(Y3-Y1) )/(X3-X1);
+
+            }
+            else//horizontal tri
+            {
+                weight_C=( (X2-X1)*(F3-F1) - (F2-F1)*(X3-X1) )/( (Y3-Y1)*(X2-X1) );
+                weight_B=(F2-F1)/(X2-X1);
+            }
+
+            weight_A=F1 - Y1*weight_C - X1*weight_B;
+
+            if(weight_A != weight_A)
+            {
+                print(type);
+                print(X1, X2, X3, Y1, Y2, Y3, F1, F2, F3);
+                print(weight_C, weight_B, weight_A);
+                throw gen_exception("function cannot be interpolated by this spline");
+            }
+
+            //set weights for intesection testing
+            double E1x=X2-X1;
+            double E1y=Y2-Y1;
+            double E2x=X3-X1;
+            double E2y=Y3-Y1;
+            double E3x=X3-X2;
+            double E3y=Y3-Y2;
+
+            double K0=E1x*Y1 - E1y*X1;
+            double K1=E3x*Y2 - E3y*X2;
+            double K2=E2y*X3 - E2x*Y3;
+
+            Iweight_00=K0*K1;
+            Iweight_01=E3y*K0+E1y*K1;
+            Iweight_02=-(E3x*K0 + E1x*K1);
+            Iweight_03=-(E1y*E3x + E3y*E1x);
+            Iweight_04=E1y*E3y;
+            Iweight_05=E1x*E3x;
+
+            Iweight_10=K0*K2;
+            Iweight_11=E1y*K2 - E2y*K0;
+            Iweight_12=E2x*K0 - E1x*K2;
+            Iweight_13=E1y*E2x + E2y*E1x;
+            Iweight_14=-E1y*E2y;
+            Iweight_15=-E1x*E2x;
+        }
+
+        inline bool intersection(double X, double Y)
+        {
+            double T1=Iweight_00 + Iweight_01*X + Iweight_02*Y + Iweight_03*X*Y + Iweight_04*X*X + Iweight_05*Y*Y;
+            if(T1>0)
+            {
+                double T2=Iweight_10 + Iweight_11*X + Iweight_12*Y + Iweight_13*X*Y + Iweight_14*X*X + Iweight_15*Y*Y;
+                if(T2>0)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        inline double rough_call(double X, double Y)
+        {
+            return weight_A + weight_B*X + weight_C*Y;
+        }
+
+        inline double call(double X, double Y)
+        {
+            if(section_A)//we have sub-tri
+            {
+                if(section_A->intersection(X,Y))
+                {
+                    return section_A->call(X,Y);
+                }
+                else
+                {
+                    return section_B->call(X,Y);
+                }
+            }
+            else
+            {
+                return rough_call(X,Y);
+            }
+        }
+
+        void triangularize()
+        //split into smaller triangles, so that spline is smooth
+        {
+            if(bordering_quad and (bordering_quad->state==3 or bordering_quad->state==4))
+            {
+                if(type==0)//0 is border is to left, 1 is up, 2 is down 3 is to right
+                {
+                    double middle_Y=(Y1+Y2)*0.5;
+                    double middle_F=bordering_quad->quadrent_B->F3;
+                    section_A= new tri_section();
+                    section_B= new tri_section();
+
+                    section_A->type=0;
+                    section_A->bordering_quad=bordering_quad->quadrent_B;
+
+                    section_A->X1=X1;
+                    section_A->Y1=middle_Y;
+                    section_A->F1=middle_F;
+
+                    section_A->X2=X2;
+                    section_A->Y2=Y2;
+                    section_A->F2=F2;
+
+                    section_A->X3=X3;
+                    section_A->Y3=Y3;
+                    section_A->F3;
+
+                    section_B->type=0;
+                    section_B->bordering_quad=bordering_quad->quadrent_C;
+
+                    section_B->X1=X1;
+                    section_B->Y1=Y1;
+                    section_B->F1=F1;
+
+                    section_B->X2=X2;
+                    section_B->Y2=middle_Y;
+                    section_B->F2=middle_F;
+
+                    section_B->X3=X3;
+                    section_B->Y3=Y3;
+                    section_B->F3;
+                }
+                else if(type==1)
+                {
+                    double middle_X=(X1+X2)*0.5;
+                    double middle_F=bordering_quad->quadrent_C->F4;
+                    section_A= new tri_section();
+                    section_B= new tri_section();
+
+                    section_A->type=1;
+                    section_A->bordering_quad=bordering_quad->quadrent_C;
+
+                    section_A->X1=middle_X;
+                    section_A->Y1=Y1;
+                    section_A->F1=middle_F;
+
+                    section_A->X2=X2;
+                    section_A->Y2=Y2;
+                    section_A->F2=F2;
+
+                    section_A->X3=X3;
+                    section_A->Y3=Y3;
+                    section_A->F3;
+
+                    section_B->type=1;
+                    section_B->bordering_quad=bordering_quad->quadrent_D;
+
+                    section_B->X1=X1;
+                    section_B->Y1=Y1;
+                    section_B->F1=F1;
+
+                    section_B->X2=middle_X;
+                    section_B->Y2=Y2;
+                    section_B->F2=middle_F;
+
+                    section_B->X3=X3;
+                    section_B->Y3=Y3;
+                    section_B->F3;
+                }
+                else if(type==2)
+                {
+                    double middle_X=(X1+X2)*0.5;
+                    double middle_F=bordering_quad->quadrent_A->F2;
+                    section_A= new tri_section();
+                    section_B= new tri_section();
+
+                    section_A->type=2;
+                    section_A->bordering_quad=bordering_quad->quadrent_B;
+
+                    section_A->X1=middle_X;
+                    section_A->Y1=Y1;
+                    section_A->F1=middle_F;
+
+                    section_A->X2=X2;
+                    section_A->Y2=Y2;
+                    section_A->F2=F2;
+
+                    section_A->X3=X3;
+                    section_A->Y3=Y3;
+                    section_A->F3;
+
+                    section_B->type=2;
+                    section_B->bordering_quad=bordering_quad->quadrent_A;
+
+                    section_B->X1=X1;
+                    section_B->Y1=Y1;
+                    section_B->F1=F1;
+
+                    section_B->X2=middle_X;
+                    section_B->Y2=Y2;
+                    section_B->F2=middle_F;
+
+                    section_B->X3=X3;
+                    section_B->Y3=Y3;
+                    section_B->F3;
+                }
+                else //type==3
+                {
+                    double middle_Y=(Y1+Y2)*0.5;
+                    double middle_F=bordering_quad->quadrent_A->F4;
+                    section_A= new tri_section();
+                    section_B= new tri_section();
+
+                    section_A->type=3;
+                    section_A->bordering_quad=bordering_quad->quadrent_A;
+
+                    section_A->X1=X1;
+                    section_A->Y1=middle_Y;
+                    section_A->F1=middle_F;
+
+                    section_A->X2=X2;
+                    section_A->Y2=Y2;
+                    section_A->F2=F2;
+
+                    section_A->X3=X3;
+                    section_A->Y3=Y3;
+                    section_A->F3;
+
+                    section_B->type=3;
+                    section_B->bordering_quad=bordering_quad->quadrent_D;
+
+                    section_B->X1=X1;
+                    section_B->Y1=Y1;
+                    section_B->F1=F1;
+
+                    section_B->X2=X2;
+                    section_B->Y2=middle_Y;
+                    section_B->F2=middle_F;
+
+                    section_B->X3=X3;
+                    section_B->Y3=Y3;
+                    section_B->F3;
+                }
+
+                section_A->set_weights();
+                section_B->set_weights();
+
+                section_A->triangularize();
+                section_B->triangularize();
+            }
+        }
+    };
+
+
+    class quad_section
+    {
+        public:
+        int state; //0 is before refinment. 1 is refined to triangles. 3 means refined to rectangles. 2 means can not longer refine,and should be deleted.
+        //5 means that that one of the childern shapes is (or was) a 2, and this quad is now refined to triangles. 4 means that one of the childern is a 3 and this quad is refined to rectangles
+
+        double X1;
+        double Y1;
+        double X2;
+        double Y2;
+        double F1;
+        double F2;
+        double F3;
+        double F4;
+
+        double middle_X;
         double middle_Y;
 
-        double leftupper_Z;
-        double leftlower_Z;
-        double rightupper_Z;
-        double rightlower_Z;
-
         //do not own these pointers
-        bilinear_quad* left_neighbor;
-        bilinear_quad* upper_neighbor;
-        bilinear_quad* right_neighbor;
-        bilinear_quad* lower_neighbor;
+        quad_section* left_neighbor;
+        quad_section* upper_neighbor;
+        quad_section* right_neighbor;
+        quad_section* lower_neighbor;
 
         //DO own these pointers
-        bilinear_quad* quadrent_A;
-        bilinear_quad* quadrent_B;
-        bilinear_quad* quadrent_C;
-        bilinear_quad* quadrent_D;
+        quad_section* quadrent_A; //upper left
+        quad_section* quadrent_B;//upper right
+        quad_section* quadrent_C;//lower left
+        quad_section* quadrent_D;//lower right
 
-        bilinear_quad()
+        //triangles
+        tri_section* upper_tri;
+        tri_section* left_tri;
+        tri_section* lower_tri;
+        tri_section* right_tri;
+
+        quad_section()
         {
             //owner is expected to set all the values correctly. constructor is simple.
-
             left_neighbor=0;
             upper_neighbor=0;
             right_neighbor=0;
@@ -687,21 +1006,578 @@ class adative_bilinear_2DSpline
             quadrent_B=0;
             quadrent_C=0;
             quadrent_D=0;
+
+            upper_tri=0;
+            left_tri=0;
+            lower_tri=0;
+            right_tri=0;
+
+            state=0;
         }
 
-        ~bilinear_quad()
+        ~quad_section()
         {
             //DO own these pointers
-            delete quadrent_A;
-            delete quadrent_B;
-            delete quadrent_C;
-            delete quadrent_D;
+            if(quadrent_A) delete quadrent_A;
+            if(quadrent_B) delete quadrent_B;
+            if(quadrent_C) delete quadrent_C;
+            if(quadrent_D) delete quadrent_D;
+
+            if(upper_tri) delete upper_tri;
+            if(left_tri) delete left_tri;
+            if(lower_tri) delete lower_tri;
+            if(right_tri) delete right_tri;
         }
 
+        //for a functor
+        template<typename functor_T>
+        void refine(functor_T& func, double percent_error )
+        {
+            //expect that the neighbors are set. That is, they are null if there is no neighbor.
+            //assume that x1, y1, x2, y2, f1, f2, f3, f4 are all set
 
+            middle_X=(X1+X2)*0.5;
+            middle_Y=(Y1+Y2)*0.5;
+
+            if(middle_X != middle_X)
+            {
+                state=2;
+                return;
+            }
+
+            if(middle_Y != middle_Y)
+            {
+                state=2;
+                return;
+            }
+
+
+            //check if we are too small
+            if(float( X1+( X1-middle_X))==float( X1))
+            {
+                state=2;
+                return;
+            }
+            if(float( X2+( X2-middle_X))==float( X2))
+            {
+                state=2;
+                return;
+            }
+            if(float( Y1+( Y1-middle_Y))==float( Y1))
+            {
+                state=2;
+                return;
+            }
+            if(float( Y2+( Y2-middle_Y))==float( Y2))
+            {
+                state=2;
+                return;
+            }
+
+            //check percent error
+            double middle_value=func(middle_X, middle_Y);
+            double middle_guess=(F1+F2+F3+F4)*0.25;
+            if( abs(middle_value-middle_guess) < abs(middle_value*percent_error) )
+            {
+                //then we are withen precision, we will do triangles
+                state=1;
+            }
+            else
+            {
+                // then we are outside precision. Do deeper quads
+                state=3;
+
+                //first, make the quads
+                quadrent_A=new quad_section();//upper left
+                quadrent_B=new quad_section();//upper right
+                quadrent_C=new quad_section();//lower left
+                quadrent_D=new quad_section();//lower right
+
+                //set the easy neighbors
+                quadrent_A->right_neighbor=quadrent_B;
+                quadrent_A->lower_neighbor=quadrent_D;
+
+                quadrent_B->left_neighbor=quadrent_A;
+                quadrent_B->lower_neighbor=quadrent_C;
+
+                quadrent_C->left_neighbor=quadrent_D;
+                quadrent_C->upper_neighbor=quadrent_B;
+
+                quadrent_D->right_neighbor=quadrent_C;
+                quadrent_D->upper_neighbor=quadrent_A;
+
+                //check the other neighbors, and find other function values
+                double F5, F6, F7, F8;
+                if(upper_neighbor and (upper_neighbor->state==3 or upper_neighbor->state==4))
+                {
+                    F6=upper_neighbor->quadrent_D->F3;
+                    quadrent_A->upper_neighbor=upper_neighbor->quadrent_D;
+                    quadrent_B->upper_neighbor=upper_neighbor->quadrent_C;
+                }
+                else
+                {
+                    F6=func(middle_X, Y1);
+                }
+
+                if(right_neighbor and (right_neighbor->state==3 or right_neighbor->state==4))
+                {
+                    F7=right_neighbor->quadrent_A->F4;
+                    quadrent_B->right_neighbor=right_neighbor->quadrent_A;
+                    quadrent_C->right_neighbor=right_neighbor->quadrent_D;
+                }
+                else
+                {
+                    F7=func(X2, middle_Y);
+                }
+
+                if(lower_neighbor and (lower_neighbor->state==3 or lower_neighbor->state==4))
+                {
+                    F8=lower_neighbor->quadrent_A->F2;
+                    quadrent_C->lower_neighbor=lower_neighbor->quadrent_B;
+                    quadrent_D->lower_neighbor=lower_neighbor->quadrent_A;
+                }
+                else
+                {
+                    F8=func(middle_X, Y2);
+                }
+
+                if(left_neighbor and (left_neighbor->state==3 or left_neighbor->state==4))
+                {
+                    F5=left_neighbor->quadrent_B->F4;
+                    quadrent_D->left_neighbor=left_neighbor->quadrent_C;
+                    quadrent_A->left_neighbor=left_neighbor->quadrent_B;
+                }
+                else
+                {
+                    F5=func(X1, middle_Y);
+                }
+
+                //set function values and locations
+                quadrent_A->X1=X1;
+                quadrent_A->X2=middle_X;
+                quadrent_A->Y1=Y1;
+                quadrent_A->Y2=middle_Y;
+                quadrent_A->F1=F1;
+                quadrent_A->F2=F6;
+                quadrent_A->F3=middle_value;
+                quadrent_A->F4=F5;
+
+                quadrent_B->X1=middle_X;
+                quadrent_B->X2=X2;
+                quadrent_B->Y1=Y1;
+                quadrent_B->Y2=middle_Y;
+                quadrent_B->F1=F6;
+                quadrent_B->F2=F2;
+                quadrent_B->F3=F7;
+                quadrent_B->F4=middle_value;
+
+                quadrent_C->X1=middle_X;
+                quadrent_C->X2=X2;
+                quadrent_C->Y1=middle_Y;
+                quadrent_C->Y2=Y2;
+                quadrent_C->F1=middle_value;
+                quadrent_C->F2=F7;
+                quadrent_C->F3=F3;
+                quadrent_C->F4=F8;
+
+                quadrent_D->X1=X1;
+                quadrent_D->X2=middle_X;
+                quadrent_D->Y1=middle_Y;
+                quadrent_D->Y2=Y2;
+                quadrent_D->F1=F5;
+                quadrent_D->F2=middle_value;
+                quadrent_D->F3=F8;
+                quadrent_D->F4=F4;
+
+                //refine the quadrents
+                quadrent_A->refine(func, percent_error);
+                if(quadrent_A->state==2)
+                {
+                    delete quadrent_A;
+                    delete quadrent_B;
+                    delete quadrent_C;
+                    delete quadrent_D;
+                    quadrent_A=0;
+                    quadrent_B=0;
+                    quadrent_C=0;
+                    quadrent_D=0;
+
+                    state=5;
+                }
+                if(state==3)
+                {
+                    quadrent_B->refine(func, percent_error);
+                    if(quadrent_B->state==2)
+                    {
+                        delete quadrent_A;
+                        delete quadrent_B;
+                        delete quadrent_C;
+                        delete quadrent_D;
+                        quadrent_A=0;
+                        quadrent_B=0;
+                        quadrent_C=0;
+                        quadrent_D=0;
+
+                        state=5;
+                    }
+                }
+                if(state==3)
+                {
+                    quadrent_C->refine(func, percent_error);
+                    if(quadrent_C->state==2)
+                    {
+                        delete quadrent_A;
+                        delete quadrent_B;
+                        delete quadrent_C;
+                        delete quadrent_D;
+                        quadrent_A=0;
+                        quadrent_B=0;
+                        quadrent_C=0;
+                        quadrent_D=0;
+
+                        state=5;
+                    }
+                }
+                if(state==3)
+                {
+                    quadrent_D->refine(func, percent_error);
+                    if(quadrent_D->state==2)
+                    {
+                        delete quadrent_A;
+                        delete quadrent_B;
+                        delete quadrent_C;
+                        delete quadrent_D;
+                        quadrent_A=0;
+                        quadrent_B=0;
+                        quadrent_C=0;
+                        quadrent_D=0;
+
+                        state=5;
+                    }
+                }
+
+                //check final state
+                if(state==3)
+                {
+                if(quadrent_D->state==5 or quadrent_D->state==4 or quadrent_C->state==5 or quadrent_C->state==4 or quadrent_B->state==5 or quadrent_B->state==4 or quadrent_A->state==5 or quadrent_A->state==4)
+                {
+                    state=4;
+                }
+                }
+            }
+
+            if(state==5 or state==1) //doing triangles
+            {
+                ////make
+                upper_tri= new tri_section();
+                left_tri= new tri_section();
+                lower_tri= new tri_section();
+                right_tri= new tri_section();
+
+                //set
+                upper_tri->type=1; //0 is border is to left, 1 is up, 2 is down 3 is to right
+                upper_tri->bordering_quad = upper_neighbor; //may be null
+
+                upper_tri->X1=X1;
+                upper_tri->Y1=Y1;
+                upper_tri->F1=F1;
+
+                upper_tri->X2=X2;
+                upper_tri->Y2=Y1;
+                upper_tri->F2=F2;
+
+                upper_tri->X3=middle_X;
+                upper_tri->Y3=middle_Y;
+                upper_tri->F3=middle_value;
+
+
+                left_tri->type=0; //0 is border is to left, 1 is up, 2 is down 3 is to right
+                left_tri->bordering_quad = left_neighbor; //may be null
+
+                left_tri->X1=X1;//lower or left
+                left_tri->Y1=Y2;
+                left_tri->F1=F4;
+
+                left_tri->X2=X1;
+                left_tri->Y2=Y1;
+                left_tri->F2=F1;
+
+                left_tri->X3=middle_X;
+                left_tri->Y3=middle_Y;
+                left_tri->F3=middle_value;
+
+
+                lower_tri->type=2; //0 is border is to left, 1 is up, 2 is down 3 is to right
+                lower_tri->bordering_quad = lower_neighbor; //may be null
+
+                lower_tri->X1=X1;//lower or left
+                lower_tri->Y1=Y2;
+                lower_tri->F1=F4;
+
+                lower_tri->X2=X2;
+                lower_tri->Y2=Y2;
+                lower_tri->F2=F3;
+
+                lower_tri->X3=middle_X;
+                lower_tri->Y3=middle_Y;
+                lower_tri->F3=middle_value;
+
+
+                right_tri->type=3; //0 is border is to left, 1 is up, 2 is down 3 is to right
+                right_tri->bordering_quad = right_neighbor; //may be null
+
+                right_tri->X1=X2;//lower or left
+                right_tri->Y1=Y2;
+                right_tri->F1=F3;
+
+                right_tri->X2=X2;
+                right_tri->Y2=Y1;
+                right_tri->F2=F2;
+
+                right_tri->X3=middle_X;
+                right_tri->Y3=middle_Y;
+                right_tri->F3=middle_value;
+
+                //set weights
+                upper_tri->set_weights();
+                left_tri->set_weights();
+                lower_tri->set_weights();
+                right_tri->set_weights();
+            }
+            //////DONE!!!!
+        }
+
+        void triangularize()
+        {
+            if(state==3 or state==4)//have quads
+            {
+                quadrent_A->triangularize();
+                quadrent_B->triangularize();
+                quadrent_C->triangularize();
+                quadrent_D->triangularize();
+            }
+            else if(state==5 or state==1)//have triangles
+            {
+                upper_tri->triangularize();
+                left_tri->triangularize();
+                lower_tri->triangularize();
+                right_tri->triangularize();
+            }
+        }
+
+        inline double call(double X, double Y)
+        {
+
+            if(state==3 or state==4)//have quads
+            {
+                if(Y>=middle_Y)
+                {
+                    if(X>=middle_X)
+                    {
+                        return quadrent_B->call(X,Y);
+                    }
+                    else
+                    {
+                        return quadrent_A->call(X,Y);
+                    }
+                }
+                else
+                {
+                    if(X>=middle_X)
+                    {
+                        return quadrent_C->call(X,Y);
+                    }
+                    else
+                    {
+                        return quadrent_D->call(X,Y);
+                    }
+                }
+            }
+
+            else if(state==1 or state==5)//have tris
+            {
+
+                if(Y>=middle_Y)
+                {
+                    if(X>=middle_X)//in quad B. could be upper tri or right tri
+                    {
+                        if(upper_tri->intersection(X,Y))
+                        {
+                            return upper_tri->call(X,Y);
+                        }
+                        else
+                        {
+                            return right_tri->call(X,Y);
+                        }
+                    }
+                    else //quad A. upper tri or left tri
+                    {
+                        if(upper_tri->intersection(X,Y))
+                        {
+                            return upper_tri->call(X,Y);
+                        }
+                        else
+                        {
+                            return left_tri->call(X,Y);
+                        }
+                    }
+                }
+                else
+                {
+                    if(X>=middle_X) //quad C. lower tri or right tri
+                    {
+                        if(lower_tri->intersection(X,Y))
+                        {
+                            return lower_tri->call(X,Y);
+                        }
+                        else
+                        {
+                            return right_tri->call(X,Y);
+                        }
+                    }
+                    else //quad D. lower tri or left tri
+                    {
+                        if(lower_tri->intersection(X,Y))
+                        {
+                            return lower_tri->call(X,Y);
+                        }
+                        else
+                        {
+                            return left_tri->call(X,Y);
+                        }
+                    }
+                }
+            }
+        }
     };
 
+    quad_section* top_quad;
 
+
+    template<typename functor_T>
+    adative_2DSpline(functor_T& func, double percent_error, double X1, double Y1, double X2, double Y2)
+    {
+        top_quad=new quad_section();
+
+        top_quad->X1=X1;
+        top_quad->Y1=Y1;
+        top_quad->X2=X2;
+        top_quad->Y2=Y2;
+
+        top_quad->F1=func(X1, Y1);
+        top_quad->F2=func(X1, Y2);
+        top_quad->F3=func(X2, Y1);
+        top_quad->F4=func(X2, Y2);
+
+        top_quad->refine(func, percent_error);
+        top_quad->triangularize();
+    }
+
+    double call(double X, double Y)
+    {
+        //bounds checking
+        if(X<top_quad->X1 or X>top_quad->X2 or Y<top_quad->Y1 or Y>top_quad->Y2)
+        {
+            throw gen_exception("X Y point is out of bounds of 2D spline");
+        }
+
+        //recursivly find the lowest quad
+        quad_section* current_quad=top_quad;
+        while(current_quad->state==3 or current_quad->state==4)//while current quad has lower quads
+        {
+            if(Y>=current_quad->middle_Y)
+            {
+                if(X>=current_quad->middle_X)
+                {
+                    current_quad=current_quad->quadrent_B;
+                }
+                else
+                {
+                    current_quad=current_quad->quadrent_A;
+                }
+            }
+            else
+            {
+                if(X>=current_quad->middle_X)
+                {
+                    current_quad=current_quad->quadrent_C;
+                }
+                else
+                {
+                    current_quad=current_quad->quadrent_D;
+                }
+            }
+        }
+
+        //now current quad has tri. Find the right one
+        tri_section* current_tri;
+        if(Y>=current_quad->middle_Y)
+        {
+            if(X>=current_quad->middle_X)//in quad B. could be upper tri or right tri
+            {
+                if(current_quad->upper_tri->intersection(X,Y))
+                {
+                    current_tri=current_quad->upper_tri;
+                }
+                else
+                {
+                    current_tri=current_quad->right_tri;
+                }
+            }
+            else //quad A. upper tri or left tri
+            {
+                if(current_quad->upper_tri->intersection(X,Y))
+                {
+                    current_tri=current_quad->upper_tri;
+                }
+                else
+                {
+                    current_tri=current_quad->left_tri;
+                }
+            }
+        }
+        else
+        {
+            if(X>=current_quad->middle_X) //quad C. lower tri or right tri
+            {
+                if(current_quad->lower_tri->intersection(X,Y))
+                {
+                    current_tri=current_quad->lower_tri;
+                }
+                else
+                {
+                    current_tri=current_quad->right_tri;
+                }
+            }
+            else //quad D. lower tri or left tri
+            {
+                if(current_quad->lower_tri->intersection(X,Y))
+                {
+                    current_tri=current_quad->lower_tri;
+                }
+                else
+                {
+                    current_tri=current_quad->left_tri;
+                }
+            }
+        }
+
+        //now we recursivly try to find the lowest try
+        while(current_tri->section_A)
+        {
+            if(current_tri->section_A->intersection(X,Y))
+            {
+                current_tri=current_tri->section_A;
+            }
+            else
+            {
+                current_tri=current_tri->section_B;
+            }
+        }
+
+        //finally we have the lowest tri!
+        return current_tri->rough_call(X,Y);
+    }
 };
 
 #endif

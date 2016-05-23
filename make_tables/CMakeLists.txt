@@ -12,9 +12,9 @@ SET(BUILD_SHARED_LIBRARIES OFF)
 SET(CMAKE_EXE_LINKER_FLAGS "-static -Wl,--no-as-needed,-u,pthread_join,-u,pthread_equal")
 
 
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fmax-errors=10 -Wall -g" )
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11" )
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -Og -g")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
 add_executable(make_diffusion_tables
               ./make_diffusion_tables.cpp)
