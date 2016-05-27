@@ -704,6 +704,7 @@ class adative_2DSpline
         void set_weights()
         //assume the three points have been externally set
         {
+
             //set weights for the spline
 
             if(type==0 or type==3)//verticle style tri
@@ -758,10 +759,10 @@ class adative_2DSpline
         inline bool intersection(double X, double Y)
         {
             double T1=Iweight_00 + Iweight_01*X + Iweight_02*Y + Iweight_03*X*Y + Iweight_04*X*X + Iweight_05*Y*Y;
-            if(T1>0)
+            if(T1>=0)
             {
                 double T2=Iweight_10 + Iweight_11*X + Iweight_12*Y + Iweight_13*X*Y + Iweight_14*X*X + Iweight_15*Y*Y;
-                if(T2>0)
+                if(T2>=0)
                 {
                     return true;
                 }
@@ -818,7 +819,7 @@ class adative_2DSpline
 
                     section_A->X3=X3;
                     section_A->Y3=Y3;
-                    section_A->F3;
+                    section_A->F3=F3;
 
                     section_B->type=0;
                     section_B->bordering_quad=bordering_quad->quadrent_C;
@@ -833,7 +834,7 @@ class adative_2DSpline
 
                     section_B->X3=X3;
                     section_B->Y3=Y3;
-                    section_B->F3;
+                    section_B->F3=F3;
                 }
                 else if(type==1)
                 {
@@ -855,7 +856,7 @@ class adative_2DSpline
 
                     section_A->X3=X3;
                     section_A->Y3=Y3;
-                    section_A->F3;
+                    section_A->F3=F3;
 
                     section_B->type=1;
                     section_B->bordering_quad=bordering_quad->quadrent_D;
@@ -870,7 +871,7 @@ class adative_2DSpline
 
                     section_B->X3=X3;
                     section_B->Y3=Y3;
-                    section_B->F3;
+                    section_B->F3=F3;
                 }
                 else if(type==2)
                 {
@@ -892,7 +893,7 @@ class adative_2DSpline
 
                     section_A->X3=X3;
                     section_A->Y3=Y3;
-                    section_A->F3;
+                    section_A->F3=F3;
 
                     section_B->type=2;
                     section_B->bordering_quad=bordering_quad->quadrent_A;
@@ -907,7 +908,7 @@ class adative_2DSpline
 
                     section_B->X3=X3;
                     section_B->Y3=Y3;
-                    section_B->F3;
+                    section_B->F3=F3;
                 }
                 else //type==3
                 {
@@ -929,7 +930,7 @@ class adative_2DSpline
 
                     section_A->X3=X3;
                     section_A->Y3=Y3;
-                    section_A->F3;
+                    section_A->F3=F3;
 
                     section_B->type=3;
                     section_B->bordering_quad=bordering_quad->quadrent_D;
@@ -944,7 +945,7 @@ class adative_2DSpline
 
                     section_B->X3=X3;
                     section_B->Y3=Y3;
-                    section_B->F3;
+                    section_B->F3=F3;
                 }
 
                 section_A->set_weights();
@@ -960,6 +961,8 @@ class adative_2DSpline
     class quad_section
     {
         public:
+        int level;
+
         int state; //0 is before refinment. 1 is refined to triangles. 3 means refined to rectangles. 2 means can not longer refine,and should be deleted.
         //5 means that that one of the childern shapes is (or was) a 2, and this quad is now refined to triangles. 4 means that one of the childern is a 3 and this quad is refined to rectangles
 
@@ -1031,7 +1034,7 @@ class adative_2DSpline
 
         //for a functor
         template<typename functor_T>
-        void refine(functor_T& func, double percent_error )
+        void refine(functor_T& func, double precision_factor )
         {
             //expect that the neighbors are set. That is, they are null if there is no neighbor.
             //assume that x1, y1, x2, y2, f1, f2, f3, f4 are all set
@@ -1076,8 +1079,12 @@ class adative_2DSpline
 
             //check percent error
             double middle_value=func(middle_X, middle_Y);
-            double middle_guess=(F1+F2+F3+F4)*0.25;
-            if( abs(middle_value-middle_guess) < abs(middle_value*percent_error) )
+            //double middle_guess=(F1+F2+F3+F4)*0.25;
+//print("P.append( [", middle_X, ",", middle_Y, ",", middle_value, "])");
+
+
+            //if( abs(middle_value-middle_guess) < abs(middle_value*percent_error) )
+            if( float(middle_value*precision_factor + ( middle_value - (F1+F2+F3+F4)*0.25 ) ) == float(middle_value*precision_factor) )
             {
                 //then we are withen precision, we will do triangles
                 state=1;
@@ -1117,6 +1124,8 @@ class adative_2DSpline
                 else
                 {
                     F6=func(middle_X, Y1);
+
+//print("P.append( [", middle_X, ",", Y1, ",", F6, "])");
                 }
 
                 if(right_neighbor and (right_neighbor->state==3 or right_neighbor->state==4))
@@ -1128,6 +1137,8 @@ class adative_2DSpline
                 else
                 {
                     F7=func(X2, middle_Y);
+
+//print("P.append( [", X2, ",", middle_Y, ",", F7, "])");
                 }
 
                 if(lower_neighbor and (lower_neighbor->state==3 or lower_neighbor->state==4))
@@ -1139,17 +1150,21 @@ class adative_2DSpline
                 else
                 {
                     F8=func(middle_X, Y2);
+
+//print("P.append( [", middle_X, ",", Y2, ",", F8, "])");
                 }
 
                 if(left_neighbor and (left_neighbor->state==3 or left_neighbor->state==4))
                 {
-                    F5=left_neighbor->quadrent_B->F4;
+                    F5=left_neighbor->quadrent_B->F3;
                     quadrent_D->left_neighbor=left_neighbor->quadrent_C;
                     quadrent_A->left_neighbor=left_neighbor->quadrent_B;
                 }
                 else
                 {
                     F5=func(X1, middle_Y);
+
+//print("P.append( [", X1, ",", middle_Y, ",", F5, "])");
                 }
 
                 //set function values and locations
@@ -1190,7 +1205,12 @@ class adative_2DSpline
                 quadrent_D->F4=F4;
 
                 //refine the quadrents
-                quadrent_A->refine(func, percent_error);
+                quadrent_A->level=level+1;
+                quadrent_B->level=level+1;
+                quadrent_C->level=level+1;
+                quadrent_D->level=level+1;
+
+                quadrent_A->refine(func, precision_factor);
                 if(quadrent_A->state==2)
                 {
                     delete quadrent_A;
@@ -1206,7 +1226,7 @@ class adative_2DSpline
                 }
                 if(state==3)
                 {
-                    quadrent_B->refine(func, percent_error);
+                    quadrent_B->refine(func, precision_factor);
                     if(quadrent_B->state==2)
                     {
                         delete quadrent_A;
@@ -1223,7 +1243,7 @@ class adative_2DSpline
                 }
                 if(state==3)
                 {
-                    quadrent_C->refine(func, percent_error);
+                    quadrent_C->refine(func, precision_factor);
                     if(quadrent_C->state==2)
                     {
                         delete quadrent_A;
@@ -1240,7 +1260,7 @@ class adative_2DSpline
                 }
                 if(state==3)
                 {
-                    quadrent_D->refine(func, percent_error);
+                    quadrent_D->refine(func, precision_factor);
                     if(quadrent_D->state==2)
                     {
                         delete quadrent_A;
@@ -1268,6 +1288,8 @@ class adative_2DSpline
 
             if(state==5 or state==1) //doing triangles
             {
+                //print("tri at level:", level);
+
                 ////make
                 upper_tri= new tri_section();
                 left_tri= new tri_section();
@@ -1348,9 +1370,36 @@ class adative_2DSpline
         }
 
         void triangularize()
+        //void triangularize()
         {
             if(state==3 or state==4)//have quads
             {
+                //double check neighbors
+
+                if(upper_neighbor and (upper_neighbor->state==3 or upper_neighbor->state==4))
+                {
+                    quadrent_A->upper_neighbor=upper_neighbor->quadrent_D;
+                    quadrent_B->upper_neighbor=upper_neighbor->quadrent_C;
+                }
+
+                if(right_neighbor and (right_neighbor->state==3 or right_neighbor->state==4))
+                {
+                    quadrent_B->right_neighbor=right_neighbor->quadrent_A;
+                    quadrent_C->right_neighbor=right_neighbor->quadrent_D;
+                }
+
+                if(lower_neighbor and (lower_neighbor->state==3 or lower_neighbor->state==4))
+                {
+                    quadrent_C->lower_neighbor=lower_neighbor->quadrent_B;
+                    quadrent_D->lower_neighbor=lower_neighbor->quadrent_A;
+                }
+
+                if(left_neighbor and (left_neighbor->state==3 or left_neighbor->state==4))
+                {
+                    quadrent_D->left_neighbor=left_neighbor->quadrent_C;
+                    quadrent_A->left_neighbor=left_neighbor->quadrent_B;
+                }
+
                 quadrent_A->triangularize();
                 quadrent_B->triangularize();
                 quadrent_C->triangularize();
@@ -1358,9 +1407,16 @@ class adative_2DSpline
             }
             else if(state==5 or state==1)//have triangles
             {
+                upper_tri->bordering_quad=upper_neighbor;
                 upper_tri->triangularize();
+
+                left_tri->bordering_quad=left_neighbor;
                 left_tri->triangularize();
+
+                lower_tri->bordering_quad=lower_neighbor;
                 lower_tri->triangularize();
+
+                right_tri->bordering_quad=right_neighbor;
                 right_tri->triangularize();
             }
         }
@@ -1455,28 +1511,39 @@ class adative_2DSpline
 
 
     template<typename functor_T>
-    adative_2DSpline(functor_T& func, double percent_error, double X1, double Y1, double X2, double Y2)
+    adative_2DSpline(functor_T& func, double precision_factor, double Xlower, double Ylower, double Xupper, double Yupper)
     {
         top_quad=new quad_section();
 
-        top_quad->X1=X1;
-        top_quad->Y1=Y1;
-        top_quad->X2=X2;
-        top_quad->Y2=Y2;
+        top_quad->X1=Xlower;
+        top_quad->Y1=Yupper;
+        top_quad->X2=Xupper;
+        top_quad->Y2=Ylower;
 
-        top_quad->F1=func(X1, Y1);
-        top_quad->F2=func(X1, Y2);
-        top_quad->F3=func(X2, Y1);
-        top_quad->F4=func(X2, Y2);
+        top_quad->F1=func(Xlower, Yupper);
+        top_quad->F2=func(Xupper, Yupper);
+        top_quad->F3=func(Xupper, Ylower);
+        top_quad->F4=func(Xlower, Ylower);
 
-        top_quad->refine(func, percent_error);
+
+//print("P.append( [", top_quad->X1, ",", top_quad->Y1, ",", top_quad->F1, "])");
+
+//print("P.append( [", top_quad->X2, ",", top_quad->Y1, ",", top_quad->F2, "])");
+
+//print("P.append( [", top_quad->X2, ",", top_quad->Y2, ",", top_quad->F3, "])");
+
+//print("P.append( [", top_quad->X1, ",", top_quad->Y2, ",", top_quad->F4, "])");
+
+        top_quad->level=1;
+
+        top_quad->refine(func, precision_factor);
         top_quad->triangularize();
     }
 
     double call(double X, double Y)
     {
         //bounds checking
-        if(X<top_quad->X1 or X>top_quad->X2 or Y<top_quad->Y1 or Y>top_quad->Y2)
+        if(X<top_quad->X1 or X>top_quad->X2 or Y<top_quad->Y2 or Y>top_quad->Y1)
         {
             throw gen_exception("X Y point is out of bounds of 2D spline");
         }

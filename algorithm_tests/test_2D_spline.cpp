@@ -11,20 +11,30 @@ using namespace std;
 class test_function
 {
     public:
+    int num_tests;
+    test_function()
+    {
+        num_tests=0;
+    }
+
+
     inline double operator()(double X, double Y)
     {
-        //return exp(-X*Y/(3.1415926))*sin(3*X);
-        return sin(3*X);
+        num_tests++;
+        //return sin(3*X);
+        return exp(-X*Y/(3.1415926))*sin(3*X);
     }
 };
 
 int main()
 {
     test_function F;
-    adative_2DSpline spline(F, 1, 0, 0, 2*3.1415926, 2*3.1415926);
+    adative_2DSpline spline(F, 1E5, 0, 0, 2*3.1415926, 2*3.1415926);
 
-    size_t nx=200;
-    size_t ny=200;
+    print(F.num_tests, "function calls");
+
+    size_t nx=400;
+    size_t ny=400;
 
     auto X=linspace(0, 2*3.1415926, nx);
     auto Y=linspace(0, 2*3.1415926, ny);
