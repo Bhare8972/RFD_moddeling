@@ -17,16 +17,6 @@ class functor_1D
 
 	virtual double call(double)=0;
 
-	gsl::vector call(const gsl::vector& data)
-	{
-		gsl::vector out(data.size());
-		for(size_t i=0; i<data.size(); i++)
-		{
-			out[i]=call(data[i]);
-		}
-		return out;
-	}
-
     gsl::vector callv(const gsl::vector& data)
 	{
 		gsl::vector out(data.size());
