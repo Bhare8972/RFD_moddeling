@@ -66,13 +66,26 @@ public:
 			}
 		}
 
+        double yp(double x)
+		{
+            double ret=weights[0];
+            double F=x;
+            for(unsigned int i=1; i<weights.size(); i++)
+            {
+                print(F);
+                ret+=weights[i]*F;
+                F*=x;
+            }
+            return ret;
+		}
+
 		double y(double x)
 		{
             double ret=weights[0];
             double F=x;
             for(unsigned int i=1; i<weights.size(); i++)
             {
-                ret=weights[i]*F;
+                ret+=weights[i]*F;
                 F*=x;
             }
             return ret;
@@ -177,10 +190,14 @@ public:
             }
         }
 
-		size_t spline_index=search_sorted_d(x_vals, X);
+		size_t spline_index;
 		if(X==x_vals[x_vals.size()-1])
         {
             spline_index=splines.size()-1;
+        }
+        else
+        {
+            spline_index=search_sorted_d(x_vals, X);
         }
 
 		double Y= splines[spline_index].y(X);

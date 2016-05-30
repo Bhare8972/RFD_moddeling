@@ -70,11 +70,10 @@ int main()
     {
         for(size_t y_i=0; y_i<ny; y_i++)
         {
-            output[x_i + nx*y_i]=spline.call(X[x_i], Y[y_i]);
+            //output[x_i + nx*y_i]=spline.call(X[x_i], Y[y_i]);
         }
     }
 
-    print("tested spline sampling");
 
     //write to file
     arrays_output tables_out;
@@ -88,13 +87,19 @@ int main()
     shared_ptr<doubles_output> spline_table=make_shared<doubles_output>(output);
     tables_out.add_array(spline_table);
 
-	binary_output fout("2D_tst_A");
+	binary_output fout("./2D_tst_A");
 	tables_out.write_out( &fout);
+	fout.flush();
+
+
+    print("tested spline sampling");
 
 
 	//sample the gaussian in 1D
-	gaussian K(3.1415926/2.0, 1, 3.1415926);
-	auto G_spline =adaptive_sample_retSpline(&K, 0.001, 0, 2*3.1415926  );
+	gaussian K(3.1415926/4.0, 1, 3.1415926);
+	auto G_spline =adaptive_sample_retSpline(&K, 0.1, 0, 2*3.1415926  );
+	G_spline->set_upper_fill();
+	G_spline->set_lower_fill();
 
 	//show the samples
 	auto gaussian_points=G_spline->callv(X);
@@ -107,11 +112,12 @@ int main()
     shared_ptr<doubles_output> Y_table_2=make_shared<doubles_output>(gaussian_points);
     tables_out_2.add_array(Y_table_2);
 
-	binary_output fout2("2D_tst_B");
-	tables_out.write_out( &fout2);
+	binary_output fout2("./2D_tst_B");
+	tables_out_2.write_out( &fout2);
+	fout2.flush();
 
 
-    print("tested gaussian");
+    print("tested gaussian", G_spline->x_vals.size()-1, "splines");
 
 
 	//do our integration!!!!
@@ -123,13 +129,13 @@ int main()
     arrays_output tables_out_3;
 
     shared_ptr<doubles_output> X_table_3=make_shared<doubles_output>(X);
-    tables_out_2.add_array(X_table_3);
+    tables_out_3.add_array(X_table_3);
 
     shared_ptr<doubles_output> Y_table_3=make_shared<doubles_output>(integration_points);
-    tables_out_2.add_array(Y_table_3);
+    tables_out_3.add_array(Y_table_3);
 
-	binary_output fout3("2D_tst_C");
-	tables_out.write_out( &fout3);
+	binary_output fout3("./2D_tst_C");
+	tables_out_3.write_out( &fout3);
 
     print("tested integrator");
 

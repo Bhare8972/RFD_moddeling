@@ -15,29 +15,41 @@ class binary_output
    public:
     std::shared_ptr<std::ofstream> out_file;
 
+    int writes;
+
     binary_output(std::string fname)
     {
+        writes=0;
 		out_file=std::make_shared<std::ofstream>(fname.c_str(), std::ios_base::binary);
 	}
 
     void out_short(int8_t out)
     {
+        writes++;
         out_file->write((char*)&out,sizeof(int8_t));
     }
 
     void out_int(int32_t out)
     {
+        writes++;
         out_file->write((char*)&out,sizeof(int32_t));
     }
 
     void out_float(float out)
     {
+        writes++;
         out_file->write((char*)&out,sizeof(float));
     }
 
     void out_double(double out)
     {
+        writes++;
         out_file->write((char*)&out,sizeof(double));
+    }
+
+    void flush()
+    {
+        out_file->flush();
     }
 };
 

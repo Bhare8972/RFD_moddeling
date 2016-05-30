@@ -590,6 +590,31 @@ class adaptive_2DSpline
             return gsl_sf_choose(N, K)*(std::pow(T0, N-K)*std::pow(T1,K) - std::pow(B0, N-K)*std::pow(B1,K));
         }
 
+        inline size_t search(gsl::vector& vals, double Y)
+        {
+
+            if(Y==vals[0])
+            {
+                return 0;
+            }
+            else if(Y==vals[vals.size()-1])
+            {
+                return vals.size()-2;
+            }
+            else if(Y<vals[0])
+            {
+                throw gen_exception("value ", Y, " is below spline range");
+            }
+            else if(Y>vals[vals.size()-1])
+            {
+                throw gen_exception("value ", Y, " is above spline range");
+            }
+            else
+            {
+                return search_sorted_d(vals, Y);
+            }
+        }
+
         void nosplit_singleIntegrate(poly_spline::spline_piece& IN, spline_list& out)
         {
             if(type==1 or type==3)//the horizontal types
@@ -597,7 +622,7 @@ class adaptive_2DSpline
                 double L1=-(Y3-Y1)/(X1-X3);
                 double L0=Y1-X1*L1;
                 double R1=-(Y2-Y3)/(X3-X2);
-                double R0=Y3-X3*R0;
+                double R0=Y3-X3*R1;
 
                 int N=IN.weights.size()-1; //max power of input spline
 
@@ -621,7 +646,7 @@ class adaptive_2DSpline
                 {
                     gsl::vector weights(N+2+1);//power is two greater then spline. size is one greater than power
                     //the bottom bit
-                    for(size_t p=0; p<weights.size(); p++)
+                    for(int p=0; p<weights.size(); p++)
                     {
                         //first get KA
                         double KA=0;
@@ -670,7 +695,7 @@ class adaptive_2DSpline
                 {
                     gsl::vector weights(N+2+1);//power is two greater then spline. size is one greater than power
                     //the bottom bit
-                    for(size_t p=0; p<weights.size(); p++)
+                    for(int p=0; p<weights.size(); p++)
                     {
                         //first get KA
                         double KA=0;
@@ -724,25 +749,25 @@ class adaptive_2DSpline
 
                 int N=IN.weights.size()-1; //max power of input spline
                 gsl::vector weights(N+2+1);//power is two greater then spline. size is one greater than power
-                for(size_t p=0; p<weights.size(); p++)
+                for(int p=0; p<weights.size(); p++)
                 {
                     //first get KA
                     double KA=0;
-                    for(int I=fmax(0,p-1); I<=N; I++)
+                    for(int I=std::fmax(0,p-1); I<=N; I++)
                     {
                         KA+=IN.weights[I]*gappa_function(I+1, p, T0, T1, B0, B1)/(I+1);
                     }
 
                     //KB
                     double KB=0;
-                    for(int I=fmax(0,p-2); I<=N and p!=0; I++)
+                    for(int I=std::fmax(0,p-2); I<=N and p!=0; I++)
                     {
                         KB+=IN.weights[I]*gappa_function(I+1, p-1, T0, T1, B0, B1)/(I+1);
                     }
 
                     //KC
                     double KC=0;
-                    for(int I=fmax(0,p-2); I<=N and p!=0; I++)
+                    for(int I=std::fmax(0,p-2); I<=N and p!=0; I++)
                     {
                         KC+=IN.weights[I]*gappa_function(I+2, p, T0, T1, B0, B1)/(I+2);
                     }
@@ -796,7 +821,7 @@ class adaptive_2DSpline
 
             gsl::vector weights(N+2+1);//power is two greater then spline. size is one greater than power
             //the bottom bit
-            for(size_t p=0; p<weights.size(); p++)
+            for(int p=0; p<weights.size(); p++)
             {
                 //first get KA
                 double KA=0;
@@ -855,7 +880,7 @@ class adaptive_2DSpline
             if( (do_bottom and not intercept_bottom) or (not do_bottom and intercept_bottom) )
             {
                 weights=gsl::vector(N+2+1);//clear weights
-                for(size_t p=0; p<weights.size(); p++)
+                for(int p=0; p<weights.size(); p++)
                 {
                     //first get KA
                     double KA=0;
@@ -894,8 +919,8 @@ class adaptive_2DSpline
 
         inline void vertical_integration(std::shared_ptr<poly_spline> IN, spline_list& out)
         {
-            size_t lower_spline_index=search_sorted_d(IN->x_vals, Y1);
-            size_t upper_spline_index=search_sorted_d(IN->x_vals, Y2);
+            size_t lower_spline_index=search(IN->x_vals, Y1);
+            size_t upper_spline_index=search(IN->x_vals, Y2);
 
             if(upper_spline_index==lower_spline_index) //then the poly_spline does not split this tri
             {
@@ -925,7 +950,7 @@ class adaptive_2DSpline
             double L1=-(Y3-Y1)/(X1-X3);
             double L0=Y1-X1*L1;
             double R1=-(Y2-Y3)/(X3-X2);
-            double R0=Y3-X3*R0;
+            double R0=Y3-X3*R1;
 
             double left_X_split=(split_y_coord-L0)/L1;
             double right_X_split=(split_y_coord-R0)/R1;
@@ -952,7 +977,7 @@ class adaptive_2DSpline
             {
                 gsl::vector weights(N+2+1);//power is two greater then spline. size is one greater than power
                 //the bottom bit
-                for(size_t p=0; p<weights.size(); p++)
+                for(int p=0; p<weights.size(); p++)
                 {
                     //first get KA
                     double KA=0;
@@ -1001,7 +1026,7 @@ class adaptive_2DSpline
             {
                 gsl::vector weights(N+2+1);//power is two greater then spline. size is one greater than power
                 //the bottom bit
-                for(size_t p=0; p<weights.size(); p++)
+                for(int p=0; p<weights.size(); p++)
                 {
                     //first get KA
                     double KA=0;
@@ -1089,7 +1114,7 @@ class adaptive_2DSpline
             double L1=-(Y3-Y1)/(X1-X3);
             double L0=Y1-X1*L1;
             double R1=-(Y2-Y3)/(X3-X2);
-            double R0=Y3-X3*R0;
+            double R0=Y3-X3*R1;
 
             double left_X_split=(split_y_coord-L0)/L1;
             double right_X_split=(split_y_coord-R0)/R1;
@@ -1116,7 +1141,7 @@ class adaptive_2DSpline
             {
                 gsl::vector weights(N+2+1);//power is two greater then spline. size is one greater than power
                 //the bottom bit
-                for(size_t p=0; p<weights.size(); p++)
+                for(int p=0; p<weights.size(); p++)
                 {
                     //first get KA
                     double KA=0;
@@ -1165,7 +1190,7 @@ class adaptive_2DSpline
             {
                 gsl::vector weights(N+2+1);//power is two greater then spline. size is one greater than power
                 //the bottom bit
-                for(size_t p=0; p<weights.size(); p++)
+                for(int p=0; p<weights.size(); p++)
                 {
                     //first get KA
                     double KA=0;
@@ -1236,8 +1261,8 @@ class adaptive_2DSpline
 
         inline void horizontal_integration(std::shared_ptr<poly_spline> IN, spline_list& out)
         {
-            size_t lower_spline_index=search_sorted_d(IN->x_vals, std::fmin(Y1, Y3));
-            size_t upper_spline_index=search_sorted_d(IN->x_vals, std::fmax(Y1, Y3));
+            size_t lower_spline_index=search(IN->x_vals, std::fmin(Y1, Y3));
+            size_t upper_spline_index=search(IN->x_vals, std::fmax(Y1, Y3));
 
             if(upper_spline_index==lower_spline_index) //then the poly_spline does not split this tri
             {
@@ -1268,27 +1293,29 @@ class adaptive_2DSpline
         {
             if(type==0 or type==2)//the vertical types
             {
-                if(section_A)
-                {
-                    section_A->vertical_integration(IN, out);
-                    section_B->vertical_integration(IN, out);
-                }
-                else
-                {
-                    vertical_integration(IN, out);
-                }
+                vertical_integration(IN, out);
+                //if(section_A)
+                //{
+                    //section_A->vertical_integration(IN, out);
+                    //section_B->vertical_integration(IN, out);
+                //}
+                //else
+                //{
+                    //vertical_integration(IN, out);
+                //}
             }
             else if(type==1 or type==3)//the horizontal types
             {
-                if(section_A)
-                {
-                    section_A->horizontal_integration(IN, out);
-                    section_B->horizontal_integration(IN, out);
-                }
-                else
-                {
-                    horizontal_integration(IN, out);
-                }
+                horizontal_integration(IN, out);
+                //if(section_A)
+                //{
+                    //section_A->horizontal_integration(IN, out);
+                    //section_B->horizontal_integration(IN, out);
+                //}
+                //else
+                //{
+                    //horizontal_integration(IN, out);
+                //}
             }
         }
     };
