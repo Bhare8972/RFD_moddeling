@@ -22,6 +22,15 @@
 //	print(msg...);
 //}
 
+
+//this is a function-like macro for initializing gsl vectors
+//it expects that OUT and IN are objects that support random indexing, have a size() method, and are allocated to the same size
+//VAR is just a variable name, EXP is an expression. This produces a loop that calls EXP for each value in IN (taking the variable name VAR)
+//and places the output in OUT
+#define LOOP(OUT, VAR, IN, EXP )  \
+for(size_t i=0; i<IN.size(); i++) \
+{ double VAR=IN[i]; OUT[i]=(EXP);}
+
 class print_class
 // to allow for python-style printing in a thread-safe maner
 {
@@ -203,5 +212,19 @@ size_t search_sorted_linear(gsl::vector A, double v)
 		else if(A[guess+1]<=v) lower=guess+1;
 		else return guess;
 	}
+}
+
+gsl::vector cumsum(gsl::vector IN, bool extra_zero_bin=false)
+//cumulative sum of input vector
+{
+    gsl::vector out(IN.size()+extra_zero_bin);
+    double value=0;
+    out[0]=0;
+    for(int i=extra_zero_bin; i<out.size(); i++)
+    {
+        value+=IN[i];
+        out[i]=value;
+    }
+    return out;
 }
 #endif

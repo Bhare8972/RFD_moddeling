@@ -48,6 +48,21 @@ class histogram(object):
 
 if __name__=='__main__':
     
+    table_in=array_input( binary_input("./testing_out") )
+    
+    new_points_table=table_in.get_array()
+    new_points=new_points_table.read_doubles()
+    
+    old_points_table=table_in.get_array()
+    old_points=old_points_table.read_doubles()
+    
+    plt.hist(new_points, 10, normed=1, facecolor='green', alpha=0.75)
+    plt.hist(old_points, 10, normed=1, facecolor='red', alpha=0.75)
+    plt.show()
+    
+    
+    exit()
+    
     table_in=array_input( binary_input("./out") )
     
     theta_space_table=table_in.get_array()

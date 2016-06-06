@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include "GSL_utils.hpp"
+#include "constants.hpp"
 #include "spline_2D.hpp"
 #include "arrays_IO.hpp"
 
@@ -21,8 +22,21 @@ class test_function
     inline double operator()(double X, double Y)
     {
         num_tests++;
-        //return sin(3*X);
-        return exp(-X*Y/(3.1415926))*sin(3*X);
+        return sin(3*X);
+        //return exp(-X*Y/(3.1415926))*sin(3*X);
+
+        //double RET=0.5;
+        //if(Y<X)
+       // {
+        //    RET=Y/X;
+        //}
+        //else
+        //{
+        //    RET=(2*PI-Y)/(2*PI-X);
+        //}
+        //if( RET!=RET ) return 0.0;
+        //else if( RET>1 ) return 1;
+       // else return RET;
     }
 };
 
@@ -49,6 +63,23 @@ class gaussian : public functor_1D
 
 };
 
+class some_peak_func : public functor_1D
+{
+    public:
+    double call(double X)
+    {
+        if(X<PI)
+        {
+            return X/PI;
+        }
+        else
+        {
+            return (2*PI-X)/PI;
+        }
+    }
+
+};
+
 int main()
 {
     test_function F;
@@ -70,7 +101,7 @@ int main()
     {
         for(size_t y_i=0; y_i<ny; y_i++)
         {
-            //output[x_i + nx*y_i]=spline.call(X[x_i], Y[y_i]);
+            output[x_i + nx*y_i]=spline.call(X[x_i], Y[y_i]);
         }
     }
 
@@ -96,7 +127,8 @@ int main()
 
 
 	//sample the gaussian in 1D
-	gaussian K(3.1415926/4.0, 1, 3.1415926);
+	//gaussian K(3.1415926/4.0, 1, 3.1415926);
+	some_peak_func K;
 	auto G_spline =adaptive_sample_retSpline(&K, 0.1, 0, 2*3.1415926  );
 	G_spline->set_upper_fill();
 	G_spline->set_lower_fill();

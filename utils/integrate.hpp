@@ -266,7 +266,7 @@ public:
 	cum_adap_simps(functor_1D* function, double lower_bound, double upper_bound, double tol_factor=1, unsigned int init_samples=5)
 	{
 		gsl::vector test_points=linspace(lower_bound, upper_bound, init_samples);
-		gsl::vector test_values=function->call(test_points);
+		gsl::vector test_values=function->callv(test_points);
 
 		sections.reserve(init_samples-1);
 		for(size_t i=0; i<init_samples-1; i++)

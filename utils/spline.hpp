@@ -1,4 +1,4 @@
-﻿
+
 #ifndef SPLINE_HPP
 #define SPLINE_HPP
 
@@ -64,19 +64,6 @@ public:
                 print(left_point, right_point);
 			    throw gen_exception("function cannot be represented by a spline");
 			}
-		}
-
-        double yp(double x)
-		{
-            double ret=weights[0];
-            double F=x;
-            for(unsigned int i=1; i<weights.size(); i++)
-            {
-                print(F);
-                ret+=weights[i]*F;
-                F*=x;
-            }
-            return ret;
 		}
 
 		double y(double x)
@@ -664,5 +651,148 @@ std::shared_ptr<poly_spline> adaptive_sample_all(functor_1D* F, double precision
     return out_spline;
 }
 
+
+void test_spline(std::shared_ptr<poly_spline> input_spline, size_t points_per_spline, gsl::vector &points, gsl::vector &values )
+//sample a spline at a number of points that should be representive of the shape of the spline
+{
+    size_t num_points=points_per_spline*input_spline->splines.size();
+    points=gsl::vector(num_points);
+    values=gsl::vector(num_points);
+
+    for(size_t si=0; si<input_spline->splines.size(); si++)
+    {
+        double X=input_spline->x_vals[si];
+        double X_delta=(input_spline->x_vals[si+1]-input_spline->x_vals[si])/points_per_spline;
+        for(size_t pi=0; pi<points_per_spline; pi++)
+        {
+            points[si*points_per_spline+pi]=X;
+            values[si*points_per_spline+pi]=input_spline->splines[si].y(X);
+            X+=X_delta;
+        }
+    }
+}
+
+double multiply_integrate(std::shared_ptr<poly_spline> splineA, std::shared_ptr<poly_spline> splineB, double start, double stop)
+//find the integral of splineA * splineB from start to stop
+//notice the ability to multiply splines!! which can, should, be extended
+{
+    if(start< splineA->x_vals[0] )
+    {
+        throw gen_exception("invalid lower bound of: ", start, " first spline has lowest X of ", splineA->x_vals[0] );
+    }
+    if(start< splineB->x_vals[0] )
+    {
+        throw gen_exception("invalid lower bound of: ", start, " second spline has lowest X of ", splineB->x_vals[0] );
+    }
+
+    if(stop > splineB->x_vals[ splineB->x_vals.size()-1 ] )
+    {
+        throw gen_exception("invalid upper bound of: ", stop, " second spline has highest X of ", splineB->x_vals[ splineB->x_vals.size()-1 ] );
+    }
+
+    if(stop > splineA->x_vals[ splineA->x_vals.size()-1 ] )
+    {
+        throw gen_exception("invalid upper bound of: ", stop, " first spline has highest X of ", splineA->x_vals[ splineA->x_vals.size()-1 ] );
+    }
+
+    ////first iteration
+    double low_x=start;
+    size_t A_index=search_sorted_d(splineA->x_vals, start);
+    size_t B_index=search_sorted_d(splineB->x_vals, start);
+
+    bool X_limited_by_A=true;
+    double high_x=splineA->x_vals[A_index+1];
+
+    if(splineB->x_vals[B_index+1] < high_x)
+    {
+        X_limited_by_A=false;
+        high_x=splineB->x_vals[B_index+1];
+    }
+
+    bool completed=false;
+    if(stop<high_x)
+    {
+        high_x=stop;
+        completed=true;
+    }
+
+    double ret=0;
+    double low_X_power=low_x;
+    double high_X_power=high_x;
+
+    int SA_power=splineA->splines[A_index].weights.size()-1;
+    int SB_power=splineB->splines[B_index].weights.size()-1;
+    int max_power=SA_power*SB_power;
+    for(int power_index=0; power_index<=max_power; power_index++)
+    {
+        double weight=0;
+        for(int SA_power_index=std::min(power_index, SA_power); SA_power_index>=0; SA_power_index--)
+        {
+            int SB_power_index=power_index-SA_power_index;
+            if(SB_power_index>SB_power) break;
+
+            weight+=splineA->splines[A_index].weights[SA_power_index]*splineB->splines[B_index].weights[SB_power_index];
+        }
+
+        weight/=(power_index+1); //since we are integrated. Otherwords this would be the weight for the resultant spline
+        ret+=weight*(high_X_power-low_X_power);
+        low_X_power*=low_x;
+        high_X_power*=high_x;
+    }
+
+    ////middle iterations
+    while(not completed)
+    {
+
+        if(X_limited_by_A)
+        {
+            A_index++;
+        }
+        else
+        {
+            B_index++;
+        }
+
+        low_x=high_x;
+
+        X_limited_by_A=true;
+        high_x=splineA->x_vals[A_index+1];
+        if(splineB->x_vals[B_index+1] < high_x)
+        {
+            X_limited_by_A=false;
+            high_x=splineB->x_vals[B_index+1];
+        }
+        if(stop<high_x)
+        {
+            high_x=stop;
+            completed=true;
+        }
+        low_X_power=low_x;
+        high_X_power=high_x;
+
+        SA_power=splineA->splines[A_index].weights.size()-1;
+        SB_power=splineB->splines[B_index].weights.size()-1;
+        max_power=SA_power*SB_power;
+
+        for(int power_index=0; power_index<=max_power; power_index++)
+        {
+            double weight=0;
+            for(int SA_power_index=std::min(power_index, SA_power); SA_power_index>=0; SA_power_index--)
+            {
+                int SB_power_index=power_index-SA_power_index;
+                if(SB_power_index>SB_power) break;
+
+                weight+=splineA->splines[A_index].weights[SA_power_index]*splineB->splines[B_index].weights[SB_power_index];
+            }
+
+            weight/=(power_index+1); //since we are integrated. Otherwords this would be the weight for the resultant spline
+            ret+=weight*(high_X_power-low_X_power);
+
+            low_X_power*=low_x;
+            high_X_power*=high_x;
+        }
+    }
+    return ret;
+}
 
 #endif

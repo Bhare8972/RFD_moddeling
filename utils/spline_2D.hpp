@@ -1929,10 +1929,10 @@ class adaptive_2DSpline
     double call(double X, double Y)
     {
         //bounds checking
-        if(X<top_quad->X1 or X>top_quad->X2 or Y<top_quad->Y2 or Y>top_quad->Y1)
-        {
-            throw gen_exception("X Y point is out of bounds of 2D spline");
-        }
+        //if(X<top_quad->X1 or X>top_quad->X2 or Y>top_quad->Y1 or Y<top_quad->Y2)
+        //{
+            //throw gen_exception("X Y point is out of bounds of 2D spline. X:", X, "( ",top_quad->X1 , ", ", top_quad->X2, ") Y:" , Y, "( " , top_quad->Y2 , ", ", top_quad->Y1, ")");
+        //}
 
         //recursivly find the lowest quad
         quad_section* current_quad=top_quad;

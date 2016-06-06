@@ -35,7 +35,11 @@ public:
 
 	diff_cross_section(double energy_=lowest_physical_energy)
 	{
-		prefactor=average_air_atomic_number*average_air_atomic_number/(8*3.1415926);
+	    if(energy_<lowest_physical_energy)
+	    {
+	        print("warning in shielded coulomb cross section: energy is below lowest physical energy");
+	    }
+		prefactor=average_air_atomic_number*average_air_atomic_number/(8*PI);
 		p_factor=std::pow(average_air_atomic_number, 2.0/3.0)/(4*183.3*183.3);
 
         energy=energy_;
@@ -46,13 +50,14 @@ public:
 		p_factor/=momentum_sq;
         cross_section_prefactor=prefactor/(beta*momentum_sq);
 
-        cum_adap_simps integrator(this, 0, 3.1415926, 1E4);
+        cum_adap_simps integrator(this, 0, PI, 1E4);
 		gsl::vector points=integrator.points();
 		gsl::vector cum_quads=integrator.cum_quads();
-		num_interactions_per_tau=cum_quads[cum_quads.size()-1]*2*3.1415926;
+		num_interactions_per_tau=cum_quads[cum_quads.size()-1]*2*PI;//multiply by 2 PI to account for an integal over phi
 		cum_quads/=cum_quads[cum_quads.size()-1]; //normalize to values from 0 to 1
 
 		dp_dOmega_prefector=cross_section_prefactor/num_interactions_per_tau;
+
 
 		gsl::vector quad_X;
 		gsl::vector quad_Y;
@@ -103,7 +108,7 @@ public:
                 std::lock_guard<std::mutex> lock(spline_sampler_mutex);
                 inclination_scattering=spline_sampler->call( rand.uniform() ); //transform the sample
             }
-            azimuth_scattering=rand.uniform()*2*3.1415926;
+            azimuth_scattering=rand.uniform()*2*PI;
 
             //calculate the three vector magnitudes
             double A=std::cos(inclination_scattering); //basis vector is original vector
