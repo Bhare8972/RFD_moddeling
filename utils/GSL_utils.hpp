@@ -227,4 +227,13 @@ gsl::vector cumsum(gsl::vector IN, bool extra_zero_bin=false)
     }
     return out;
 }
+
+double linear_interpolate(gsl::vector X, gsl::vector Y, double X_sample)
+//given a number of X and Y samples from a function, return the y-value corresponding to the X_sample using linear interpolation
+{
+    size_t index=search_sorted_d(X, X_sample);
+    double factor=(X_sample-X[index])/(X[index+1]-X[index]);
+    double R=Y[index];
+    return R + (Y[index+1]-R)*factor;
+}
 #endif

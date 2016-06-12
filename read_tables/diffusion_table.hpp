@@ -10,13 +10,14 @@
 
 #include "arrays_IO.hpp"
 #include "GSL_utils.hpp"
-//#include "histogram.hpp"
+#include "histogram.hpp"
 #include "gen_ex.hpp"
-//#include "integrate.hpp"
+#include "integrate.hpp"
 #include "spline.hpp"
 #include "rand.hpp"
 #include "../physics/shielded_coulomb_diffusion.hpp"
 
+/*
 class diffusion_table
 {
     public:
@@ -40,7 +41,7 @@ class diffusion_table
                 array_input dist_Y_table=table_in.get_array();
                 auto Y=dist_Y_table.read_doubles();
 
-                samples.emplace_back(X,Y);
+                samplers.emplace_back(X,Y);
             }
         }
 
@@ -49,8 +50,8 @@ class diffusion_table
             size_t TS_index=search_sorted_exponential(timesteps, TS);
             //assume TS is below max(timesteps)
             double lower_linear_factor=(timesteps[TS_index]-TS)/(timesteps[TS_index]-timesteps[TS_index+1]);//factor for linear interpolation
-            double lower_guess=samples[TS_index].call(uniform_rand);
-            double upper_guess=samples[TS_index+1].call(uniform_rand);
+            double lower_guess=samplers[TS_index].call(uniform_rand);
+            double upper_guess=samplers[TS_index+1].call(uniform_rand);
             return lower_guess*lower_linear_factor + (1-lower_linear_factor)*upper_guess;
         }
     };
@@ -166,9 +167,9 @@ class diffusion_table
         diff_cross_section cross_section(energy);
         return sample_timestep(timestep);
     }
-};
+};*/
 
-/*
+
 class diffusion_table
 {
 private:
@@ -329,5 +330,5 @@ public:
         return gsl_rng_uniform(rand)*2*3.1415926;
     }
 
-};*/
+};
 #endif
