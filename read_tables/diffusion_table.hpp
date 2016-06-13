@@ -10,13 +10,12 @@
 
 #include "arrays_IO.hpp"
 #include "GSL_utils.hpp"
-//#include "histogram.hpp"
+#include "histogram.hpp"
 #include "gen_ex.hpp"
-//#include "integrate.hpp"
+#include "integrate.hpp"
 #include "spline.hpp"
 #include "rand.hpp"
 #include "../physics/shielded_coulomb_diffusion.hpp"
-
 
 class diffusion_table
 {
@@ -287,6 +286,5 @@ public:
     {
         return gsl_rng_uniform(rand)*2*3.1415926;
     }
-
 };*/
 #endif

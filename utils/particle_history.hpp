@@ -10,6 +10,7 @@ class particle_history_out
 {
 public:
     binary_output out;
+    //update so that only works on one particle at a time. Not on lists
 
     /*
     commands:
@@ -31,7 +32,7 @@ public:
                 3 doubles: momentum
 
 
-        3: remove particles
+        3: remove particles  NOTE: need to add code for kind of removal
             int32: number of particles
             each particle needs
                 int32 ID
@@ -49,23 +50,23 @@ public:
     ////// total template abuse!!!! //////
 
     template< typename p_t>
-    void new_particle(p_t &particle)
+    void new_particle(p_t *particle)
     {
         out.out_short(1); //command, new particle
         out.out_int(1); //one particle
 
-        out.out_int(particle.ID);
-        out.out_short(particle.charge);
-        
-        out.out_double(particle.current_time);
+        out.out_int(particle->ID);
+        out.out_short(particle->charge);
 
-        out.out_double(particle.position[0]);
-        out.out_double(particle.position[1]);
-        out.out_double(particle.position[2]);
+        out.out_double(particle->current_time);
 
-        out.out_double(particle.momentum[0]);
-        out.out_double(particle.momentum[1]);
-        out.out_double(particle.momentum[2]);
+        out.out_double(particle->position[0]);
+        out.out_double(particle->position[1]);
+        out.out_double(particle->position[2]);
+
+        out.out_double(particle->momentum[0]);
+        out.out_double(particle->momentum[1]);
+        out.out_double(particle->momentum[2]);
     }
 
     template< typename p_t>
@@ -78,7 +79,7 @@ public:
         {
             out.out_int(P.ID);
             out.out_short(P.charge);
-            
+
             out.out_double(P.current_time);
 
             out.out_double(P.position[0]);
@@ -92,21 +93,21 @@ public:
     }
 
     template< typename p_t>
-    void update_particle(p_t &particle)
+    void update_particle(p_t *particle)
     {
         out.out_short(2); //command, new particle
         out.out_int(1); //one particle
 
-        out.out_int(particle.ID);
-        out.out_double(particle.timestep);
+        out.out_int(particle->ID);
+        out.out_double(particle->timestep);
 
-        out.out_double(particle.position[0]);
-        out.out_double(particle.position[1]);
-        out.out_double(particle.position[2]);
+        out.out_double(particle->position[0]);
+        out.out_double(particle->position[1]);
+        out.out_double(particle->position[2]);
 
-        out.out_double(particle.momentum[0]);
-        out.out_double(particle.momentum[1]);
-        out.out_double(particle.momentum[2]);
+        out.out_double(particle->momentum[0]);
+        out.out_double(particle->momentum[1]);
+        out.out_double(particle->momentum[2]);
     }
 
     template< typename p_t>
@@ -131,21 +132,21 @@ public:
     }
 
     template< typename p_t>
-    void remove_particle(p_t &particle)
+    void remove_particle(p_t *particle)
     {
         out.out_short(3); //command, new particle
         out.out_int(1); //one particle
 
-        out.out_int(particle.ID);
-        out.out_double(particle.timestep);
+        out.out_int(particle->ID);
+        out.out_double(particle->timestep);
 
-        out.out_double(particle.position[0]);
-        out.out_double(particle.position[1]);
-        out.out_double(particle.position[2]);
+        out.out_double(particle->position[0]);
+        out.out_double(particle->position[1]);
+        out.out_double(particle->position[2]);
 
-        out.out_double(particle.momentum[0]);
-        out.out_double(particle.momentum[1]);
-        out.out_double(particle.momentum[2]);
+        out.out_double(particle->momentum[0]);
+        out.out_double(particle->momentum[1]);
+        out.out_double(particle->momentum[2]);
     }
 
     template< typename p_t>
