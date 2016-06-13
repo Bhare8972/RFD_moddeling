@@ -23,7 +23,7 @@ bool rnd_seed=true; //seed random number generators with a random seed?  If fals
 
 //////// input data tables //////
 //ionization_table ionization(true);// remove losses due to moller scattering
-diffusion_table SHCdiffusion_scattering(rnd_seed);
+//diffusion_table SHCdiffusion_scattering(rnd_seed);
 moller_table moller_scattering(rnd_seed);
 
 //////// usefull converstion functions //////////  maybe place this elsewhere???
@@ -510,6 +510,7 @@ class apply_charged_force
 };
 
 
+/*
 void shielded_coulomb_scattering(particle_T &particle) //should this be a class?
 {
     double I=particle.momentum.sum_of_squares();
@@ -518,7 +519,7 @@ void shielded_coulomb_scattering(particle_T &particle) //should this be a class?
         I=SHCdiffusion_scattering.sample_inclination(I, particle.timestep);
         particle.scatter_angle(I, SHCdiffusion_scattering.sample_azimuth() );
     }
-}
+}*/
 
 void do_moller_scattering(particle_T &electron, list<particle_T> *new_particles) //should this be a class?
 {
@@ -627,23 +628,19 @@ int main()
 
 
 	////  initialize physics engines ////
+
 	//force
 	apply_charged_force force_engine(particle_removal_energy, E_field.pntr(), B_field.pntr() );
     force_engine.set_max_timestep(max_timestep);
     force_engine.set_errorTol(pos_tol, mom_tol);
 
+    //shielded coulomb diffusion
+    diffusion_table coulomb_scattering_engine;
+
 
 
 	////initial particle////
 	list<particle_T> electrons;
-	electrons.emplace_back();
-	electrons.back().set_position(0,0,0);
-	electrons.back().set_momentum(0,0, KE_to_mom(7500.0*Kilo*elementary_charge/electron_rest_energy) );
-
-	electrons.emplace_back();
-	electrons.back().set_position(0,0,0);
-	electrons.back().set_momentum(0,0, KE_to_mom(7500.0*Kilo*elementary_charge/electron_rest_energy) );
-
 	electrons.emplace_back();
 	electrons.back().set_position(0,0,0);
 	electrons.back().set_momentum(0,0, KE_to_mom(7500.0*Kilo*elementary_charge/electron_rest_energy) );
@@ -678,7 +675,13 @@ int main()
         //print("B");
 	    //diffusion scattering
         //shielded_coulomb_scattering(particle);
-	    particle_apply( shielded_coulomb_scattering, electrons);
+	    //particle_apply( shielded_coulomb_scattering, electrons);
+
+        for(particle_T &part :  electrons)
+        {
+            double energy=mom_to_KE(part.momentum);
+            coulomb_scattering_engine.scatter(energy, &part);
+        }
 
         //print("C");
         //moller scattering

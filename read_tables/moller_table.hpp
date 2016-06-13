@@ -18,7 +18,7 @@ class moller_table
 public:
     gsl::vector energies;
     gsl::vector num_interactions_per_tau;
-    std::vector<poly_quad_spline> splines;
+    std::vector<poly_spline> splines;
 
     size_t current_index;
     double energy_factor; //needed for linear interpolation

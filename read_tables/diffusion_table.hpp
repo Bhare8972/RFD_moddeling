@@ -17,7 +17,7 @@
 #include "rand.hpp"
 #include "../physics/shielded_coulomb_diffusion.hpp"
 
-/*
+
 class diffusion_table
 {
     public:
@@ -41,7 +41,7 @@ class diffusion_table
                 array_input dist_Y_table=table_in.get_array();
                 auto Y=dist_Y_table.read_doubles();
 
-                samples.emplace_back(X,Y);
+                samplers.emplace_back(X,Y);
             }
         }
 
@@ -50,8 +50,8 @@ class diffusion_table
             size_t TS_index=search_sorted_exponential(timesteps, TS);
             //assume TS is below max(timesteps)
             double lower_linear_factor=(timesteps[TS_index]-TS)/(timesteps[TS_index]-timesteps[TS_index+1]);//factor for linear interpolation
-            double lower_guess=samples[TS_index].call(uniform_rand);
-            double upper_guess=samples[TS_index+1].call(uniform_rand);
+            double lower_guess=samplers[TS_index].call(uniform_rand);
+            double upper_guess=samplers[TS_index+1].call(uniform_rand);
             return lower_guess*lower_linear_factor + (1-lower_linear_factor)*upper_guess;
         }
     };
@@ -61,76 +61,22 @@ class diffusion_table
     std::vector<energy_level> energy_samplers;
     rand_threadsafe rand;
 
-    diffusion_table(int file_mode) //0 to load files from both transform and MonteCarlo methods. 1 loads just transform, 2 loads just MonteCarlo
+    diffusion_table()
     {
-        if(file_mode==0)
+        binary_input fin("./tables/shielded_coulomb_diffusion");
+        array_input table_in(fin);
+
+        array_input energy_table=table_in.get_array();
+        energies=energy_table.read_doubles();
+
+        array_input timesteps_table=table_in.get_array();
+        timesteps=timesteps_table.read_doubles();
+
+        energy_samplers.reserve(energies.size());
+        for(int i=0; i<energies.size(); i++)
         {
-            binary_input transform_fin("./tables/diffusion_table_TRANSFORM");
-            array_input transform_table_in(transform_fin);
-
-            array_input transform_energy_table=transform_table_in.get_array();
-            auto transform_energies=transform_energy_table.read_doubles();
-
-            array_input transform_timesteps_table=transform_table_in.get_array();
-            auto transform_timesteps=transform_timesteps_table.read_doubles();
-
-
-
-            binary_input MC_fin("./tables/diffusion_table_MONTECARLO");
-            array_input MC_table_in(MC_fin);
-
-            array_input MC_energy_table=MC_table_in.get_array();
-            auto MC_energies=MC_energy_table.read_doubles();
-
-            array_input MC_timesteps_table=MC_table_in.get_array();
-            auto MC_timesteps=MC_timesteps_table.read_doubles();
-
-
-            int N_energies=transform_energies.size()+MC_energies.size();
-            //assume timesteps are the same
-            timesteps=transform_timesteps;
-            energies=gsl::vector(N_energies);
-            energy_samplers.reserve(N_energies);
-
-            AM HERE
-            FILL energies VECTOR AND energy_samples
-
+            energy_samplers.emplace_back(timesteps, table_in);
         }
-        else if(file_mode==1)
-        {
-            binary_input fin("./tables/diffusion_table_TRANSFORM");
-            array_input table_in(fin);
-
-            array_input energy_table=table_in.get_array();
-            energies=energy_table.read_doubles();
-
-            array_input timesteps_table=table_in.get_array();
-            timesteps=timesteps_table.read_doubles();
-
-            energy_samplers.reserve(energies.size());
-            for(int i=0; i<energies.size(); i++)
-            {
-                energy_samplers.emplace_back(timesteps, table_in);
-            }
-        }
-        else if(file_mode==2)
-        {
-            binary_input fin("./tables/diffusion_table_MONTECARLO");
-            array_input table_in(fin);
-
-            array_input energy_table=table_in.get_array();
-            energies=energy_table.read_doubles();
-
-            array_input timesteps_table=table_in.get_array();
-            timesteps=timesteps_table.read_doubles();
-
-            energy_samplers.reserve(energies.size());
-            for(int i=0; i<energies.size(); i++)
-            {
-                energy_samplers.emplace_back(timesteps, table_in);
-            }
-        }
-
     }
 
     inline double max_timestep()
@@ -151,7 +97,7 @@ class diffusion_table
             //maybe speed this up by only sampling closest energy
 
             double uniform_rand=rand.uniform();
-            size_t energy_i=search_sorted_exponential(energies, energy);
+            size_t energy_i=search_sorted_d(energies, energy);
 
             double lower_linear_factor=(energies[energy_i]-energy)/(energies[energy_i]-energies[energy_i+1]);
             double lower_sample=energy_samplers[energy_i].sample(timestep, uniform_rand);
@@ -165,11 +111,23 @@ class diffusion_table
     //find scattering angle by monte-carlo simulation. Note that this is slow, especilaly for low energy and large timesteps
     {
         diff_cross_section cross_section(energy);
-        return sample_timestep(timestep);
+        return cross_section.sample_timestep(timestep);
     }
-};*/
 
+    inline double sample_azimuth()
+    {
+        return rand.uniform()*2*PI;
+    }
 
+    template< typename PARTICLE_T>
+    inline void scatter(double energy, PARTICLE_T *particle)
+    {
+        double inclination=sample(energy, particle->timestep);
+        particle->scatter_angle(inclination, sample_azimuth() );
+    }
+};
+
+/*
 class diffusion_table
 {
 private:
@@ -330,5 +288,5 @@ public:
         return gsl_rng_uniform(rand)*2*3.1415926;
     }
 
-};
+};*/
 #endif

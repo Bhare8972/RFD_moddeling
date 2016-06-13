@@ -4,7 +4,7 @@ TODO:
 Fix production of the diffusion table, so that the convergence condition has a better statisitcal basis. (Maybe use pearson chi-square test)
 	Also need to add adaptive bin sizes.
 
-Fix tables so they have no upper bound
+test diffusion tables!
 
 seperate absolute minimum physical energy ( 100 ev), which needs to be hard-coded
 and minimum energy for simulation, which should be a simulation input. NOT hard-coded
@@ -14,6 +14,5 @@ turn many of the cross-section functions into classes
 other:
 improve utility documentation.  less important.
 figure out why interpolant is not thread safe
-try to remove a few mutexes from make_diffusion_table
 make reading/writing binary files to correctly handel big-endian machines
 
