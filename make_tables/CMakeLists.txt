@@ -20,6 +20,10 @@ add_executable(make_diffusion_tables_transform
               ./make_diffusion_tables_transform.cpp)
 target_link_libraries(make_diffusion_tables_transform gsl gslcblas pthread)
 
+add_executable(make_diffusion_tables_MonteCarlo
+              ./make_diffusion_tables_MonteCarlo.cpp)
+target_link_libraries(make_diffusion_tables_MonteCarlo gsl gslcblas pthread)
+
 #add_executable(make_moller_tables
 #              ./make_moller_tables.cpp)
 #target_link_libraries(make_moller_tables gsl gslcblas pthread)

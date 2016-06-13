@@ -17,6 +17,7 @@
 #include "rand.hpp"
 #include "../physics/shielded_coulomb_diffusion.hpp"
 
+/*
 class diffusion_table
 {
     public:
@@ -166,9 +167,9 @@ class diffusion_table
         diff_cross_section cross_section(energy);
         return sample_timestep(timestep);
     }
-};
+};*/
 
-/*
+
 class diffusion_table
 {
 private:
@@ -329,5 +330,5 @@ public:
         return gsl_rng_uniform(rand)*2*3.1415926;
     }
 
-};*/
+};
 #endif

@@ -222,7 +222,7 @@ gsl::vector cumsum(gsl::vector IN, bool extra_zero_bin=false)
     out[0]=0;
     for(int i=extra_zero_bin; i<out.size(); i++)
     {
-        value+=IN[i];
+        value+=IN[i-extra_zero_bin];
         out[i]=value;
     }
     return out;

@@ -213,7 +213,14 @@ class output_control : public functor_1D
         new_step=new_step_;
         new_step_weight=new_step_weight_;
 
-        current_interpolant= adaptive_sample_retSpline(this, 0.001, 0, PI);
+        double current_integral=current_interpolant->call(PI);
+        double new_step_integral=new_step_->call(PI);
+        if( float(current_integral + new_step_weight*new_step_integral) == float(current_integral) )
+        {
+            return; //if weight is so small. that we have no effect, do not do this steip
+        }
+
+        current_interpolant= adaptive_sample_retSpline(this, 0.01, 0, PI);
         current_interpolant->set_lower_fill();
         current_interpolant->set_upper_fill();
     }
@@ -223,7 +230,14 @@ class output_control : public functor_1D
         new_step=new_step_;
         new_step_weight=gsl_ran_poisson_pdf(step_num, interactions_per_timestep);
 
-        current_interpolant= adaptive_sample_retSpline(this, 0.001, 0, PI);
+        double current_integral=current_interpolant->call(PI);
+        double new_step_integral=new_step_->call(PI);
+        if( float(current_integral + new_step_weight*new_step_integral) == float(current_integral) )
+        {
+            return; //if weight is so small. that we have no effect, do not do this steip
+        }
+
+        current_interpolant= adaptive_sample_retSpline(this, 0.01, 0, PI);
         current_interpolant->set_lower_fill();
         current_interpolant->set_upper_fill();
     }
@@ -292,10 +306,11 @@ class process_energy_level
         int current_N=2;
         bool reached_peak=false;
         double max_p=0;
+        int print_step=0.05*cross_section.num_interactions_per_tau*max_timestep;
         while(true)
         {
             double current_p=gsl_ran_poisson_pdf(current_N, cross_section.num_interactions_per_tau*max_timestep);
-            if((current_N%50000)==0)
+            if((current_N%print_step)==0)
             {
                 print("energy:", energy, " at step:", current_N, ". out of", cross_section.num_interactions_per_tau*max_timestep, "p=", current_p);
             }
@@ -350,34 +365,60 @@ class process_energy_level
 
 int main()
 {
-    double max_energy=100.0/energy_units_kev; //cannot go above 100 kev  for  5E4.
+    double max_energy=0.0158735;//100.0/energy_units_kev; //cannot go above 100 kev  for  5E4.
     double min_energy=lowest_physical_energy;
-    size_t num_energies=100;
+    size_t num_energies=66; //100
 
     double min_timestep=6e-7;
-    double max_timestep=0.1;
+    double max_timestep=0.01;
     size_t num_timesteps=20;//1000
 
     double probability_accuracy=0.0000001; //when to truncate the series
 
+    #define DO_THREADS 1 //set this to 1 to use multi-threading
+    int N_threads=2;
+    (void)N_threads; //avoid unused variabel error
+
     gsl::vector energies=logspace(log10(min_energy), log10(max_energy), num_energies);
     gsl::vector timesteps=logspace(log10(min_timestep), log10(max_timestep), num_timesteps);
 
+    //for(int energy_i=0; energy_i<num_energies; energy_i++)
+    //{
+
+        //print(energy_i, ':', energies[energy_i]);
+    //}
+
     list<process_energy_level> energy_levels;
-    //list<thread> threads;
+
+    //using threads
+
+    #if DO_THREADS
+    int energy_i=0;
+    while(energy_i<num_energies)
+    {
+        list<thread> threads;
+        for(int thread_i=0; thread_i<N_threads; thread_i++)
+        {
+            energy_levels.emplace_back(energies[energy_i], timesteps, probability_accuracy);
+            threads.emplace_back(&process_energy_level::process,  &energy_levels.back());
+
+            energy_i++;
+            if(energy_i==num_energies) break;
+        }
+
+        for(auto& T : threads)
+        {
+            T.join();
+        }
+    }
+    #else
+    //use this for not using threads
     for(auto E : energies)
     {
         energy_levels.emplace_back(E, timesteps, probability_accuracy);
         energy_levels.back().process();
-
-        //threads.emplace_back(&process_energy_level::process,  &energy_levels.back());
     }
-
-    //for(auto& T : threads)
-    //{
-        //T.join();
-    //}
-    //threads.clear();
+    #endif // DO_THREADS
 
     //write to file
     arrays_output tables_out;

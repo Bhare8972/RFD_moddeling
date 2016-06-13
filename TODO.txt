@@ -1,6 +1,5 @@
 TODO:
 
-need to test integation and spline fitting to make sure it makes sence
 
 Fix production of the diffusion table, so that the convergence condition has a better statisitcal basis. (Maybe use pearson chi-square test)
 	Also need to add adaptive bin sizes.

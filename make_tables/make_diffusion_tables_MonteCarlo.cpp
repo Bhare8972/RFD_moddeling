@@ -133,6 +133,11 @@ public:
         }
     }
 
+    hist_tool(const hist_tool& COPY)
+    {
+        throw gen_exception("not implemented");
+    }
+
     iterator begin()
     {
         return hist_bins.begin();
@@ -211,9 +216,9 @@ public:
     std::vector<hist_tool> distributions;//hist tool needs to be made thread safe
 
 
-	workspace(double timesteps_, double energy_, size_t num_bins_) : cross_section(energy_)//, distribution(0, 3.1415926, num_bins_)
+	energy_level_workspace(gsl::vector timesteps_, double energy_, size_t num_bins_) : cross_section(energy_)//, distribution(0, 3.1415926, num_bins_)
 	{
-	    energy=energy;
+	    energy=energy_;
 	    timesteps=timesteps_;
 
 	    num_interactions_per_timestep=gsl::vector(timesteps.size());
@@ -222,6 +227,7 @@ public:
         distributions.reserve(timesteps.size());
         for(auto TS : timesteps)
         {
+            (void)TS;
             distributions.emplace_back(0, PI, num_bins_);
         }
 	}
@@ -297,7 +303,7 @@ public:
         //sample for the required number of times
         for(size_t i=0; i<N_threads; i++)
         {
-            threads.push_back( thread(&workspace::multi_samples, this, samples_perThread_perRun) );
+            threads.push_back( thread(&energy_level_workspace::multi_samples, this, samples_perThread_perRun) );
             //multi_samples(samples_per_thread, i*samples_per_thread);
         }
 
@@ -317,13 +323,13 @@ public:
         {
             for(int timestep_i=0; timestep_i<timesteps.size(); timestep_i++)
             {
-                old_distributions[timestep_i]=distributions[i].get_bin_values();
+                old_distributions[timestep_i]=distributions[timestep_i].get_bin_values();
             }
 
             //sample for the required number of times
             for(size_t i=0; i<N_threads; i++)
             {
-                threads.push_back( thread(&workspace::multi_samples, this, samples_perThread_perRun) );
+                threads.push_back( thread(&energy_level_workspace::multi_samples, this, samples_perThread_perRun) );
                 //multi_samples(samples_per_thread, i*samples_per_thread);
             }
 
@@ -337,11 +343,12 @@ public:
             // note that this could use some better mathematical treatment, but it seems to work well
 
             double error_factor=0;
-            int max_timestep_i=0;
+            //int max_timestep_i=0;
 
             for(int timestep_i=0; timestep_i<timesteps.size(); timestep_i++)
             {
                 gsl::vector new_distribution=distributions[timestep_i].get_bin_values();
+
                 for(size_t i=0; i<new_distribution.size(); i++)
                 {
                     double N_pnts=new_distribution[i];
@@ -350,20 +357,23 @@ public:
                         continue;
                     }
 
-                    double DH=N_pnts-old_distribution[i];
+                    double DH=N_pnts-old_distributions[timestep_i][i];
                     double next_error_factor=DH/N_pnts;
 
                     if(next_error_factor>error_factor)
                     {
                         error_factor=next_error_factor;
-                        max_timestep_i=timestep_i;
+                        //max_timestep_i=timestep_i;
                     }
                 }
+
             }
 
 
             print(energy, ":", (n_runs+1)*samples_perThread_perRun*N_threads, "  error:", error_factor, "desired error:", percent_error);
-            print("timestep with max error ==  max_timestep", max_timestep_i==(timesteps.size()-1), "if always true, optimize!");
+            //print("timestep with max error ==  max_timestep:", max_timestep_i==(timesteps.size()-1), ". if always true, optimize!");
+            //never true
+            print();
 
             if(error_factor<percent_error)
             {
@@ -381,7 +391,7 @@ public:
                     if(iter->splittable and abs(next_H-H)>3*(sqrt(next_H)+sqrt(H)))
                     {
                         keep_running=true;
-                        distribution.split(iter);
+                        distributions[timestep_i].split(iter);
 
                         //should this next break be here??
                         break; //WHY IS THIS HERE?
@@ -420,16 +430,17 @@ public:
 
 int main()
 {
-	double min_energy=100.0/energy_units_kev; //does NOT include this energy! (to sync with transform method)
-	double max_energy=100000/energy_units_kev;
-	int num_energies=100;
+	double min_energy=0.0158735;  //100.0/energy_units_kev;
+	bool skip_first_energy=true; //if this is true, we do not cover the lower energy, which may be handeled by a different simulation
+	double max_energy=100.0/energy_units_kev; //100000/energy_units_kev;
+	int num_energies=34; //100;
 
     double min_timestep=6e-7;
-    double max_timestep=0.1;
+    double max_timestep=0.01;
     size_t num_timesteps=20;//1000
 
-	size_t threads_per_energy=16; //num threads per energy
-	size_t num_samples_per_energy_per_thread_per_run=100;
+	size_t threads_per_energy=2; //num threads per energy
+	size_t num_samples_per_energy_per_thread_per_run=400/threads_per_energy;
 	size_t num_bins=20; //controlls precision of final distribution
 	double error_percent=0.15; //controlls error of bins in y-direction
 
@@ -441,10 +452,13 @@ int main()
 
     //start procesing for each energy
     std::list<energy_level_workspace> samplers;
-    for(int energy_i=1; energy_i<energy_vector.size(); energy_i++)
+    for(int energy_i=skip_first_energy; energy_i<energy_vector.size(); energy_i++) //note that we may skip the first energy
     {
-        samplers.emplace_back(timesteps, energy, num_bins);
+        print("starting energy:", energy_vector[energy_i], "(", energy_i, "/", num_energies, ")");
+
+        samplers.emplace_back(timesteps, energy_vector[energy_i], num_bins);
         samplers.back().start_thread(num_samples_per_energy_per_thread_per_run, threads_per_energy, error_percent);
+
     }
 
     print("writing to file");
