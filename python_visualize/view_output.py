@@ -268,12 +268,12 @@ if __name__=='__main__':
     ## print "final pos", particle_data[1].pos_history[-1][2]
     print len(particle_data), "particles"
 
-    plot_particles_XYZ(particle_data)
+    #plot_particles_XYZ(particle_data)
     plot_particles_XZ(particle_data)
-    plot_particles_TIMEYZ(particle_data)
-    speed_VS_time(particle_data)
+    #plot_particles_TIMEYZ(particle_data)
+    #speed_VS_time(particle_data)
     KE_VS_time(particle_data)
     KE_VS_Z(particle_data)
-    plot_timesteps(particle_data)
+    #3plot_timesteps(particle_data)
     ##timesteps_vs_energy(particle_data)
 

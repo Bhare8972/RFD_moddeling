@@ -27,107 +27,64 @@ class diff_cross_section(object):
     def integrand(self, angle):
         return self.cross_section(angle)*np.sin(angle)
 
-class histogram(object):
-    def __init__(self, table_in):
-        hist_table=table_in.get_array()
-        range_table=hist_table.get_array()
-        self.ranges=range_table.read_doubles()
-        value_table=hist_table.get_array()
-        self.values=value_table.read_doubles()
 
-    def samples(self):
-        return np.sum(self.values)
-
-    def plot(self):
-        print self.ranges
-        S=self.samples()
-        R=self.ranges[1:]-self.ranges[:-1]
-        plt.bar(self.ranges[:-1], self.values/(S*R), R)
-
-
+class CS_table(object):
+    def __init__(self, num_timesteps, table_in):
+        self.dist_X=[]
+        self.dist_Y=[]
+        
+        for x in xrange(num_timesteps):
+            X_table=table_in.get_array()
+            X_values=X_table.read_doubles()
+            Y_table=table_in.get_array()
+            Y_values=Y_table.read_doubles()
+            
+            self.dist_X.append(X_values)
+            self.dist_Y.append(Y_values)
+            
+    def get_X(self, timestep):
+        return self.dist_X[timestep]
+            
+    def get_Y(self, timestep):
+        return self.dist_Y[timestep]
 
 if __name__=='__main__':
     
-    table_in=array_input( binary_input("./testing_out") )
+    energy_indeces=[99,99,99,99,99,99,99,99,99,99]
+    time_indeces=[0,2,4,6,8,10,12,14,16,18]
     
-    new_points_table=table_in.get_array()
-    new_points=new_points_table.read_doubles()
+    if len(energy_indeces)!=len(time_indeces):
+        print "ERROR"
+        exit()
     
-    old_points_table=table_in.get_array()
-    old_points=old_points_table.read_doubles()
-    
-    plt.hist(new_points, 10, normed=1, facecolor='green', alpha=0.75)
-    plt.hist(old_points, 10, normed=1, facecolor='red', alpha=0.75)
-    plt.show()
-    
-    
-    exit()
-    
-    table_in=array_input( binary_input("./out") )
-    
-    theta_space_table=table_in.get_array()
-    angles=theta_space_table.read_doubles()
-    
-    prob_table=table_in.get_array()
-    probabilities=prob_table.read_doubles()
-    
-    ##TT=table_in.get_array()
-    ##known_angles=TT.read_doubles()
-    
-    ##PT=table_in.get_array()
-    ##known_p=PT.read_doubles()
-    print len(angles)
-    plt.plot(angles, probabilities, '-')
-    ##plt.plot(known_angles, known_p, 'o')
-    plt.show()
-    
-    exit()
-    
-    table_index=0
     ##open
-    table_in=array_input( binary_input("../tables/diffusion/5e-05") )
+    table_in=array_input( binary_input("./diffusion_table_MONTECARLO_A") )
 
     energies_table=table_in.get_array()
     energies=energies_table.read_doubles()
-
+    timesteps_table=table_in.get_array()
+    timesteps=timesteps_table.read_doubles()
+    
+    energies=energies[1:]
+    
+    print len(energies), "energies"
+    print len(timesteps), "timesteps"
+    
     tables=[]
-    for table_i in xrange(table_in.size-1):
-        tables.append(histogram(table_in))
-    print len(tables),"energies available"
+    for table_i in xrange(len(energies)):
+        tables.append(CS_table(len(timesteps), table_in))
 
-
-    print tables[table_index].samples(), "samples at:", energies[table_index], "kev"
-    print "  ", len(tables[table_index].values), "bins"
-    ##plt.hist(tables[table_index], bins=n_bins, range=(0, np.pi))
-    tables[table_index].plot()
-    plt.show()
-
-
-    #~table_in=array_input( binary_input("./quadrature_tst") )
-    #~
-    #~cumquads_table=table_in.get_array()
-    #~cumquads=cumquads_table.read_doubles()
-    #~
-    #~points_table=table_in.get_array()
-    #~points=points_table.read_doubles()
-    #~
-    #~value_table=table_in.get_array()
-    #~values=value_table.read_doubles()
-    #~
-    #~quad_X_table=table_in.get_array()
-    #~quad_X=quad_X_table.read_doubles()
-    #~
-    #~quad_Y_table=table_in.get_array()
-    #~quad_Y=quad_Y_table.read_doubles()
-    #~
-    #~plt.plot(points, values, 'r')
-    #~plt.plot(points, cumquads, 'g')
-    #~plt.show();
-    #~
-    #~plt.plot(cumquads, points, 'r')
-    #~plt.plot(quad_X, quad_Y, 'g')
-    #~plt.show()
-
+    for print_i in xrange(len(energy_indeces)):
+        energy_index=energy_indeces[print_i]
+        time_index=time_indeces[print_i]
+        
+        print 'energy:', energies[energy_index]
+        print 'timestep:', timesteps[time_index]
+        
+        dist_X=tables[energy_index].get_X(time_index)
+        dist_Y=tables[energy_index].get_Y(time_index)
+        plt.plot(dist_X, dist_Y)
+        plt.show()
 
 
 

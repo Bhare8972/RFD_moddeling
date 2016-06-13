@@ -1,19 +1,19 @@
 #ifndef MOLLER_SCATTERING
 #define MOLLER_SCATTERING
 
-
 #include <cmath>
 
 #include "constants.hpp"
 #include "GSL_utils.hpp"
+
 #include "binary_IO.hpp"
 #include "arrays_IO.hpp"
 #include "functor.hpp"
-//#include "integrate.hpp"
 #include "spline.hpp"
 #include "gen_ex.hpp"
 #include "rand.hpp"
 #include "interaction_chooser.hpp"
+
 
 class moller_cross_section : public functor_1D
 {

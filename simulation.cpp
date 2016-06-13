@@ -25,7 +25,7 @@ bool rnd_seed=true; //seed random number generators with a random seed?  If fals
 
 //////// input data tables //////
 //ionization_table ionization(true);// remove losses due to moller scattering
-diffusion_table SHCdiffusion_scattering(rnd_seed);
+//diffusion_table SHCdiffusion_scattering(rnd_seed);
 //moller_table moller_scattering(rnd_seed);
 
 //////// usefull converstion functions //////////  maybe place this elsewhere???
@@ -521,7 +521,8 @@ class apply_charged_force
     }
 };
 
-void shielded_coulomb_scattering(particle_T *particle) //should this be a class?
+/*
+void shielded_coulomb_scattering(particle_T &particle) //should this be a class?
 {
     double I=particle->momentum.sum_of_squares();
     if((sqrt(I+1)-1)*energy_units_kev>0.02) //just for now
@@ -529,7 +530,7 @@ void shielded_coulomb_scattering(particle_T *particle) //should this be a class?
         I=SHCdiffusion_scattering.sample_inclination(I, particle->timestep);
         particle->scatter_angle(I, SHCdiffusion_scattering.sample_azimuth() );
     }
-}
+}*/
 
 /*
 void do_moller_scattering(particle_T &electron, list<particle_T> *new_particles) //should this be a class?
@@ -650,6 +651,9 @@ int main()
     //moller scattering
     print("making moller tables");
     moller_table moller_engine(particle_removal_energy, 100000/energy_units_kev, 200);
+
+    //shielded coulomb diffusion
+    diffusion_table coulomb_scattering_engine;
     print("finished moller tables");
 
 
@@ -669,7 +673,6 @@ int main()
 	electrons.back()->set_momentum(0,0, KE_to_mom( 7500.0/energy_units_kev) );
 	electrons.back()->update_energy();
     save_data.new_particle(electrons.back());
-
 	//output file
 
 	//simulate!
@@ -699,7 +702,9 @@ int main()
             }
 
             //// shielded coulomb scattering ////
-            shielded_coulomb_scattering(electron);
+            //shielded_coulomb_scattering(electron);
+            double energy=mom_to_KE(part.momentum);
+            coulomb_scattering_engine.scatter(energy, &part);
 
             //// moller scattering ////
 
