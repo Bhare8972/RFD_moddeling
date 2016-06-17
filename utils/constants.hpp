@@ -19,12 +19,13 @@ const double electron_rest_energy=510.998*Kilo*elementary_charge;   //(9.1093835
 const double average_air_atomic_number=14.5;
 
 
-const double minimum_energy=2*Kilo*elementary_charge/electron_rest_energy; //minimum energy is 2 keV.   This needs to be removed
+//const double minimum_energy=2*Kilo*elementary_charge/electron_rest_energy; //minimum energy is 2 keV.   This needs to be removed
 const double lowest_physical_energy=100.0*elementary_charge/electron_rest_energy; //lower energy the simulation is good for. 100 ev
 const double inv_I_sq=electron_rest_energy*electron_rest_energy/(85.7*80.5*elementary_charge*elementary_charge); //parameter necisary for beth formula
 
 //find unit-less constant conversions
 const double time_units=172.0*Nano; // seconds
+const double time_units_ns=172.0; // nano seconds
 const double distance_units=C*time_units; //fundamental length scale, in  meters
 const double E_field_units=electron_rest_energy/(elementary_charge*C*time_units); //units of electric field in V/m
 const double B_field_units=E_field_units/C; //units of magnetic field in T

@@ -147,6 +147,26 @@ def plot_particles_XZ(particles):
         ax.plot(p.get_X()*distance_units, p.get_Z()*distance_units)
     plt.show()
 
+def plot_particles_ZvsTIME(particles):
+    fig = plt.figure()
+    fig.suptitle('location of particle in Z vs time')
+    ax = fig.add_subplot(1,1,1)
+    ax.set_xlabel('time (ns)')
+    ax.set_ylabel('Z axis (m)')
+    creation_Z=[]
+    creation_T=[]
+    for p in particle_data.itervalues():
+        T=p.get_T()*time_units*10**9
+        Z=p.get_Z()*distance_units
+        ax.plot(T, Z, '.-')
+        
+        
+        creation_Z.append(Z[0])
+        creation_T.append(T[0])
+        
+    plt.plot(creation_T, creation_Z, 'ro')
+    plt.show()
+
 def plot_particles_TIMEYZ(particles):
     fig = plt.figure()
     fig.suptitle('path of particle in time and YZ')
@@ -176,8 +196,8 @@ def KE_VS_time(particles):
         Pz=p.get_Pz()
         P_sq=Px*Px+Py*Py+Pz*Pz
         E=np.sqrt(P_sq+1)-1
-        plt.plot(p.get_T()*time_units, E*electron_rest_energy/(kilo*elementary_charge), 'o-')
-    plt.title("KE(keV) vs time")
+        plt.plot(p.get_T()*time_units*(10**9), E*energy_units_kev, 'o-')
+    plt.title("KE(keV) vs time(ns)")
     plt.show()
 
 def KE_VS_Z(particles):
@@ -187,7 +207,7 @@ def KE_VS_Z(particles):
         Pz=p.get_Pz()
         P_sq=Px*Px+Py*Py+Pz*Pz
         E=np.sqrt(P_sq+1)-1
-        plt.plot(p.get_Z()*distance_units, E*electron_rest_energy/(kilo*elementary_charge), 'o-')
+        plt.plot(p.get_Z()*distance_units, E*energy_units_kev, 'o-')
     plt.title("KE(keV) vs altitude(meters)")
     plt.show()
     ##plt.savefig('KEvsZ.png')
@@ -271,9 +291,10 @@ if __name__=='__main__':
     #plot_particles_XYZ(particle_data)
     plot_particles_XZ(particle_data)
     #plot_particles_TIMEYZ(particle_data)
+    plot_particles_ZvsTIME(particle_data)
     #speed_VS_time(particle_data)
     KE_VS_time(particle_data)
     KE_VS_Z(particle_data)
-    #3plot_timesteps(particle_data)
-    ##timesteps_vs_energy(particle_data)
+    #plot_timesteps(particle_data)
+    #timesteps_vs_energy(particle_data)
 

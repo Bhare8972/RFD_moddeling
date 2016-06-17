@@ -1,4 +1,4 @@
-////This code is to reproduce the methods and results of Lehinen 1999, "Monte Carlo Simulation of runaway MeV electron breakdown with application to red sprites and terrestrial gamma-ray flashes"
+
 #include <iostream>
 #include <cmath>
 #include <fstream>
@@ -8,49 +8,20 @@
 #include "GSL_utils.hpp"
 #include "constants.hpp"
 #include "rand.hpp"
+#include "time_tree.hpp"
 
-//#include "read_tables/ionization_table.hpp"
 #include "read_tables/diffusion_table.hpp"
-//#include "read_tables/moller_table.hpp"
 
+#include "physics/relativistic_equations.hpp"
+#include "physics/particles.hpp"
 #include "physics/bethe_eq.hpp"
 #include "physics/moller_scattering.hpp"
-
-#include "particle_history.hpp"
+#include "physics/interaction_chooser.hpp"
 
 using namespace gsl;
 using namespace std;
 
-bool rnd_seed=true; //seed random number generators with a random seed?  If false, use a built-in seed value (for repeatability)
 
-//////// input data tables //////
-//ionization_table ionization(true);// remove losses due to moller scattering
-//diffusion_table SHCdiffusion_scattering(rnd_seed);
-//moller_table moller_scattering(rnd_seed);
-
-//////// usefull converstion functions //////////  maybe place this elsewhere???
-// dimensionless units unless specificied otherwise
-double KE_to_mom(double KE)
-//both KE and momentum are unitless
-{
-	return sqrt(pow(1+KE , 2.0) - 1.0);
-}
-
-double mom_to_KE(gsl::vector mom)
-//both KE and momentum are unitless
-{
-    return sqrt(mom.sum_of_squares()+1.0)-1.0;
-}
-
-double gamma(gsl::vector &mom_)
-{
-    return sqrt(1+mom_[0]*mom_[0]+mom_[1]*mom_[1]+mom_[2]*mom_[2]);
-}
-
-double gamma(double momentum_squared_)
-{
-    return sqrt(1+momentum_squared_);
-}
 
 /////// tools for representing magnetic and electric fields /////////
 class field
@@ -115,103 +86,6 @@ public:
 	}
 };
 
-///////// particles and particle phyics ////////
-
-class particle_T
-{
-    static size_t next_ID;
-
-public:
-    size_t ID;
-    int charge;
-    double timestep; //timestep of particle
-    double energy;
-    double next_timestep; //timestep of particle
-    double current_time;
-    gsl::vector position; //dimensionless, in units of distance_units
-    gsl::vector momentum; //dimensionless, in units of electron-rest-mass/c
-
-    particle_T()
-    //some default values
-    {
-        ID=next_ID;
-        next_ID++;
-        charge=-1;//electron
-		position=gsl::vector({0,0,0});
-		momentum=gsl::vector({0,0,0});
-        timestep=0.0001;
-        next_timestep=0.0001;
-        current_time=0;
-        energy=0;
-    }
-
-    void set_position(double x, double y, double z)
-	{
-		position[0]=x;
-		position[1]=y;
-		position[2]=z;
-	}
-
-	void set_momentum(double x, double y, double z)
-	{
-		momentum[0]=x;
-		momentum[1]=y;
-		momentum[2]=z;
-	}
-
-	void update_energy()
-	{
-        energy=mom_to_KE(momentum);
-	}
-
-    void scatter_angle(double inclination, double azimuth)
-	//scatter the particle by an angle
-	{
-		double momentum_squared=momentum.sum_of_squares();
-
-		//calculate the three vector magnitudes
-		double A=cos(inclination); //basis vector is original momentum
-		double B=sin(inclination)*cos(azimuth); //basis vector will be vector Bv below
-		double C=sin(inclination)*sin(azimuth); //basis vector will be vector Cv below
-
-		//find vector Bv, perpinduclar to momentum
-		gsl::vector init({1,0,0});
-		gsl::vector Bv=cross(init, momentum);
-		if(Bv.sum_of_squares()<0.1) //init and momentum are close to parellel. Which would cause errors below
-		{
-			init=gsl::vector({0,1,0}); //so we try a different init. momentum cannot be parrellel to both inits
-			Bv=cross(init, momentum);
-		}
-
-		//normalize Bv
-		Bv/=sqrt(Bv.sum_of_squares());
-
-		//now we find Cv
-		gsl::vector Cv=cross(Bv, momentum); //Bv and momentum are garenteed to be perpindicular.
-
-		//give Bv correct magnitude
-		Bv*=sqrt(momentum_squared);
-
-		//find new momentum
-		momentum=A*momentum + B*Bv + C*Cv;
-	}
-
-/*
-	//// some static functions
-	static
-	particle_T* make_electron(double timestep=0.0001)
-	{
-        particle_T* out;
-        out.current_time=0;
-        out.charge=-1;
-        out.energy=0;
-        out.timestep=0.0001;
-        return out;
-	}*/
-};
-size_t particle_T::next_ID=0;
-
-
 class apply_charged_force
 {
     public:
@@ -266,7 +140,7 @@ class apply_charged_force
         maximum_timestep=max_timestep_;
     }
 
-    void set_errorTol(double pos_tol_, double mom_tol_, double kappa_=0.7)
+    void set_errorTol(double pos_tol_, double mom_tol_, double kappa_=0.5)
     {
         pos_tol=pos_tol_;
         mom_tol=mom_tol_;
@@ -521,115 +395,19 @@ class apply_charged_force
     }
 };
 
-/*
-void shielded_coulomb_scattering(particle_T &particle) //should this be a class?
-{
-    double I=particle->momentum.sum_of_squares();
-    if((sqrt(I+1)-1)*energy_units_kev>0.02) //just for now
-    {
-        I=SHCdiffusion_scattering.sample_inclination(I, particle->timestep);
-        particle->scatter_angle(I, SHCdiffusion_scattering.sample_azimuth() );
-    }
-}*/
-
-/*
-void do_moller_scattering(particle_T &electron, list<particle_T> *new_particles) //should this be a class?
-{
-    double energy_I1=sqrt(1+electron.momentum.sum_of_squares())-1;
-    if(energy_I1< moller_scattering.lowest_energy()) return;
-
-    double momentum_I1=sqrt(electron.momentum.sum_of_squares());
-    moller_scattering.set_energy(energy_I1);
-    size_t num_interactions=moller_scattering.num_interactions(electron.timestep);
-
-    while( (energy_I1> moller_scattering.lowest_energy()) and num_interactions>0)
-    {
-        //sample
-        moller_scattering.set_energy(energy_I1);
-        double energy_F2=moller_scattering.sample_new_energy();
-	    double azimuth_angle=moller_scattering.sample_azimuth();
-
-        //calculate energy and momentum
-	    double energy_F1=energy_I1-energy_F2;
-	    double momentum_F1=sqrt((energy_F1+1)*(energy_F1+1)-1);
-	    double momentum_F2=sqrt((energy_F2+1)*(energy_F2+1)-1);
-
-        //calculate relavent angles
-	    double old_inclination_scatter=acos( ((energy_I1+1)*(energy_F1+1)-(energy_F2+1))/(momentum_I1*momentum_F1) );
-	    double new_inclination_scatter=acos( ((energy_I1+1)*(energy_F2+1)-(energy_F1+1))/(momentum_I1*momentum_F2) );
-
-	    //make new electron
-	    new_particles->emplace_back();
-	    new_particles->back().position=electron.position.clone();
-	    new_particles->back().momentum=electron.momentum*(momentum_F2/momentum_I1);
-	    new_particles->back().timestep=electron.timestep;
-	    new_particles->back().charge=-1;//set_electron
-        new_particles->back().current_time=electron.current_time;
-
-	    //adjust energy of old electron
-	    electron.momentum*=(momentum_F1/momentum_I1);
-
-	    //scatter both particles
-	    electron.scatter_angle(old_inclination_scatter, azimuth_angle);
-	    new_particles->back().scatter_angle(new_inclination_scatter, azimuth_angle+3.1415926);
-
-        //update to loop
-	    energy_I1=energy_F1;
-	    momentum_I1=momentum_F1;
-        num_interactions--;
-    }
-}*/
-
-/*
-void simple_particle_remove(list<particle_T> &current_particles, list<particle_T> &removal_particles, double energy_threshold)
-{
-    double gamma_sq_threshold=(energy_threshold+1)*(energy_threshold+1); //comparing gamma squared is faster
-    for(auto iter=current_particles.begin(); iter!=current_particles.end(); ++iter)
-    {
-        double gamma_sq=iter->momentum.sum_of_squares()+1;
-        if(gamma_sq<gamma_sq_threshold)
-        {
-            auto loc=iter--;
-            removal_particles.splice(removal_particles.end(), current_particles, loc);
-        }
-    }
-}
-
-template< typename...arg_Ts>
-void particle_apply( void(*FUNC)(particle_T&, arg_Ts...),  list<particle_T> &particles, arg_Ts... arguments)
-//use this to apply a function that works on one particle to a list of particles
-{
-    for(particle_T &part :  particles)
-    {
-        FUNC(part, arguments...);
-    }
-}
-
-template< typename...arg_Ts>
-void particle_apply( list<particle_T> &particles, void(particle_T::*FUNC)( arg_Ts...), arg_Ts... arguments)
-//use this to apply a method to a list of particles
-{
-    for(particle_T &part :  particles)
-    {
-        (part.*FUNC)(arguments...);
-    }
-}*/
-
 int main()
 {
-	int number_itterations=100000;
-    double particle_removal_energy=1.0/energy_units_kev; //remove particles that have energy less than this
+	int number_itterations=1000000;
+    double particle_removal_energy=10.0/energy_units_kev; //remove particles that have energy less than this
 
-    double max_timestep=0.001; //this needs to be taken from diffusion tables
-
-    double pos_tol=0.00001;
-    double mom_tol=0.00001;
+    double pos_tol=0.0001;
+    double mom_tol=0.0001;
 
 	//initialize electric field
 	uniform_field E_field;
 	E_field.set_minimum(-Kilo/distance_units, -Kilo/distance_units, -Kilo/distance_units);
-	E_field.set_maximum(Kilo/distance_units, Kilo/distance_units, 300/distance_units);
-	E_field.set_value(0, 0, -500e3/E_field_units); //400
+	E_field.set_maximum(Kilo/distance_units, Kilo/distance_units, 400/distance_units);
+	E_field.set_value(0, 0, -600e3/E_field_units); //400
 	//E_field.set_value(0, 0, 0/E_field_units);
 
 	//magnetic field is zero
@@ -643,122 +421,170 @@ int main()
 	////  initialize physics engines ////
 	rand_gen rand;
 
-	//force
-	apply_charged_force force_engine(particle_removal_energy, E_field.pntr(), B_field.pntr() );
-    force_engine.set_max_timestep(max_timestep);
-    force_engine.set_errorTol(pos_tol, mom_tol);
-
     //moller scattering
-    print("making moller tables");
-    moller_table moller_engine(particle_removal_energy, 100000/energy_units_kev, 200);
+    moller_table moller_engine(particle_removal_energy, 200000/energy_units_kev, 400, true);
 
     //shielded coulomb diffusion
     diffusion_table coulomb_scattering_engine;
-    print("finished moller tables");
+
+    //interaction chooser
+    interaction_chooser_linear<1> interaction_engine(moller_engine); //only one interaction at the moment
+
+	//force
+	apply_charged_force force_engine(particle_removal_energy, E_field.pntr(), B_field.pntr() );
+    force_engine.set_max_timestep( coulomb_scattering_engine.max_timestep() );
+    force_engine.set_errorTol(pos_tol, mom_tol);
 
 
 	////output file////
     particle_history_out save_data;
 
 	////initial particle////
-	list<particle_T*> electrons;
-	electrons.emplace_back( new particle_T);
-	electrons.back()->set_position(0,0,0);
-	electrons.back()->set_momentum(0,0, KE_to_mom( 7500.0/energy_units_kev ) );
-	electrons.back()->update_energy();
-    save_data.new_particle(electrons.back());
+	time_tree<particle_T> electrons;
+	particle_T* new_electron;
 
-	electrons.emplace_back( new particle_T);
-	electrons.back()->set_position(0,0,0);
-	electrons.back()->set_momentum(0,0, KE_to_mom( 7500.0/energy_units_kev) );
-	electrons.back()->update_energy();
-    save_data.new_particle(electrons.back());
-	//output file
+	//list<particle_T*> electrons;
+    new_electron= electrons.emplace(0);
+	//electrons.emplace_back( new particle_T);
+	new_electron->set_position(0,0,0);
+	new_electron->set_momentum(0,0, KE_to_mom( 5000.0/energy_units_kev ) );
+	new_electron->update_energy();
+    save_data.new_particle(new_electron);
+
+    new_electron= electrons.emplace(0);
+	//electrons.emplace_back( new particle_T);
+	new_electron->set_position(0,0,0);
+	new_electron->set_momentum(0,0, KE_to_mom( 5000.0/energy_units_kev ) );
+	new_electron->update_energy();
+    save_data.new_particle(new_electron);
+
+    new_electron= electrons.emplace(0);
+	//electrons.emplace_back( new particle_T);
+	new_electron->set_position(0,0,0);
+	new_electron->set_momentum(0,0, KE_to_mom( 5000.0/energy_units_kev ) );
+	new_electron->update_energy();
+    save_data.new_particle(new_electron);
+
+    new_electron= electrons.emplace(0);
+	//electrons.emplace_back( new particle_T);
+	new_electron->set_position(0,0,0);
+	new_electron->set_momentum(0,0, KE_to_mom( 5000.0/energy_units_kev ) );
+	new_electron->update_energy();
+    save_data.new_particle(new_electron);
 
 	//simulate!
-	for(int i=1; i<=number_itterations; i++)
+    int timestep_trims=0;
+    int timestep_redone=0;
+    int i=0;
+	for(; i<=number_itterations; i++)
 	{
-        if(electrons.size()==0)
+
+        auto current_electron=electrons.pop_first();
+        if(not current_electron) {break; } //if current_electron is null, then tree is empty
+
+/////solve equations of motion////
+
+        double old_energy=current_electron->energy;
+        auto old_position=current_electron->position;
+        auto old_momentum=current_electron->momentum;
+        force_engine.charged_particle_RungeKuttaCK(current_electron);
+        current_electron->update_energy();
+
+        //remove particle if necisary
+        if(current_electron->energy < particle_removal_energy)
         {
-            break;
+            save_data.remove_particle(current_electron);
+            delete current_electron;
+            continue;
         }
 
-        list<particle_T*> next_iteration_electrons;
-        list<particle_T*> new_electrons;
+        //for linear interpolation of position and momentum
+        auto position_rate_of_change=current_electron->position-old_position;
+        auto momentum_rate_of_change=current_electron->momentum-old_momentum;
+        position_rate_of_change/=current_electron->timestep;
+        momentum_rate_of_change/=current_electron->timestep;
 
-        for(particle_T* electron : electrons)
+        double energy_before_scattering=current_electron->energy;
+
+//// scattering (moller only presently) ////
+
+        int interaction=-1;
+        double time_to_scatter=interaction_engine.sample(old_energy, current_electron->energy, current_electron->timestep, interaction);
+
+        //check error code
+        auto error_code=interaction_engine.get_error_flag();
+        if(error_code==1) //need to reduce the timestep size
         {
-            //solve equations of motion
-            double old_energy=electron->energy;
-            force_engine.charged_particle_RungeKuttaCK(electron);
-            electron->update_energy();
+            //print("trim timestep");
+            timestep_trims+=1;
+            current_electron->next_timestep*=0.5;
+        }
+        else if(error_code==2) //this timestep was too large
+        {
+            //print("timestep too large!");
+            timestep_redone+=1;
+            i-=1; //this itteration doesn't count
+            //reset electron
+            current_electron->current_time-=current_electron->timestep;
+            current_electron->next_timestep=current_electron->timestep *=0.5;
+            current_electron->position=old_position;
+            current_electron->momentum=old_momentum;
+            current_electron->energy=old_energy;
 
-            //remove particle if necisary
-            if(electron->energy < particle_removal_energy)
+            //place back in pool
+            electrons.insert(current_electron->current_time, current_electron);
+
+            //carry on as if nothing ever happend
+            continue; //probably wind up with same electron again
+        }
+
+        //do the scattering
+        if(time_to_scatter <= current_electron->timestep and interaction != -1)
+        {
+
+
+            if(interaction==0) //moller scattering
             {
-                save_data.remove_particle(electron);
-                delete electron;
-                continue;
-            }
+                //set electron values to time of interaction
+                current_electron->current_time += time_to_scatter - current_electron->timestep;
+                current_electron->timestep=time_to_scatter;
+                current_electron->position = old_position + position_rate_of_change*time_to_scatter;
+                current_electron->momentum = old_momentum + momentum_rate_of_change*time_to_scatter;
+                current_electron->update_energy();
+                energy_before_scattering=current_electron->energy;
 
-            //// shielded coulomb scattering ////
-            //shielded_coulomb_scattering(electron);
-            double energy=mom_to_KE(part.momentum);
-            coulomb_scattering_engine.scatter(energy, &part);
+                new_electron=moller_engine.single_interaction(energy_before_scattering, current_electron);
 
-            //// moller scattering ////
-
-            double time_left=electron->timestep;
-            double current_energy=(old_energy+electron->energy)/2.0; //assume energy doesn't change too much
-            //get time untill next interaction
-            double T=0;
-            bool enough_energy=current_energy> moller_engine.lowest_scatterer_energy();
-            if(enough_energy)
-            {
-                T=rand.exponential(1.0/moller_engine.rate(current_energy));
-            }
-
-            time_left-=T;
-            while(time_left>0 and enough_energy)
-            {
-                auto new_electron=moller_engine.single_interaction(current_energy, electron);
-                save_data.new_particle(new_electron);
-                if(new_electron==NULL) break;
-
-                new_electrons.emplace_back(new_electron);
-
-                current_energy=electron->energy;
-                enough_energy=(current_energy > moller_engine.lowest_scatterer_energy());
-
-                //get time untill next interaction
-                if(enough_energy)
+                if(new_electron)
                 {
-                    T=rand.exponential(1.0/moller_engine.rate(current_energy));
+                    save_data.new_particle(new_electron);
+                    electrons.insert(new_electron->current_time, new_electron);
                 }
-                time_left-=T;
             }
 
-            //remove particle if necisary
-            if(electron->energy < particle_removal_energy)
-            {
-                save_data.remove_particle(electron);
-                delete electron;
-                continue;
-            }
 
-            save_data.update_particle(electron);
-            next_iteration_electrons.emplace_back(electron);
         }
-        electrons.clear();
-		electrons.splice(electrons.end(),  next_iteration_electrons );
-		electrons.splice(electrons.end(),  new_electrons );
+
+        //remove particle if necisary
+        if(current_electron->energy < particle_removal_energy)
+        {
+            save_data.remove_particle(current_electron);
+            delete current_electron;
+            continue;
+        }
+
+//// shielded coulomb scattering ////
+        coulomb_scattering_engine.scatter(energy_before_scattering, current_electron);
+
+//// update electron ////
+        save_data.update_particle(current_electron);
+        electrons.insert(current_electron->current_time, current_electron);
+
 	}
 
-	//cleanup
-    for(particle_T* electron : electrons)
-    {
-        delete electron;
-    }
+	print(i, "iterations of:", number_itterations);
+	print(timestep_trims, "trims");
+	print(timestep_redone, "re-does");
 }
 
 

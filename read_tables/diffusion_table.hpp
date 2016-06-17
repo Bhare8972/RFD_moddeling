@@ -15,7 +15,9 @@
 #include "integrate.hpp"
 #include "spline.hpp"
 #include "rand.hpp"
+
 #include "../physics/shielded_coulomb_diffusion.hpp"
+#include "../physics/particles.hpp"
 
 class diffusion_table
 {
@@ -118,8 +120,7 @@ class diffusion_table
         return rand.uniform()*2*PI;
     }
 
-    template< typename PARTICLE_T>
-    inline void scatter(double energy, PARTICLE_T *particle)
+    inline void scatter(double energy, electron_T *particle)
     {
         double inclination=sample(energy, particle->timestep);
         particle->scatter_angle(inclination, sample_azimuth() );

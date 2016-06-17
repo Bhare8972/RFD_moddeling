@@ -432,6 +432,18 @@ namespace gsl {
 		return out;
 	}
 
+    vector clone(size_t offset, size_t N) const
+    {
+        if(offset+N>size()) throw vector_exception();
+
+        vector out( N );
+        for(int i=0; i<N; i++)
+        {
+            out[i]=(*this)[i+offset];
+        }
+        return out;
+    }
+
 
     /**
      * The default constructor is only really useful for assigning to.
