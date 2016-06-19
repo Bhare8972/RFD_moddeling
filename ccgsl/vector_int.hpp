@@ -5,12 +5,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or (at
  * your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
@@ -228,7 +228,7 @@ namespace gsl {
       if( ccgsl_pointer->size != v.ccgsl_pointer->size ) return false;
       // check elementwise for equality
       for( size_t i = 0; i < ccgsl_pointer->size; ++i )
-  	if( gsl_vector_int_get( ccgsl_pointer, i ) != gsl_vector_int_get( v.ccgsl_pointer, i ) ) return false; 
+  	{  if( gsl_vector_int_get( ccgsl_pointer, i ) != gsl_vector_int_get( v.ccgsl_pointer, i ) ) return false; }
       return true;
     }
     /**
@@ -336,9 +336,9 @@ namespace gsl {
      * standard lexicographical ordering and so is not useful,
      * for example, for checking, that a vector_int is nonnegative.
      * @param v The vector_int to be compared with @c this
-     * @return @c false or @c true according as @c this is no 
+     * @return @c false or @c true according as @c this is no
      * less than @c v lexicographically
-     */ 
+     */
     bool operator>=( vector_int const& v ) const {
       return operator>( v ) or operator==( v );
     }
@@ -1103,7 +1103,7 @@ namespace gsl {
      * to have a stride of 1.
      * @return The data block_int.
      */
-    int* data() { 
+    int* data() {
       if( ccgsl_pointer == 0 ) gsl_error( "null vector_int", __FILE__, __LINE__, GSL_EFAULT );
 #ifndef GSL_RANGE_CHECK_OFF
       if( ccgsl_pointer->stride != 1 )
@@ -1250,7 +1250,7 @@ namespace gsl {
     gsl_vector_int const* get() const { return ccgsl_pointer; }
     /**
      * Find if @c this is the only object sharing the gsl_vector_int.
-     * @return @c true or @c falses according as 
+     * @return @c true or @c falses according as
      * this is the only vector_int object sharing the gsl_vector_int
      */
     bool unique() const { return count != 0 and *count == 1; }
@@ -1648,7 +1648,7 @@ namespace gsl {
    */
   inline vector_int::iterator operator+
   ( vector_int::iterator::difference_type const n, vector_int::iterator const& i ){ return i + n; }
-  
+
   /**
    * Allows constant to be added to iterator.
    * @param n The constant
@@ -1657,7 +1657,7 @@ namespace gsl {
    */
   inline vector_int::const_iterator operator+
   ( vector_int::const_iterator::difference_type const n, vector_int::const_iterator const& i ){ return i + n; }
-  
+
   /**
    * Allows constant to be added to iterator.
    * @param n The constant
@@ -1667,7 +1667,7 @@ namespace gsl {
   inline vector_int::reverse_iterator operator+
   ( vector_int::reverse_iterator::difference_type const n, vector_int::reverse_iterator const& i ){
     return i + n; }
-  
+
   /**
    * Allows constant to be added to iterator.
    * @param n The constant
@@ -1677,6 +1677,6 @@ namespace gsl {
   inline vector_int::const_reverse_iterator operator+
   ( vector_int::const_reverse_iterator::difference_type const n, vector_int::const_reverse_iterator const& i ){
     return i + n; }
-  
+
 }
 #endif
