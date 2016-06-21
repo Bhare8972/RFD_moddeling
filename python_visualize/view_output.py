@@ -5,26 +5,54 @@ from mpl_toolkits.mplot3d import Axes3D
 from constants import *
 from read_binary import binary_input
 
-class particle_history(object):
-    def __init__(self, id, charge, creation_time, init_pos, init_mom):
+class electron_history(object):
+    def __init__(self, id, file_in):
+        
+        charge=file_in.in_short()
+        creation_time=file_in.in_double()
+        pos_1=file_in.in_double()
+        pos_2=file_in.in_double()
+        pos_3=file_in.in_double()
+        mom_1=file_in.in_double()
+        mom_2=file_in.in_double()
+        mom_3=file_in.in_double()
+        
         self.id=id
         self.charge=charge
         self.creation_time=creation_time
-        self.pos_history=[init_pos]
-        self.mom_history=[init_mom]
+        self.pos_history=[ np.array([pos_1, pos_2, pos_3]) ]
+        self.mom_history=[ np.array([mom_1, mom_2, mom_3]) ]
         self.timestep_history=[0]
-        self.was_removed=False
-
-    def update(self, timestep, position, momentum):
+        self.removal_reason=None
+        
+    def update(self, file_in):
+        timestep=file_in.in_double()
+        pos_1=file_in.in_double()
+        pos_2=file_in.in_double()
+        pos_3=file_in.in_double()
+        mom_1=file_in.in_double()
+        mom_2=file_in.in_double()
+        mom_3=file_in.in_double()
+        
         self.timestep_history.append(timestep)
-        self.pos_history.append(position)
-        self.mom_history.append(momentum)
-
-    #~def add_position(self, new_pos):
-        #~self.pos_history.append(new_pos)
-        #~
-    #~def add_momentum(self, new_mom):
-        #~self.mom_history.append(new_mom)
+        self.pos_history.append(  np.array([pos_1, pos_2, pos_3])  )
+        self.mom_history.append(  np.array([mom_1, mom_2, mom_3]) )
+        
+    def remove(self, file_in):
+        reason_removed=file_in.in_short()
+        timestep=file_in.in_double()
+        pos_1=file_in.in_double()
+        pos_2=file_in.in_double()
+        pos_3=file_in.in_double()
+        mom_1=file_in.in_double()
+        mom_2=file_in.in_double()
+        mom_3=file_in.in_double()
+        
+        self.timestep_history.append(timestep)
+        self.pos_history.append(  np.array([pos_1, pos_2, pos_3])  )
+        self.mom_history.append(  np.array([mom_1, mom_2, mom_3]) )
+        self.removal_reason=reason_removed
+        
 
     def get_X(self):
         return np.array([p[0] for p in self.pos_history])
@@ -47,82 +75,23 @@ class particle_history(object):
     def get_T(self):
         return self.creation_time+np.cumsum(self.timestep_history)
 
-#~def read_text_A(fname):
-    #~with open(fname, 'rt') as fin:
-        #~data=fin.read().split()
-        #~
-    #~data_i=0
-    #~particles={}
-    #~while data_i<len(data):
-        #~itter_n=int(data[data_i])
-        #~num_particles=int(data[data_i+1])
-        #~data_i+=2
-        #~for particle_index in xrange(num_particles):
-            #~particle_ID=int(data[data_i])
-            #~particle_pos=np.zeros(3)
-            #~particle_pos[0]=float(data[data_i+1])
-            #~particle_pos[1]=float(data[data_i+2])
-            #~particle_pos[2]=float(data[data_i+3])
-            #~particle_mom=np.zeros(3)
-            #~particle_mom[0]=float(data[data_i+4])
-            #~particle_mom[1]=float(data[data_i+5])
-            #~particle_mom[2]=float(data[data_i+6])
-            #~data_i+=7
-            #~
-            #~if not particle_ID in particles:
-                #~particles[particle_ID]=particle_history(particle_ID)
-                #~
-            #~particles[particle_ID].add_position(particle_pos)
-            #~particles[particle_ID].add_momentum(particle_mom)
-            #~
-    #~return particles
-
 def read_particles(fname):
     fin=binary_input(fname)
     particles={}
     while not fin.at_end():
         command=fin.in_short()
-        if command==1: ## a number of new particles
-            num_particles=fin.in_int()
-            for x in xrange(num_particles):
-                ID=fin.in_int()
-                charge=fin.in_short()
-                creation_time=fin.in_double()
-                pos_1=fin.in_double()
-                pos_2=fin.in_double()
-                pos_3=fin.in_double()
-                mom_1=fin.in_double()
-                mom_2=fin.in_double()
-                mom_3=fin.in_double()
-                new_particle=particle_history(ID, charge, creation_time, np.array([pos_1, pos_2, pos_3]), np.array([mom_1, mom_2, mom_3]))
-                particles[ID]=new_particle
+        if command==1: ## a  new particle
+            ID=fin.in_int()
+            particles[ID]=electron_history(ID, fin)
 
-        elif command==2: ##update existing particles
-            num_particles=fin.in_int()
-            for x in xrange(num_particles):
-                ID=fin.in_int()
-                timestep=fin.in_double()
-                pos_1=fin.in_double()
-                pos_2=fin.in_double()
-                pos_3=fin.in_double()
-                mom_1=fin.in_double()
-                mom_2=fin.in_double()
-                mom_3=fin.in_double()
-                particles[ID].update(timestep, np.array([pos_1, pos_2, pos_3]), np.array([mom_1, mom_2, mom_3]))
+        elif command==2: ##update existing particle
+            ID=fin.in_int()
+            particles[ID].update(fin)
 
-        elif command==3: ##remove existing particles
-            num_particles=fin.in_int()
-            for x in xrange(num_particles):
-                ID=fin.in_int()
-                timestep=fin.in_double()
-                pos_1=fin.in_double()
-                pos_2=fin.in_double()
-                pos_3=fin.in_double()
-                mom_1=fin.in_double()
-                mom_2=fin.in_double()
-                mom_3=fin.in_double()
-                particles[ID].update(timestep, np.array([pos_1, pos_2, pos_3]), np.array([mom_1, mom_2, mom_3]))
-                particles[ID].was_removed=True
+        elif command==3: ##remove existing particle
+            ID=fin.in_int()
+            particles[ID].remove(fin)
+            
     return particles
 
 

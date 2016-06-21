@@ -1,10 +1,22 @@
 TODO:
 
-move much of the code in "simulation.cpp" into thier own files in physics. make data saving as part of particle type
+turn main loop into a class
+
+Test diffusion scattering against lehtinen method and molier scattering
+
+test results of simulation against lehtenin.
+
+
+improve moller scattering to use cumulative integral equation
+create a special utility that works for inserting and retrieving data related to doubles. (span_tree) probably implented as variant of AVL tree 
+		(better for lookups than inserts)
 
 BREMSTRALHUNG!!!!!
 
-Then test simulation against Dwyer and find slowdowns. 
+Then test simulation against Dwyer and find slowdowns.
+
+
+
 
 
 Fix production of the diffusion table, so that the convergence condition has a better statisitcal basis. (Maybe use pearson chi-square test)

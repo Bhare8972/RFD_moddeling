@@ -5,6 +5,7 @@
 
 #include<string>
 #include<list>
+#include <cmath>
 
 #include "binary_IO.hpp"
 
@@ -12,9 +13,8 @@
 
 class particle_ID_T
 {
-private:
-    static size_t next_ID;
 public:
+    static size_t next_ID;
     size_t ID;
 };
 size_t particle_ID_T::next_ID=0;
@@ -70,9 +70,9 @@ public:
 		double momentum_squared=momentum.sum_of_squares();
 
 		//calculate the three vector magnitudes
-		double A=cos(inclination); //basis vector is original momentum
-		double B=sin(inclination)*cos(azimuth); //basis vector will be vector Bv below
-		double C=sin(inclination)*sin(azimuth); //basis vector will be vector Cv below
+		double A=std::cos(inclination); //basis vector is original momentum
+		double B=std::sin(inclination)*cos(azimuth); //basis vector will be vector Bv below
+		double C=std::sin(inclination)*sin(azimuth); //basis vector will be vector Cv below
 
 		//find vector Bv, perpinduclar to momentum
 		gsl::vector init({1,0,0});
@@ -127,11 +127,16 @@ public:
         3: remove electron
             each electron needs
                 int32 ID
-                int8 reason_removed:  0 is too low energy
+                int8 reason_removed:
                 double timestep
                 3 doubles: position
                 3 doubles: momentum
     */
+
+    //reasons to remove particles
+    static const int TOO_LOW_ENERGY=0;
+    static const int OUT_OF_BOUNDS=1;
+    static const int EVOLVED_INTO_HIGHER_LIFEFORM=2;  //don't use this one
 
     particle_history_out() : out("output")
     {}
@@ -176,9 +181,9 @@ public:
     void remove_electron(int reason, electron_T *particle)
     {
         out.out_short(3); //command, remove_electron
-        out.out_short(reason);
 
         out.out_int(particle->ID);
+        out.out_short(reason);
         out.out_double(particle->timestep);
 
         out.out_double(particle->position[0]);

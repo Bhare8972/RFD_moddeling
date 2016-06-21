@@ -7,12 +7,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or (at
  * your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
@@ -31,6 +31,7 @@
 #endif
 
 #include"exception.hpp"
+#include"format.hpp"
 
 // This file is used as a template
 
@@ -196,7 +197,7 @@ namespace gsl {
       if( ccgsl_pointer->size != v.ccgsl_pointer->size ) return false;
       // check elementwise for equality
       for( size_t i = 0; i < ccgsl_pointer->size; ++i )
-  	if( ccgsl_pointer->data[i] != v.ccgsl_pointer->data[i] ) return false; 
+        { if( ccgsl_pointer->data[i] != v.ccgsl_pointer->data[i] ) return false;  }
       return true;
     }
     // != operator
@@ -281,9 +282,9 @@ namespace gsl {
      * standard lexicographical ordering and so is not useful,
      * for example, for checking, that a block is nonnegative.
      * @param v The block to be compared with @c this
-     * @return @c false or @c true according as @c this is no 
+     * @return @c false or @c true according as @c this is no
      * less than @c v lexicographically
-     */ 
+     */
     bool operator>=( block const& v ) const {
       return operator>( v ) or operator==( v );
     }
@@ -1178,7 +1179,7 @@ namespace gsl {
     gsl_block* get() const { return ccgsl_pointer; }
     /**
      * Find if this is the only object sharing the gsl_block.
-     * @return @c true or @c falses according as 
+     * @return @c true or @c falses according as
      * this is the only block object sharing the gsl_block
      */
     bool unique() const { return count != 0 and *count == 1; }
@@ -1197,9 +1198,9 @@ namespace gsl {
 #endif
     operator bool() const { return ccgsl_pointer != 0; }
   };
-  
+
   // gsl functions
-  
+
   /**
    * Allows constant to be added to iterator.
    * @param n The constant
@@ -1211,7 +1212,7 @@ namespace gsl {
   			      block::iterator const& i ){
     return i + n;
   }
-  
+
   /**
    * Allows constant to be added to iterator.
    * @param n The constant
@@ -1223,7 +1224,7 @@ namespace gsl {
   				    block::const_iterator const& i ){
     return i + n;
   }
-  
+
   /**
    * Allows constant to be added to iterator.
    * @param n The constant
@@ -1235,7 +1236,7 @@ namespace gsl {
   			      block::reverse_iterator const& i ){
     return i + n;
   }
-  
+
   /**
    * Allows constant to be added to iterator.
    * @param n The constant
@@ -1247,7 +1248,7 @@ namespace gsl {
   			      block::const_reverse_iterator const& i ){
     return i + n;
   }
-  
+
 }
 
 #endif

@@ -5,12 +5,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or (at
  * your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
@@ -45,14 +45,14 @@ namespace gsl {
    */
   class vector_float {
   public:
-  
+
     //my personal additions
 
 	double sum() const
     {
 		//kahan summation algorithm. Pray that it isn't optimized away
 		double sum = 0.0;
-		double y,t;   
+		double y,t;
 		double c = 0.0;
 		for( size_t i = 0; i<ccgsl_pointer->size; ++i )
 		{
@@ -63,12 +63,12 @@ namespace gsl {
 		}
 		return sum;
 	}
-	
+
 	double sum_of_squares() const
     {
 		//kahan summation algorithm over the squares of components. Pray that it isn't optimized away
 		double sum = 0.0;
-		double y,t;   
+		double y,t;
 		double c = 0.0;
 		for( size_t i = 0; i<ccgsl_pointer->size; ++i )
 		{
@@ -110,7 +110,7 @@ namespace gsl {
 			(*this)[i]+=v[i];
 		}
 	}
-	
+
 	void operator+=(double const& v)
     {
 		// check if vectors are null
@@ -121,7 +121,7 @@ namespace gsl {
 			(*this)[i]+=v;
 		}
 	}
-	
+
     vector_float operator-(vector_float const& v) const
     {
 		// check if vectors are null
@@ -180,7 +180,7 @@ namespace gsl {
 		}
 		return new_vector;
 	}
-	
+
     vector_float operator*(double const& v) const
     {
 		// check if vectors are null
@@ -467,7 +467,7 @@ namespace gsl {
       if( ccgsl_pointer->size != v.ccgsl_pointer->size ) return false;
       // check elementwise for equality
       for( size_t i = 0; i < ccgsl_pointer->size; ++i )
-  	if( gsl_vector_float_get( ccgsl_pointer, i ) != gsl_vector_float_get( v.ccgsl_pointer, i ) ) return false; 
+      { if( gsl_vector_float_get( ccgsl_pointer, i ) != gsl_vector_float_get( v.ccgsl_pointer, i ) ) return false;  }
       return true;
     }
     /**
@@ -575,9 +575,9 @@ namespace gsl {
      * standard lexicographical ordering and so is not useful,
      * for example, for checking, that a vector_float is nonnegative.
      * @param v The vector_float to be compared with @c this
-     * @return @c false or @c true according as @c this is no 
+     * @return @c false or @c true according as @c this is no
      * less than @c v lexicographically
-     */ 
+     */
     bool operator>=( vector_float const& v ) const {
       return operator>( v ) or operator==( v );
     }
@@ -1342,7 +1342,7 @@ namespace gsl {
      * to have a stride of 1.
      * @return The data block_float.
      */
-    float* data() { 
+    float* data() {
       if( ccgsl_pointer == 0 ) gsl_error( "null vector_float", __FILE__, __LINE__, GSL_EFAULT );
 #ifndef GSL_RANGE_CHECK_OFF
       if( ccgsl_pointer->stride != 1 )
@@ -1489,7 +1489,7 @@ namespace gsl {
     gsl_vector_float const* get() const { return ccgsl_pointer; }
     /**
      * Find if @c this is the only object sharing the gsl_vector_float.
-     * @return @c true or @c falses according as 
+     * @return @c true or @c falses according as
      * this is the only vector_float object sharing the gsl_vector_float
      */
     bool unique() const { return count != 0 and *count == 1; }
@@ -1887,7 +1887,7 @@ namespace gsl {
    */
   inline vector_float::iterator operator+
   ( vector_float::iterator::difference_type const n, vector_float::iterator const& i ){ return i + n; }
-  
+
   /**
    * Allows constant to be added to iterator.
    * @param n The constant
@@ -1896,7 +1896,7 @@ namespace gsl {
    */
   inline vector_float::const_iterator operator+
   ( vector_float::const_iterator::difference_type const n, vector_float::const_iterator const& i ){ return i + n; }
-  
+
   /**
    * Allows constant to be added to iterator.
    * @param n The constant
@@ -1906,7 +1906,7 @@ namespace gsl {
   inline vector_float::reverse_iterator operator+
   ( vector_float::reverse_iterator::difference_type const n, vector_float::reverse_iterator const& i ){
     return i + n; }
-  
+
   /**
    * Allows constant to be added to iterator.
    * @param n The constant
@@ -1916,6 +1916,6 @@ namespace gsl {
   inline vector_float::const_reverse_iterator operator+
   ( vector_float::const_reverse_iterator::difference_type const n, vector_float::const_reverse_iterator const& i ){
     return i + n; }
-  
+
 }
 #endif

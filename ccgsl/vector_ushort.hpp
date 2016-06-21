@@ -287,7 +287,7 @@ namespace gsl {
       if( ccgsl_pointer->size != v.ccgsl_pointer->size ) return false;
       // check elementwise for equality
       for( size_t i = 0; i < ccgsl_pointer->size; ++i )
-  	if( gsl_vector_ushort_get( ccgsl_pointer, i ) != gsl_vector_ushort_get( v.ccgsl_pointer, i ) ) return false;
+        { if( gsl_vector_ushort_get( ccgsl_pointer, i ) != gsl_vector_ushort_get( v.ccgsl_pointer, i ) ) return false; }
       return true;
     }
     /**
