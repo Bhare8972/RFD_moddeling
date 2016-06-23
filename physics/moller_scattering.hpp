@@ -13,6 +13,8 @@
 #include "spline.hpp"
 #include "gen_ex.hpp"
 #include "rand.hpp"
+#include "root_finding.hpp"
+
 #include "interaction_chooser.hpp"
 
 #include "particles.hpp"
@@ -59,26 +61,47 @@ public:
 
     }
 
-/*
     double integral(double production_energy)
     {
         double term_2_F1=(2*gamma-1)/(energy*gamma*gamma);
         double term_2_F2=std::log(production_energy/(energy-production_energy));
-        double term_3=energy/(production_energy*(energy-production_energy));
+        double term_3=(2.0*production_energy-energy)/(production_energy*(energy-production_energy));
 
-        return (1.0/gamma-term_2_F1*term_2_F2-term_3 )/beta;
+        return (production_energy/gamma-term_2_F1*term_2_F2+term_3 )/beta;
+    }
+};
+
+class moller_sampler : public functor_1D
+{
+    public:
+
+    moller_cross_section *cross_section;
+    double current_rand;
+
+    moller_sampler(){}
+
+    moller_sampler(moller_cross_section *cross_section_)
+    {
+        cross_section=cross_section_;
     }
 
-    double rate(double lower_production_energy)
-    //equivalent to integral(energy/2.0)- integral(lower_production_energy)
+    void set_cross_section(moller_cross_section *cross_section_)
     {
-        double term_1_F1=(2*gamma-1)/(energy*gamma*gamma);
-        double term_1_F2=std::log(lower_production_energy/(energy-lower_production_energy));
-        double term_2=energy/(lower_production_energy*(energy-lower_production_energy));
-        double term_3=4.0/energy;
+        cross_section=cross_section_;
+    }
 
-        return (term_1_F1*term_1_F2+term_2-term_3 )/beta;
-    }*/
+    double call(double Ep)
+    {
+        return cross_section->integral(Ep)-current_rand;
+    }
+
+    inline double sample(double rand)
+    //rand needs to be a uniformaly distributed random number between 0 to maximum rate of moller stcattering
+    {
+        current_rand=rand;
+        return root_finder_brent(this, 0, cross_section->energy/2.0, 0.001, 0.001, 10000);
+    }
+
 };
 
 class moller_table : public physical_interaction
@@ -95,9 +118,14 @@ class moller_table : public physical_interaction
     bool lowest_energy_constant;
 
     moller_cross_section cross_section;
+    method_functor_1D<moller_cross_section> cross_section_integral;
+    moller_sampler zero_finding_sampler;
 
     moller_table(double lowest_sim_energy_, double upper_energy, size_t num_energies,bool save_tables=false)
     {
+        cross_section_integral.reset(&cross_section, &moller_cross_section::integral);
+        zero_finding_sampler.set_cross_section(&cross_section);
+
         lowest_sim_energy=lowest_sim_energy_;
         lowest_energy_constant=true;
 
@@ -124,6 +152,16 @@ class moller_table : public physical_interaction
             cross_section.set_energy(energy);
 
             //sample
+            gsl::vector points;
+            gsl::vector values=adaptive_sample(&cross_section_integral, 0.001, lowest_sim_energy, energy/2.0, points);
+            values-=cross_section_integral.call(lowest_sim_energy);
+
+            //normalize
+            num_interactions_per_tau[energy_i]=values[values.size()-1];
+            values/=values[values.size()-1];
+
+/*
+            //sample
             cum_adap_simps integrator(&cross_section, lowest_sim_energy, energy/2.0, 1E4);
             gsl::vector points=integrator.points();
             gsl::vector cum_quads=integrator.cum_quads();
@@ -132,11 +170,12 @@ class moller_table : public physical_interaction
 
             //normalize
             cum_quads/=cum_quads[cum_quads.size()-1]; //normalize to values from 0 to 1
+*/
 
             //invert
             gsl::vector sampler_X;
             gsl::vector sampler_Y;
-            make_fix_spline(cum_quads, points, sampler_X, sampler_Y);
+            make_fix_spline(values, points, sampler_X, sampler_Y);
 
             //save to external table
             std::shared_ptr<doubles_output> distribution_points_table=std::make_shared<doubles_output>(sampler_Y);
@@ -178,10 +217,13 @@ class moller_table : public physical_interaction
         {
             cross_section.set_energy(energy);
 
+            return cross_section.integral(energy/2.0) - cross_section.integral(lowest_sim_energy);
+/*
             cum_adap_simps integrator(&cross_section, lowest_sim_energy, energy/2.0, 1E4);
             gsl::vector cum_quads=integrator.cum_quads();
 
             return cum_quads[cum_quads.size()-1];
+*/
         }
         else
         {
@@ -200,6 +242,10 @@ class moller_table : public physical_interaction
         {
             cross_section.set_energy(energy);
 
+            double rate=cross_section.integral(energy/2.0) - cross_section.integral(lowest_sim_energy);
+            return zero_finding_sampler.sample(U*rate);
+
+/*
             //sample
             cum_adap_simps integrator(&cross_section, lowest_sim_energy, energy/2.0, 1E4);
             gsl::vector points=integrator.points();
@@ -209,6 +255,7 @@ class moller_table : public physical_interaction
             cum_quads/=cum_quads[cum_quads.size()-1]; //normalize to values from 0 to 1
 
             return linear_interpolate(cum_quads, points, U);
+*/
 
         }
         else

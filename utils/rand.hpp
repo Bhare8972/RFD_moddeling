@@ -8,7 +8,7 @@
 #include <mutex>
 
 
-//two usefull classes for random numbers
+//two useful classes for random numbers
 
 class rand_gen
 //general random number generator

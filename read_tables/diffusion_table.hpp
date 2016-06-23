@@ -48,12 +48,18 @@ class diffusion_table
 
         double sample(double TS, double uniform_rand)
         {
-            size_t TS_index=search_sorted_exponential(timesteps, TS);
-            //assume TS is below max(timesteps)
-            double lower_linear_factor=(timesteps[TS_index]-TS)/(timesteps[TS_index]-timesteps[TS_index+1]);//factor for linear interpolation
-            double lower_guess=samplers[TS_index].call(uniform_rand);
-            double upper_guess=samplers[TS_index+1].call(uniform_rand);
-            return lower_guess*lower_linear_factor + (1-lower_linear_factor)*upper_guess;
+            if(TS>=timesteps[timesteps.size()-1])
+            {
+                return samplers[timesteps.size()-1].call(uniform_rand);
+            }
+            else
+            {
+                size_t TS_index=search_sorted_exponential(timesteps, TS);
+                double lower_linear_factor=(timesteps[TS_index]-TS)/(timesteps[TS_index]-timesteps[TS_index+1]);//factor for linear interpolation
+                double lower_guess=samplers[TS_index].call(uniform_rand);
+                double upper_guess=samplers[TS_index+1].call(uniform_rand);
+                return lower_guess*lower_linear_factor + (1-lower_linear_factor)*upper_guess;
+            }
         }
     };
 

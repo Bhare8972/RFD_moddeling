@@ -18,6 +18,7 @@
 #include "physics/bethe_eq.hpp"
 #include "physics/apply_force.hpp"
 #include "physics/moller_scattering.hpp"
+#include "physics/bremsstrahlung.hpp"
 #include "physics/interaction_chooser.hpp"
 
 using namespace gsl;
@@ -26,8 +27,14 @@ using namespace std;
 
 int main()
 {
-	int number_itterations=1000000;
-    double particle_removal_energy=10.0/energy_units_kev; //remove particles that have energy less than this
+    double threshold_electric_field=2.84E5/E_field_units;
+    double fraction_field=5;
+    string output_fname="output_R1";
+    size_t nseeds=100;
+
+
+	int number_itterations=40000*nseeds;
+    double particle_removal_energy=2.0/energy_units_kev; //remove particles that have energy less than this
 
     double pos_tol=0.0001;
     double mom_tol=0.0001;
@@ -35,8 +42,8 @@ int main()
 	//initialize electric field
 	uniform_field E_field;
 	E_field.set_minimum(-Kilo/distance_units, -Kilo/distance_units, -Kilo/distance_units);
-	E_field.set_maximum(Kilo/distance_units, Kilo/distance_units, 400/distance_units);
-	E_field.set_value(0, 0, -600e3/E_field_units); //400
+	E_field.set_maximum(Kilo/distance_units, Kilo/distance_units, 1000/distance_units);
+	E_field.set_value(0, 0, -1*fraction_field*threshold_electric_field);
 	//E_field.set_value(0, 0, 0/E_field_units);
 
 	//magnetic field is zero
@@ -56,6 +63,11 @@ int main()
     //shielded coulomb diffusion
     diffusion_table coulomb_scattering_engine;
 
+    //bremsstrahlung
+    print("building brem tables");
+    bremsstrahlung_table brem_engine(particle_removal_energy, 200000/energy_units_kev);
+    print("brem tables built");
+
     //interaction chooser
     interaction_chooser_linear<1> interaction_engine(moller_engine); //only one interaction at the moment
 
@@ -66,40 +78,20 @@ int main()
 
 
 	////output file////
-    particle_history_out save_data;
+    particle_history_out save_data(output_fname);
 
 	////initial particle////
 	time_tree<electron_T> electrons;
 	electron_T* new_electron;
 
-	//list<electron_T*> electrons;
-    new_electron= electrons.emplace(0);
-	//electrons.emplace_back( new electron_T);
-	new_electron->set_position(0,0,0);
-	new_electron->set_momentum(0,0, KE_to_mom( 5000.0/energy_units_kev ) );
-	new_electron->update_energy();
-    save_data.new_electron(new_electron);
-
-    new_electron= electrons.emplace(0);
-	//electrons.emplace_back( new electron_T);
-	new_electron->set_position(0,0,0);
-	new_electron->set_momentum(0,0, KE_to_mom( 5000.0/energy_units_kev ) );
-	new_electron->update_energy();
-    save_data.new_electron(new_electron);
-
-    new_electron= electrons.emplace(0);
-	//electrons.emplace_back( new electron_T);
-	new_electron->set_position(0,0,0);
-	new_electron->set_momentum(0,0, KE_to_mom( 5000.0/energy_units_kev ) );
-	new_electron->update_energy();
-    save_data.new_electron(new_electron);
-
-    new_electron= electrons.emplace(0);
-	//electrons.emplace_back( new electron_T);
-	new_electron->set_position(0,0,0);
-	new_electron->set_momentum(0,0, KE_to_mom( 5000.0/energy_units_kev ) );
-	new_electron->update_energy();
-    save_data.new_electron(new_electron);
+    for(int i=0; i<nseeds; i++)
+    {
+        new_electron= electrons.emplace(0);
+        new_electron->set_position(0,0,0);
+        new_electron->set_momentum(0,0, KE_to_mom( 1000.0/energy_units_kev ) );
+        new_electron->update_energy();
+        save_data.new_electron(new_electron);
+    }
 
 	//simulate!
     int timestep_trims=0;
@@ -112,7 +104,6 @@ int main()
         if(not current_electron) {break; } //if current_electron is null, then tree is empty
 
 /////solve equations of motion////
-
         double old_energy=current_electron->energy;
         auto old_position=current_electron->position;
         auto old_momentum=current_electron->momentum;
@@ -136,7 +127,6 @@ int main()
         double energy_before_scattering=current_electron->energy;
 
 //// scattering (moller only presently) ////
-
         int interaction=-1;
         double time_to_scatter=interaction_engine.sample(old_energy, current_electron->energy, current_electron->timestep, interaction);
 

@@ -69,7 +69,7 @@ int main()
         int first_energy_index=*first_energy_iter;
         if(first_energy_index!=0)
         {
-            file_energies=file_energies.subvector(first_energy_index, file_energies.size()-first_energy_index );
+            file_energies=file_energies.clone(first_energy_index, file_energies.size()-first_energy_index );
         }
 
         array_input timesteps_table=table_in.get_array();

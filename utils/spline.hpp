@@ -89,6 +89,11 @@ public:
 
 	poly_spline(gsl::vector X, gsl::vector Y)
 	{
+		reset(X, Y);
+	}
+
+	void reset(gsl::vector X, gsl::vector Y)
+	{
 		size_t num_points=Y.size();
 		if( num_points != X.size())
 		{
@@ -103,6 +108,7 @@ public:
 		bool do_linear_spline=(num_points-1) % 2;
 
 		x_vals=gsl::vector(num_quad_splines+1+int(do_linear_spline));
+		splines.clear();
 		splines.reserve(num_quad_splines+int(do_linear_spline));
 
 		for(size_t pi=0, si=0; num_points>2 and pi<(num_points-2-int(do_linear_spline)); pi+=2)

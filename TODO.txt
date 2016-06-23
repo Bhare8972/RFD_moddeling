@@ -2,18 +2,20 @@ TODO:
 
 turn main loop into a class
 
-Test diffusion scattering against lehtinen method and molier scattering
+Test diffusion scattering against lehtinen method and mollier scattering ????
 
 test results of simulation against lehtenin.
 
-
-improve moller scattering to use cumulative integral equation
 create a special utility that works for inserting and retrieving data related to doubles. (span_tree) probably implented as variant of AVL tree 
 		(better for lookups than inserts)
+
+add atmosphere density
 
 BREMSTRALHUNG!!!!!
 
 Then test simulation against Dwyer and find slowdowns.
+
+improve spline to use GSl spline functions where applicable
 
 
 

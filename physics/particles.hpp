@@ -97,7 +97,11 @@ public:
 	}
 };
 
-//add photons here
+class photon_T
+{
+    //stuff
+    double energy;
+};
 
 
 class particle_history_out
