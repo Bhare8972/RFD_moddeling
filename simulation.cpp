@@ -67,6 +67,7 @@ int main()
     print("building brem tables");
     bremsstrahlung_table brem_engine(particle_removal_energy, 200000/energy_units_kev);
     print("brem tables built");
+    brem_engine.output_table();
 
     //interaction chooser
     interaction_chooser_linear<1> interaction_engine(moller_engine); //only one interaction at the moment

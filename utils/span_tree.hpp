@@ -74,7 +74,7 @@ private:
                 p->right = rotateright(p->right);
             return rotateleft(p);
         }
-        if( bfactor(p)==-2 )
+        else if( bfactor(p)==-2 )
         {
             if( bfactor(p->left) > 0  )
                 p->left = rotateleft(p->left);
@@ -107,12 +107,14 @@ private:
     }
 
     node* root;
+    size_t size_;
 
 public:
 
     span_tree()
     {
         root=0;
+        size_=0;
     }
 
     ~span_tree()
@@ -124,9 +126,16 @@ public:
         }
     }
 
+    size_t size()
+    {
+        return size_;
+    }
+
     void insert(double key, DATA_T* data)
     // tree will take control of data, and delete it when tree goes out of scope
     {
+        size_++;
+
         node* p=new node;
         p->key=key;
         p->data=data;
@@ -137,7 +146,7 @@ public:
         }
         else
         {
-            insert(root, p);
+            root=insert(root, p);
         }
     }
 
@@ -145,6 +154,8 @@ public:
     DATA_T* emplace(double key, args_t...args)
     // construct the data from arguments
     {
+        size_++;
+
         node* p=new node;
         p->key=key;
         p->data=data(args...);
@@ -156,7 +167,7 @@ public:
         }
         else
         {
-            insert(root, p);
+            root=insert(root, p);
         }
         return ret;
     }
@@ -208,6 +219,123 @@ public:
         ret.left_data=current_left_data;
         ret.right_data=current_right_data;
         return ret;
+    }
+
+    //iteratating
+    class iterator
+    {
+        public:
+        node* root;
+        node* current;
+
+        node* find_min(node* current_)
+        {
+            while(current_->left) current_=current_->left;
+            return current_;
+        }
+
+        //Find current's parent, where parent.left == current.
+        node* findParent()
+        {
+            node* cur = root;
+            node* parent = NULL;
+            double key = current->key;
+
+            while (cur)
+            {
+                if (key < cur->key)
+                {
+                    parent = cur;
+                    cur = cur->left;
+                }
+                else if (key > cur->key)
+                {
+                    cur = cur->right;
+                }
+                else
+                {//node.val == current.val
+                    break;
+                }
+            }
+            return parent;
+
+        }
+
+
+        iterator(){}
+
+        public:
+        iterator(node* root_)
+        {
+            root=root_;
+            if(root) current=find_min(root);
+            else current=NULL;
+        }
+
+        double get_key()
+        {
+            return current->key;
+        }
+
+        DATA_T* get_data()
+        {
+            return current->data;
+        }
+
+        iterator operator++()
+        {
+            iterator out;
+            out.root=root;
+            out.current=current;
+
+            //current node has right child
+            if (current->right )
+            {
+                current = current->right;
+                while (current->left)
+                {
+                    current = current->left;
+                }
+            }
+            else
+            {//Current node does not have right child.
+
+                current = findParent();
+            }
+
+            return out;
+        }
+
+        bool operator!=( const iterator& RHS)
+        {
+            return current != RHS.current;
+        }
+
+        //dereferancing the iteractor
+        class deref
+        {
+            public:
+            double key;
+            DATA_T* data;
+        };
+
+        deref operator*()
+        {
+            deref ret;
+            ret.key=get_key();
+            ret.data=get_data();
+            return ret;
+        }
+    };
+
+    iterator begin()
+    {
+        return iterator(root);
+    }
+
+    iterator end()
+    {
+        return iterator(NULL);
     }
 
 };
