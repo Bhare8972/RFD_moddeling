@@ -3,6 +3,7 @@
 
 
 #include <cmath>
+#include <list>
 
 #include "constants.hpp"
 #include "GSL_utils.hpp"
@@ -10,6 +11,8 @@
 #include "span_tree.hpp"
 #include "rand.hpp"
 #include "gen_ex.hpp"
+#include "binary_IO.hpp"
+#include "arrays_IO.hpp"
 
 #include "relativistic_formulas.hpp"
 #include "interaction_chooser.hpp"
@@ -144,6 +147,11 @@ public:
     inline double sample(rand_gen& rand, double& photon_theta, double& electron_theta, double& delta_phi);
 
     virtual ~photon_energy_sampler(){}
+
+    void output_table(arrays_output& tables_out)
+    {
+
+    }
 };
 
 #include "bremsstrahlung.cpp" //not the NORMAL way to do this. However, every other way is complicated or doesn't work
@@ -165,11 +173,55 @@ public:
     {
         min_energy=min_energy_;
         max_energy=max_energy_;
-        //gsl::vector energy_samples;
-        //gsl::vector interaction_rate=adaptive_sample(this, 0.01, min_energy, max_energy, energy_samples);
-        //interaction_rate*=2*PI; //include bit of integration due to integrating over phi of final electron
-        //interaction_rate_vs_energy=std::make_shared<poly_spline>(energy_samples, interaction_rate);
-        call(max_energy);
+        gsl::vector energy_samples;
+        gsl::vector interaction_rate=adaptive_sample(this, 1.0, min_energy, max_energy, energy_samples);
+        interaction_rate*=2*PI; //include bit of integration due to integrating over phi of final electron
+        interaction_rate_vs_energy=std::make_shared<poly_spline>(energy_samples, interaction_rate);
+    }
+
+    void output_table(std::string fname="./bremsstrahlung_table")
+    {
+
+        print("A");
+        arrays_output tables_out;
+
+        //output interaction rate vs energy
+        gsl::vector interaction_points;
+        gsl::vector interaction_values;
+        test_spline(interaction_rate_vs_energy, 3, interaction_points, interaction_values );
+
+        std::shared_ptr<doubles_output> interaction_energies_table=std::make_shared<doubles_output>( interaction_points );
+        tables_out.add_array(interaction_energies_table);
+        std::shared_ptr<doubles_output> interaction_rates_table=std::make_shared<doubles_output>( interaction_values );
+        tables_out.add_array(interaction_rates_table);
+
+        size_t num_samples=samplers_per_initial_energy.size();
+        print(num_samples);
+
+        gsl::vector energies(num_samples);
+
+        int index=0;
+
+
+        for(auto val : samplers_per_initial_energy)
+        {
+            energies[index]=val.key;
+            index++;
+        }
+
+/*
+        std::shared_ptr<doubles_output> energies_table=std::make_shared<doubles_output>( energies );
+        tables_out.add_array(energies_table);
+
+        for(auto PES : sampler_list)
+        {
+            PES->output_table(tables_out);
+        }*/
+
+        binary_output fout(fname);
+        tables_out.write_out( &fout);
+
+        print("C");
     }
 
     double call(double energy)

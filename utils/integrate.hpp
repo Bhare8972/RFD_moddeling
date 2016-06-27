@@ -272,7 +272,7 @@ public:
 		for(size_t i=0; i<init_samples-1; i++)
 		{
 			sections.emplace_back(function, test_points[i], test_points[i+1], test_values[i], test_values[i+1]);
-			//sections.back().refine(tol_factor);
+			sections.back().refine(tol_factor);
 		}
 	}
 

@@ -53,14 +53,15 @@ double  bremsstrahlung_cross_section(double initial_energy, double photon_energy
 int calling_index=0;
     double delta_phi_sampler::call(double delta_electron_photon_phi)
     {
-print(calling_index++);
+calling_index++;
+if((calling_index%100000)==0) print(calling_index);
         //a long series of equations needed to calculate brem cross section.
         //these equations are descrived elsewhere
         double cos_theta_final=std::cos(parent_electron_theta_sampler->photon_theta)*std::cos(final_electron_theta) +
         std::sin(parent_electron_theta_sampler->photon_theta)*std::sin(final_electron_theta)*std::cos(delta_electron_photon_phi);
 //print(cos_theta_final);
 
-        double sin_theta_final=std::sqrt(1.0-cos_theta_final*cos_theta_final);
+        double sin_theta_final=std::sqrt( std::max(0.0, 1.0-cos_theta_final*cos_theta_final));
 
 //print('B', sin_theta_final);
 
@@ -308,7 +309,7 @@ print(calling_index++);
 //print("initial energy A", lowest_physical_energy, initial_energy);
 
         //integrate across photon energy. assume that photon energy spans from lowest physical energy up to initial energy
-        cum_adap_simps integrator(this, lowest_physical_energy, initial_energy, integration_precision);
+        cum_adap_simps integrator(this, lowest_physical_energy, initial_energy*0.9999, integration_precision); //need to insure that photon energy is always smaller than initial energy
         gsl::vector photon_energy_points=integrator.points();
         gsl::vector CS_values=integrator.cum_quads();
 
