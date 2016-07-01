@@ -1,5 +1,5 @@
 
-const double integration_precision=1E300;
+const double integration_precision=1E7;
 
 
 double  bremsstrahlung_cross_section(double initial_energy, double photon_energy, double photon_theta, double final_electron_theta, double delta_electron_photon_phi)
@@ -27,7 +27,7 @@ double  bremsstrahlung_cross_section(double initial_energy, double photon_energy
     -2*final_momentum*initial_momentum*(cos_theta_final*cos_theta_initial + sin_theta_final*sin_theta_initial*cos_phi);
 
     double prefactor_2=final_momentum/(photon_energy*initial_momentum);
-    double prefactor_3=1.0/(q_sq+K_sq);
+    double prefactor_3=1.0/((q_sq+K_sq)*(q_sq+K_sq));
 
 
     double A_numerator=final_electron_momentum_squared*sin_theta_final*sin_theta_final*(4.0*initial_energy*initial_energy-q_sq);
@@ -58,10 +58,11 @@ if((calling_index%100000)==0) print(calling_index);
         //a long series of equations needed to calculate brem cross section.
         //these equations are descrived elsewhere
         double cos_theta_final=std::cos(parent_electron_theta_sampler->photon_theta)*std::cos(final_electron_theta) +
-        std::sin(parent_electron_theta_sampler->photon_theta)*std::sin(final_electron_theta)*std::cos(delta_electron_photon_phi);
+        std::sin(parent_electron_theta_sampler->photon_theta)*std::sin(final_electron_theta)*std::cos(delta_electron_photon_phi);  //some of these coesines and sines are known. others can be known
 //print(cos_theta_final);
 
         double sin_theta_final=std::sqrt( std::max(0.0, 1.0-cos_theta_final*cos_theta_final));
+        //double sin_theta_final=std::sin( std::acos(cos_theta_final) ); //ow not sure which is better
 
 //print('B', sin_theta_final);
 
@@ -73,29 +74,29 @@ if((calling_index%100000)==0) print(calling_index);
         - 2*parent_photon_energy_sampler->initial_electron_momentum * parent_photon_theta_sampler->photon_energy * parent_electron_theta_sampler->cos_theta_initial
         + 2*parent_photon_theta_sampler->final_electron_momentum * parent_photon_theta_sampler->photon_energy * cos_theta_final
         - 2*parent_photon_theta_sampler->final_electron_momentum * parent_photon_energy_sampler->initial_electron_momentum
-        *(cos_theta_final * parent_electron_theta_sampler->cos_theta_initial + sin_theta_final * parent_electron_theta_sampler->sin_theta_initial * cos_phi);
+        * (cos_theta_final * parent_electron_theta_sampler->cos_theta_initial + sin_theta_final * parent_electron_theta_sampler->sin_theta_initial * cos_phi);
 //print('C', q_sq);
 //print(parent_photon_energy_sampler->initial_electron_momentum_squared );
 //print(parent_photon_theta_sampler->final_electron_momentum_squared);
 //print(parent_photon_theta_sampler->photon_energy);
 
-        double prefactor_3=1.0/(q_sq+K_sq);
+        double total_initial_energy=parent_photon_energy_sampler->initial_energy+1.0;
+        double total_final_energy=parent_photon_theta_sampler->final_electron_energy+1.0;
+
+        double prefactor_3=1.0/((q_sq+K_sq)*(q_sq+K_sq));
 
         double A_numerator=parent_photon_theta_sampler->final_electron_momentum_squared * sin_theta_final * sin_theta_final
-        *(4.0*parent_photon_energy_sampler->initial_energy * parent_photon_energy_sampler->initial_energy - q_sq);
+        *(4.0* total_initial_energy * total_initial_energy - q_sq);
 
-        double A_denom_sqrt=parent_photon_theta_sampler->final_electron_energy - parent_photon_theta_sampler->final_electron_momentum * cos_theta_final;
+        double A_denom_sqrt=total_final_energy - parent_photon_theta_sampler->final_electron_momentum * cos_theta_final;
 
-        double B_numerator=parent_photon_energy_sampler->initial_electron_momentum * parent_photon_energy_sampler->initial_electron_momentum * parent_electron_theta_sampler->sin_theta_initial * parent_electron_theta_sampler->sin_theta_initial
-        *(4.0*parent_photon_theta_sampler->final_electron_energy * parent_photon_theta_sampler->final_electron_energy - q_sq);
+        double B_numerator=parent_photon_energy_sampler->initial_electron_momentum_squared * parent_electron_theta_sampler->sin_theta_initial * parent_electron_theta_sampler->sin_theta_initial
+        *(4.0*total_final_energy * total_final_energy - q_sq);
 
-        double B_denom_sqrt=parent_photon_energy_sampler->initial_energy - parent_photon_energy_sampler->initial_electron_momentum * parent_electron_theta_sampler->cos_theta_initial;
+        double B_denom_sqrt=total_initial_energy - parent_photon_energy_sampler->initial_electron_momentum * parent_electron_theta_sampler->cos_theta_initial;
 
         double C_numerator=2*parent_photon_theta_sampler->final_electron_momentum * parent_photon_energy_sampler->initial_electron_momentum * sin_theta_final * parent_electron_theta_sampler->sin_theta_initial * cos_phi
-        *(4*parent_photon_energy_sampler->initial_energy * parent_photon_theta_sampler->final_electron_energy - q_sq);
-
-        double CD_denom_1=parent_photon_theta_sampler->final_electron_energy - parent_photon_theta_sampler->final_electron_momentum * cos_theta_final;
-        double CD_denom_2=parent_photon_energy_sampler->initial_energy - parent_photon_energy_sampler->initial_electron_momentum * parent_electron_theta_sampler->cos_theta_initial;
+        *(4*total_initial_energy * total_final_energy - q_sq);
 
         double D_numerator=2*parent_photon_theta_sampler->photon_energy * parent_photon_theta_sampler->photon_energy *
         (parent_photon_theta_sampler->final_electron_momentum_squared * sin_theta_final*sin_theta_final
@@ -103,11 +104,10 @@ if((calling_index%100000)==0) print(calling_index);
         - 2.0*parent_photon_theta_sampler->final_electron_momentum * parent_photon_energy_sampler->initial_electron_momentum * sin_theta_final * parent_electron_theta_sampler->sin_theta_initial * cos_phi);
 
         double ret= prefactor * parent_photon_theta_sampler->prefactor_2 * prefactor_3
-        *( A_numerator/(A_denom_sqrt*A_denom_sqrt) + B_numerator/(B_denom_sqrt*B_denom_sqrt) + (C_numerator + D_numerator)/(CD_denom_1*CD_denom_2));
+        *( A_numerator/(A_denom_sqrt*A_denom_sqrt) + B_numerator/(B_denom_sqrt*B_denom_sqrt) + (C_numerator + D_numerator)/(A_denom_sqrt*B_denom_sqrt));
 
         if(ret!=ret)
         {
-            print("pre2:", parent_photon_theta_sampler->prefactor_2, "pre3", prefactor_3);
             throw gen_exception("warning, nan value in brem");
         }
         return ret;
@@ -151,6 +151,17 @@ if((calling_index%100000)==0) print(calling_index);
             gsl::vector sampler_Y;
             make_fix_spline(CS_values, delta_phi_points, sampler_X, sampler_Y);
 
+/*
+arrays_output tables_out;
+std::shared_ptr<doubles_output> interaction_energies_table=std::make_shared<doubles_output>( CS_values );
+tables_out.add_array(interaction_energies_table);
+std::shared_ptr<doubles_output> interaction_rates_table=std::make_shared<doubles_output>( delta_phi_points );
+tables_out.add_array(interaction_rates_table);
+
+binary_output fout(std::string("./test_out"));
+tables_out.write_out( &fout);
+fout.flush();
+*/
             delta_phi_sampler=std::make_shared<poly_spline>(sampler_X, sampler_Y);
 
 
@@ -166,7 +177,6 @@ if((calling_index%100000)==0) print(calling_index);
     }
 
 //class electron_theta_sampler
-
     double electron_theta_sampler::call(double electron_theta)
     {
         auto new_delta_phi_sampler=new delta_phi_sampler;
@@ -193,12 +203,24 @@ if((calling_index%100000)==0) print(calling_index);
 
         double final_result=CS_values[CS_values.size()-1];
 
+/*
+arrays_output tables_out;
+std::shared_ptr<doubles_output> interaction_energies_table=std::make_shared<doubles_output>( CS_values );
+tables_out.add_array(interaction_energies_table);
+std::shared_ptr<doubles_output> interaction_rates_table=std::make_shared<doubles_output>( electron_theta_points );
+tables_out.add_array(interaction_rates_table);
+
+binary_output fout(std::string("./test_out"+std::to_string(calling_index1)));
+tables_out.write_out( &fout);
+fout.flush();
+calling_index1++;*/
+
         //normalize and invert
         CS_values/=CS_values[CS_values.size()-1]; //normalize to values from 0 to 1
         gsl::vector sampler_X;
         gsl::vector sampler_Y;
         make_fix_spline(CS_values, electron_theta_points, sampler_X, sampler_Y);
-        electron_theta_sampler=std::make_shared<poly_spline>(sampler_X, sampler_Y);
+//electron_theta_sampler=std::make_shared<poly_spline>(sampler_X, sampler_Y);
 
         return final_result;
     }
@@ -227,6 +249,7 @@ if((calling_index%100000)==0) print(calling_index);
 
 //class photon_theta_sampler
 
+int calling_index1=0;
     double photon_theta_sampler::call(double photon_theta)
     {
         auto new_electron_theta_sampler=new electron_theta_sampler;
@@ -235,7 +258,7 @@ if((calling_index%100000)==0) print(calling_index);
 
         double result=new_electron_theta_sampler->set_photon_theta(photon_theta);
         samplers_per_photon_theta.insert(photon_theta, new_electron_theta_sampler);
-        return result*std::sin(photon_theta);;
+        return result*std::sin(photon_theta);
     }
 
     double photon_theta_sampler::set_photon_energy(double photon_energy_)
@@ -252,6 +275,20 @@ if((calling_index%100000)==0) print(calling_index);
         cum_adap_simps integrator(this, 0, PI, integration_precision);
         gsl::vector photon_theta_points=integrator.points();
         gsl::vector CS_values=integrator.cum_quads();
+
+print(photon_energy, calling_index1);
+/*
+gsl::vector vals=integrator.values();
+arrays_output tables_out;
+std::shared_ptr<doubles_output> interaction_energies_table=std::make_shared<doubles_output>( vals );
+tables_out.add_array(interaction_energies_table);
+std::shared_ptr<doubles_output> interaction_rates_table=std::make_shared<doubles_output>( photon_theta_points );
+tables_out.add_array(interaction_rates_table);
+
+binary_output fout(std::string("./test_outV"+std::to_string(calling_index1)));
+tables_out.write_out( &fout);
+fout.flush();*/
+calling_index1++;
 
         double final_result=CS_values[CS_values.size()-1];
 
@@ -288,14 +325,21 @@ if((calling_index%100000)==0) print(calling_index);
     }
 
 //class photon_energy_sampler
-
     double photon_energy_sampler::call(double photon_energy)
     {
         auto new_photon_theta_sampler=new photon_theta_sampler;
         new_photon_theta_sampler->parent_photon_energy_sampler=this;
 //print("initial electron energy", initial_energy, "photon energy", photon_energy);
         double result=new_photon_theta_sampler->set_photon_energy(photon_energy);
-        samplers_per_photon_energy.insert(photon_energy, new_photon_theta_sampler);
+        //samplers_per_photon_energy.insert(photon_energy, new_photon_theta_sampler);
+//if(calling_index1==99)
+//{
+//    print(photon_energy*energy_units_kev, initial_energy*energy_units_kev);
+//    print(new_photon_theta_sampler->prefactor_2, new_photon_theta_sampler->final_electron_momentum);
+//    print();
+//}
+        delete new_photon_theta_sampler;
+
         return result;
     }
 
@@ -309,9 +353,34 @@ if((calling_index%100000)==0) print(calling_index);
 //print("initial energy A", lowest_physical_energy, initial_energy);
 
         //integrate across photon energy. assume that photon energy spans from lowest physical energy up to initial energy
-        cum_adap_simps integrator(this, lowest_physical_energy, initial_energy*0.9999, integration_precision); //need to insure that photon energy is always smaller than initial energy
+        cum_adap_simps integrator(this, lowest_physical_energy, initial_energy*0.9999, 7E6);//integration_precision); //need to insure that photon energy is always smaller than initial energy
         gsl::vector photon_energy_points=integrator.points();
         gsl::vector CS_values=integrator.cum_quads();
+gsl::vector temp_values=integrator.values();
+
+//if(calling_index1==99)
+{
+arrays_output tables_out;
+std::shared_ptr<doubles_output> interaction_energies_table=std::make_shared<doubles_output>( CS_values );
+tables_out.add_array(interaction_energies_table);
+std::shared_ptr<doubles_output> interaction_rates_table=std::make_shared<doubles_output>( photon_energy_points );
+tables_out.add_array(interaction_rates_table);
+
+binary_output fout(std::string("./test_out_int"));
+tables_out.write_out( &fout);
+fout.flush();
+
+arrays_output tables_out2;
+std::shared_ptr<doubles_output> interaction_energies_table2=std::make_shared<doubles_output>( temp_values );
+tables_out2.add_array(interaction_energies_table2);
+std::shared_ptr<doubles_output> interaction_rates_table2=std::make_shared<doubles_output>( photon_energy_points );
+tables_out2.add_array(interaction_rates_table2);
+
+binary_output fout2(std::string("./test_out_val"));
+tables_out2.write_out( &fout2);
+fout2.flush();
+print("saved");
+}
 
         double final_result=CS_values[CS_values.size()-1];
 

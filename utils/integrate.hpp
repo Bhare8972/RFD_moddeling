@@ -157,7 +157,7 @@ public:
 		//step two, if necisary, refine the lower two sub sections
 		//if( std::abs( rough_quad() - (left_data->rough_quad()+right_data->rough_quad())) > 15*rel_tol )
 		double R=rough_quad();
-		if( float(R*factor + ( R - (left_data->rough_quad()+right_data->rough_quad()))) != float(R*factor) )
+		if( float(R*factor + float( R - (left_data->rough_quad()+right_data->rough_quad()))) != float(R*factor) )
 		{
 		    //print("RECURE!");
 			left_data->refine(factor);

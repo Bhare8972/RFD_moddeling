@@ -13,7 +13,7 @@
 #include "functor.hpp"
 #include "gen_ex.hpp"
 
-class poly_spline : public functor_1D //we should exted this to work for first order as well
+class poly_spline : public functor_1D //we should extend this to work for first order as well
 {
 public:
 	class spline_piece
@@ -466,6 +466,84 @@ public:
         }
     }
 
+    void refine_AbsComp(double abs_compare)
+    {
+        // step one, make the next lower two simps rules
+        left_data=std::make_shared<adaptive_sampler_data>(function, left_point, middle_point, left_value, middle_value);
+        right_data=std::make_shared<adaptive_sampler_data>(function, middle_point, right_point, middle_value, right_value);
+
+        if(left_data->stage==2 or right_data->stage==2)
+        {
+            left_data.reset();
+            right_data.reset();
+            stage=3;
+
+            return;
+        }
+        stage=1;
+
+        //check if we need to refine the left
+        if( float( abs_compare + float( left_data->middle_value - this->rough_call(left_data->middle_point)))  != float(abs_compare) )
+        {
+            left_data->refine_AbsComp(abs_compare);
+
+            if(left_data->stage==3 or left_data->stage==4)
+            {
+                stage=4;
+            }
+        }
+
+        //check if we need to refine the right
+        if( float( abs_compare + float( right_data->middle_value - this->rough_call(right_data->middle_point)))  != float(abs_compare) )
+        {
+            right_data->refine_AbsComp(abs_compare);
+
+            if(right_data->stage==3 or right_data->stage==4)
+            {
+                stage=4;
+            }
+        }
+    }
+
+    void refine_RelComp(double rel_compare)
+    {
+        // step one, make the next lower two simps rules
+        left_data=std::make_shared<adaptive_sampler_data>(function, left_point, middle_point, left_value, middle_value);
+        right_data=std::make_shared<adaptive_sampler_data>(function, middle_point, right_point, middle_value, right_value);
+
+        if(left_data->stage==2 or right_data->stage==2)
+        {
+            left_data.reset();
+            right_data.reset();
+            stage=3;
+
+            return;
+        }
+        stage=1;
+
+        //check if we need to refine the left
+        if( float( left_data->middle_value*rel_compare + float( left_data->middle_value - this->rough_call(left_data->middle_point)))  != float(left_data->middle_value*rel_compare) )
+        {
+            left_data->refine_RelComp(rel_compare);
+
+            if(left_data->stage==3 or left_data->stage==4)
+            {
+                stage=4;
+            }
+        }
+
+        //check if we need to refine the right
+        if( float( right_data->middle_value*rel_compare + float( right_data->middle_value - this->rough_call(right_data->middle_point)))  != float(right_data->middle_value*rel_compare) )
+        {
+            right_data->refine_RelComp(rel_compare);
+
+            if(right_data->stage==3 or right_data->stage==4)
+            {
+                stage=4;
+            }
+        }
+    }
+
     size_t size()
     {
         if(left_data) //if this exists, then we have made the two sections
@@ -562,13 +640,24 @@ public:
     }
 };
 
-gsl::vector adaptive_sample(functor_1D* F, double precision, double start, double stop, gsl::vector &points )
+gsl::vector adaptive_sample(functor_1D* F, double precision, double start, double stop, gsl::vector &points, int precision_type=0 )
 {
     double left_value=F->call(start);
     double right_value=F->call(stop);
 
     adaptive_sampler_data sampler(F, start, stop, left_value, right_value);
-    sampler.refine(precision);
+    if(precision_type==0)
+    {
+        sampler.refine(precision); //type 0 is where precision is just relative error. (default, but error prone)
+    }
+    else if(precision_type==1)
+    {
+        sampler.refine_AbsComp(precision); //type 1 is where the differnce is zero comparted to precision
+    }
+    else if(precision_type==2)
+    {
+        sampler.refine_RelComp(precision); //same method as adaptive integration
+    }
 
 
 
@@ -584,13 +673,24 @@ gsl::vector adaptive_sample(functor_1D* F, double precision, double start, doubl
     return values;
 }
 
-std::shared_ptr<poly_spline> adaptive_sample_retSpline(functor_1D* F, double precision, double start, double stop  )
+std::shared_ptr<poly_spline> adaptive_sample_retSpline(functor_1D* F, double precision, double start, double stop, int precision_type=0  )
 {
     double left_value=F->call(start);
     double right_value=F->call(stop);
 
     adaptive_sampler_data sampler(F, start, stop, left_value, right_value);
-    sampler.refine(precision);
+    if(precision_type==0)
+    {
+        sampler.refine(precision); //type 0 is where precision is just relative error. (default, but error prone)
+    }
+    else if(precision_type==1)
+    {
+        sampler.refine_AbsComp(precision); //type 1 is where the differnce is zero comparted to precision
+    }
+    else if(precision_type==2)
+    {
+        sampler.refine_RelComp(precision); //same method as adaptive integration
+    }
 
 
 
@@ -615,13 +715,24 @@ std::shared_ptr<poly_spline> adaptive_sample_retSpline(functor_1D* F, double pre
     return out_spline;
 }
 
-std::shared_ptr<poly_spline> adaptive_sample_all(functor_1D* F, double precision, double start, double stop, gsl::vector &points, gsl::vector &values  )
+std::shared_ptr<poly_spline> adaptive_sample_all(functor_1D* F, double precision, double start, double stop, gsl::vector &points, gsl::vector &values, int precision_type=0)
 {
     double left_value=F->call(start);
     double right_value=F->call(stop);
 
     adaptive_sampler_data sampler(F, start, stop, left_value, right_value);
-    sampler.refine(precision);
+    if(precision_type==0)
+    {
+        sampler.refine(precision); //type 0 is where precision is just relative error. (default, but error prone)
+    }
+    else if(precision_type==1)
+    {
+        sampler.refine_AbsComp(precision); //type 1 is where the differnce is zero comparted to precision
+    }
+    else if(precision_type==2)
+    {
+        sampler.refine_RelComp(precision); //same method as adaptive integration
+    }
 
 
 
