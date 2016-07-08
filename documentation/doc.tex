@@ -19,21 +19,21 @@
 
 \begin{center}
 	\begin{tabular}{ c c c }
-		Name                          & symbol    &   value  \\ 
-		speed of light                & C         &         \\  
-		charge of electron            & -e        &         \\  
-		molecular density of air      & $N_m$     &   $2.688\times 10^{25} m^{-3} $     \\  
-		average nuclear charge of air & $Z_m$     &  14.5       \\  
-		classical electron radius     & $r_e$     &   $2.8179\times 10^{-15} m $      \\  
-        mass of electron              & $m_e$     &     \\
-        ionization potential of air   & $I$       &  85.7 ev    \\  
+		Name                            & symbol    &   value  \\ 
+		speed of light                  & C         &         \\  
+		charge of electron              & -e        &         \\  
+		molecular density of air        & $N_m$     &   $2.688\times 10^{25} m^{-3} $     \\  
+		average molecular charge of air & $Z_m$     &  14.5       \\  
+		classical electron radius       & $r_e$     &   $2.8179\times 10^{-15} m $      \\  
+        mass of electron                & $m_e$     &     \\
+        ionization potential of ai  r   & $I$       &  85.7 ev    \\  
 	\end{tabular}
 \end{center}
 
 
 \section{dimensionless variables}
 
-Dimensionless variables are used in this simulation. This can complicate taking a physical equation, and relating it to a formula that can be used in the simulation, but once in the simulation the formulas tend to be simpler, thus easier to use. In the rest of this documentation, the normal symbols, e.g. $\varepsilon$ for kinetic energy and $ \vec{P} $ for momentum, will represent the values of those quantities in MKS units, alternate symbols will be used to represent the values of each quantity in dimensionless units, e.g. $E$ for kinetic energy and $\vec{\rho} $ for momentum. The table below gives the units of all the dimensionless variables used in the simulation. Brackets around a symbol, e.g.  $\left[ E\right] $ for energy and $\left[  \vec{\rho} \right] $ for momentum, represents the units of the dimensionless values, e.g. $\varepsilon = E \left[ E \right] $.
+Dimensionless variables are used in this simulation. This can complicate translating a physical equation into the simulation, but once in the simulation the formulas tend to be simpler. In the rest of this documentation, the normal symbols, e.g. $\varepsilon$ for kinetic energy and $ \vec{P} $ for momentum, will represent the values of those quantities in MKS units, alternate symbols will be used to represent the values of each quantity in dimensionless units, e.g. $E$ for kinetic energy and $\vec{\rho} $ for momentum. The table below gives the units of all the dimensionless variables used in the simulation. Brackets around a symbol, e.g.  $\left[ E\right] $ for energy and $\left[  \vec{\rho} \right] $ for momentum, represents the units of the dimensionless values, e.g. $\varepsilon = E \left[ E \right] $.
 
 \begin{center}
 	\begin{tabular}{ c c c }
@@ -124,7 +124,7 @@ Substitution gives:
 
 \section{forces and equations of motion}
 
-The simplest task that needs to be done in the simulation, is to simulate the motion of a particle given a electric field, magnetic field, and friction.
+The simplest task that needs to be done in the simulation is to simulate the motion of a particle given a electric field, magnetic field, and friction due to ionization.
 
 In dimensionless units, the equations of motion for an electron are:
 
@@ -138,64 +138,20 @@ and
 \frac{d \vec{\chi}}{d \tau} = \frac{\vec{\rho}}{\sqrt{1+\rho^2}}
 \end{equation}
 
-This are simulated using a fourth-order runge-kutta technique. By first combining the two equations of motion into one:
+Where $\frac{d \rho}{d \tau}_{friction}(\rho)$ is the friction force due to ionization. Since the frictional force can vary by multiple orders of magnitude over the energy range of interest, then we have to use a good adaptive solver for these equations. At this point in time the simulation is using the Cash-Karpe Runge Kutta technique. However, in the future we may want to consider using Doramund-Prince Runga Kunga, since it will give use one higher order with no extra cost and will allow for advanced interpolation of the particle's position and momentum in-between time steps. Presently we assume that the particle's position and momentum changes linearly between time steps. This is probably not very precise, but also probably doesn't actually introduce much error into the simulation. There is plenty of information on line about both pertinent Runga Kutta techniques.
 
+The frictional force due to ionization could be approximated using the Bethe formula, this however, produces some problems as the Bethe formula is imprecise at low energies. Instead, we use tabulated values from ICRU report 37, which gives the energy loss due to ionization for electrons and positrons down to very low energies. The energy loss vs energy is re-sampled precisely in logarithmic space so that, in theory, the lookup time can be constant vs the size of the array. Finally, the table is then linearly interpolated in log-log space so that we can find approximate energy losses in between sample points. 
 
-\begin{equation}
-\frac{d}{d \tau}  
-\left[ \begin{array}{c}
-\vec{ \chi }\\
-\vec{\rho} \\
-\end{array} \right]
-=
-\left[ \begin{array}{c}
-g(\tau, S )\\
-f(\tau, S ) \\
-\end{array} \right]
-\end{equation}
+The tables in ICRU 37 extend to very high energy, and so probably will not need to generate new values using the Beth formula. However, this ability has been included should the need arise. (Note that we do not actually include the entire ICRU 37 table, it may be wise to extend the bit of the table that we do include).
 
-We define the vector S so that:
-
-\begin{equation} 
-\frac{d}{d \tau} S = S'
-\end{equation}
-
-Then we can find S at the next time step, given a stepping time of $\Delta \tau$:
-
-\begin{equation}
-S_{n+1} = S_n + \frac{\Delta\tau}{6} ( K_1 + 2K_2 + 2K_3 + K_4 )
-\end{equation}
-
-where:
-
-\begin{equation} 
-K_1=S'(\tau_n, S_n)
-\end{equation}
-
-\begin{equation} 
-K_2=S'(\tau_n + \frac{\Delta\tau}{2}, S_n + \frac{\Delta\tau}{ 2}K_1)
-\end{equation}
-
-\begin{equation} 
-K_3=S'(\tau_n + \frac{\Delta\tau}{2}, S_n + \frac{\Delta\tau}{ 2}K_2)
-\end{equation}
-
-\begin{equation} 
-K_4=S'(\tau_n + \Delta\tau, S_n + \Delta\tau K_3)
-\end{equation}
-
-The energy losses due to ionization are very significant and change very rapidly at low energy. Because of this, low energy electrons require high-order/small time steps in order for the equation of motion to be be stable. If the time steps are not small enough, then the change in velocity due to friction will be larger than the velocity of the particle, and the particle will actually reverse direction and jump to very high energy (which is obviously not physical). For this reason, we will need to implement an adaptive runge-kutta algorithm.
-
-The frictional force due to ionization could be approximated using the Bethe formula, this however, produces some problems as the Bethe formula is at best an approximation, which is problematic because we care about finding the minimum electric field necessary for RREA and for RFD, which is sensitive to the energy loss due to ionization, and more worrisome is that the Bethe formula is very imprecise and unstable at low energies, and there are a large number of low energy electrons in RREA. The solution is to use tabulated values instead. Particularly, we use tabulated values from ICRU report 37, which gives the energy loss due to ionization for electrons and positrons down to a very low energy. These tables are hard-coded into a program that is separate from the main simulation. When run, this program converts the values into dimensionless units, and it converts the energy values into dimensionless momentum squared (because momentum squared is easier to calculate at runtime than energy), and stores the two tables into a binary file. At startup, the simulation loads the energy losses due to ionization tables from the binary file, then during runtime these tables can be searched and energy loss rates returned using linear interpolation. At the time of writing this, the time required to search the lookup table is, at absolute worse, twice as slow as calculating the values using the Bethe formula. It is doubtful that the algorithm can be improved, but I believe that the increase in stability at low energy warrants the slowdown, and that the slowdown will be minor compared to the time to calculate other scattering  processes (this has yet to be shown). 
-
-The tables in ICRU 37 extend to very high energy, and so probably will not need to generate new values using the Beth formula. However, since we include M$\o$ller scattering in the simulation, the ionization table generation program will need to take M$\o$ller scattering into account by subtracting off the energy loss due to M$\o$ller scattering at the appropriate energies, given below, from Dwyer:
+Since we include M$\o$ller scattering in the simulation, the simulation takes M$\o$ller scattering into account by subtracting off the energy loss due to M$\o$ller scattering at the appropriate energies, given below, from Dwyer:
 
 
 \begin{equation}
 f_{m\o ller}=\frac{2\pi N_m Z_m r_e^2 m_e C^2}{\beta^2}\left[ ln\left( \frac{\varepsilon}{2K_{min}} \right) +1 - \frac{K_{min}}{\varepsilon- K_{min}} - \left(1+\frac{2}{\gamma}-\frac{1}{\gamma^2} \right) ln \left(   \frac{2(\varepsilon-K_{min})}{\varepsilon}\right) + \frac{(\gamma+1)^2}{8\gamma^2} - \frac{K_{min}^2}{2m_e^2C^4\gamma^2}   \right] 
 \end{equation}
 
-Where $\varepsilon$ is the kinetic energy of the electron, and $K_{min}$ is the minimum kinetic energy that we will produce new electrons from M$\o$ller scattering at. Currently, $K_{min}$ is 2 keV, large enough that we can ignore the ionization energy of the new electrons bound to the atoms. Dwyer sets $K_{min}$ equal to the local runaway energy, which I suspect severely complicates the program. I do not presently understand why he does this, and will need to seriously consider what $K_{min}$ means and ought to be.
+Where $\varepsilon$ is the kinetic energy of the electron, and $K_{min}$ is the minimum kinetic energy that we will produce new electrons from M$\o$ller scattering at. $K_{min}$ is adjustable and can be changed at the beginning of the simulation. we also technically include the ability to vary $K_{min}$ during the simulation, this ability however has not been tested.
 
 In dimensionless units:
 
@@ -203,36 +159,122 @@ In dimensionless units:
 \frac{d \rho}{d \tau}_{m\o ller}=\frac{1}{\beta^2}\left[ ln\left( \frac{E}{2K_{min}} \right) +1 - \frac{K_{min}}{E- K_{min}} - \left(1+\frac{2}{\gamma}-\frac{1}{\gamma^2} \right) ln \left(   \frac{2(E-K_{min})}{E}\right) + \frac{E^2}{8\gamma^2} - \frac{K_{min}^2}{2\gamma^2}   \right] 
 \end{equation}
 
-Where $E$ is the kinetic energy of the electron in dimensionless units and $K_{min}$ is also dimensionless. We may need to consider subtracting the energy losses due to Bhaba scattering off of the stopping powers for positrons as well.
+Where $E$ is the kinetic energy of the electron in dimensionless units and $K_{min}$ is also dimensionless.
 
+The Bethe equation (which approximates the frictional force due to ionization):
 
-%The frictional force is given by the Bethe equation:
-%
-%\begin{equation} 
-%F_{friction}(P)  =\frac{ 2 \pi N_m Z_m r_e^2 m C^2}{\beta^2} \left\lbrace  \ln\frac{mv^2\varepsilon\gamma}{I^2}
-%-\left( 1 + \frac{2}{\gamma}  - \frac{1}{\gamma^2} \right)\ln 2 + \frac{(\gamma-1)^2}{8\gamma^2}  + \frac{1}{\gamma^2} \right\rbrace 
-%\end{equation}
-%
-%in dimensionless units:
-%
-%\begin{equation} 
-%\frac{d \rho}{d \tau}_{friction}(\rho)  =\frac{ 1 }{\beta^2} \left\lbrace  \ln\frac{\beta^2E\gamma}{\bar{I^2}}
-%-\left( 1 + \frac{2}{\gamma}  - \frac{1}{\gamma^2} \right)\ln 2 + \frac{(\gamma-1)^2}{8\gamma^2}  + \frac{1}{\gamma^2} \right\rbrace 
-%\end{equation}
-%
-%Where $\bar{I}$ is $I/m_eC^2$.
-%
-%Since Moller scatter is considered for electrons that are above a  threshold kinetic energy of $E_{thresh}= \frac{2 keV}{m_e C^2}$, the energy loss due to moller scattering must be subracted off from the friction force. So, for electrons with energies above $2E_{thresh}$, the following friction function is used instead of the one above:
-%
-%In dimensionless units:
-%
-%\begin{equation} 
-%\frac{d \rho}{d \tau}_{friction}(\rho)  =\frac{ 1 }{\beta^2} \left\lbrace  \ln\frac{2E_{thresh} \beta^2 \gamma}{\bar{I^2}}
-%-\left( 1 + \frac{2}{\gamma}  - \frac{1}{\gamma^2} \right)\ln \frac{ E }{E- E_{thresh}} + \frac{E_{thresh}}{E-E_{thresh}} - \beta^2 + \frac{E_{thresh}^2}{2\gamma^2} \right\rbrace 
-%\end{equation}
+\begin{equation} 
+F_{friction}(P)  =\frac{ 2 \pi N_m Z_m r_e^2 m C^2}{\beta^2} \left\lbrace  \ln\frac{mv^2\varepsilon\gamma}{I^2}
+-\left( 1 + \frac{2}{\gamma}  - \frac{1}{\gamma^2} \right)\ln 2 + \frac{(\gamma-1)^2}{8\gamma^2}  + \frac{1}{\gamma^2} \right\rbrace 
+\end{equation}
 
+in dimensionless units:
 
-\section{shielded coulomb scattering}
+\begin{equation} 
+\frac{d \rho}{d \tau}_{friction}(\rho)  =\frac{ 1 }{\beta^2} \left\lbrace  \ln\frac{\beta^2E\gamma}{\bar{I^2}}
+-\left( 1 + \frac{2}{\gamma}  - \frac{1}{\gamma^2} \right)\ln 2 + \frac{(\gamma-1)^2}{8\gamma^2}  + \frac{1}{\gamma^2} \right\rbrace 
+\end{equation}
+
+Where $\bar{I}$ is $I/m_eC^2$.
+
+\section{Introduction to Discrete Events}
+
+After we take one time step of length $\Delta \tau$ of the equations of motion, we then need to preform a number of discrete processes such as M$\o$ller and Bremsstrahlung scattering (and much more eventually). In order to preform these processes, we need to decide when and which process occurs. 
+
+Each of these processes has a total cross section: $\sigma(E)$. We will index all the process by $i$, so that the $i^{th}$ process has the total cross section $\sigma_i(E)$. We relate each cross section to the rate of events by:
+
+\begin{equation}
+\frac{dn}{dt}_i = N V \sigma_i(E)
+\end{equation}
+
+With $\frac{dn}{dt}_i$ being the rate that the $i^{th}$ event occurs, N is the number density of targets, and V is the velocity.
+
+In dimensionless units:
+
+\begin{equation}
+\frac{dn}{d\tau}_{i} = \frac{1}{2 \pi} \frac{N}{N_m} \beta \frac{\sigma_i(E)}{Z_mr_e^2}
+\end{equation}
+
+Which is more complicated, but actually tends to simplify many cross sections.
+
+We can then add the rates together to get a total rate of discrete events:
+
+\begin{equation}
+\frac{dn}{d\tau}_{total} = \sum \frac{dn}{d\tau}_{i}
+\end{equation}
+
+We need to sample $\frac{dn}{d\tau}_{total}$ to find the time that an event occurs. Doing this to full numerical precision is rather difficult, since the energy, and thus the total rate of events, changes with time across the time step. So, instead, we assume that the rate of events changes linearly across the time step:
+
+\begin{equation}
+\frac{dn}{d\tau}_{total} = A + B\bar{T}
+\end{equation}
+
+Where $\bar{T}$ ranges from 0 at the beginning of the time step to 1 at the end. This method gives us control over the error, because the zeroth order error in this method is $\left| \frac{B}{A} \right| $. We have an $ \varepsilon_{low}$ (generally 0.1) and $ \varepsilon_{high}$ (generally 0.2) such that if the zeroeth order error exceeds $ \varepsilon_{low}$, then the next time step size is decreased by some factor (typically 2). and if the error exceeds  $ \varepsilon_{high}$, the the time step is completely re-done with a smaller step size (typically factor of 2). 
+
+A and B are easily found:
+\begin{equation}
+A=\frac{dn}{d\tau}_{total}(\bar{T}=0)
+\end{equation}
+
+\begin{equation}
+B=\frac{dn}{d\tau}_{total}(\bar{T}=1)-A
+\end{equation}
+
+Now we can find the time that some random event occurs by treating $\frac{dn}{d\tau}_{total}$ like a PDF and sampling it using inverse transform sampling (Google this term if it is not familiar, it is a staple technique that I use). 
+
+First we integrate:
+\begin{equation}
+n(\bar{T})=\left( A\bar{T}+0.5B\bar{T}^2\right) \Delta \tau
+\end{equation}
+
+Normalize at $\bar{T}=1$ to find the CDF:
+\begin{equation}
+CDF(\bar{T})=\frac{\left( A\bar{T}+0.5B\bar{T}^2\right)}{n(\bar{T}=1)} \Delta \tau
+\end{equation}
+
+Invert to find $\bar{T}$ for some random number, $U$, uniform between 0 and 1 (Not 100 percent sure this next equation is correct, but not to worry, it is not actually used):
+
+\begin{equation}
+\bar{T}=-\frac{A}{B}  \pm  \sqrt{  \left( \frac{A}{B} \right)^2  + \frac{2Un(\bar{T}=1)}{B \Delta \tau }  }
+\end{equation}
+
+Where one would choose the solution between 0 and 1. This equation has a problem that it only gives the time of an event, assuming there is exactly one event. In order to use it properly, one needs to find $n(\bar{T}=1)$ (which is the average number of events in this time step). Sample the number of events that actually occurred from the Poisson distribution, then sample the above equation that many times and only keeping the lowest $\bar{T}$. All the other samples have to be thrown away, because if an event happens, then the event will likely change the energy of the particle, and so invalidate the following samples.
+
+Instead, a better solution would be to find an equation that gives us the first $\bar{T}$ in a time step. To do this, we use the Poisson distribution to find the probability that there will be one or more events in the time from the start of the step to $\bar{T}$:
+
+\begin{equation}
+P(\bar{T})=1-\exp(-n(\bar{T}))=1.0-exp(-A\Delta \tau \bar{T} - 0.5B\Delta \tau\bar{T}^2)
+\end{equation}
+
+Solving for $\bar{T}$ gives us (where p is now a uniform random number between 0 and 1):
+
+\begin{equation}
+\bar{T}=-\frac{A}{B} \pm \sqrt{\left( \frac{A}{B} \right)^2 -\frac{2ln(1-p)}{B\Delta \tau} }
+\end{equation}
+
+Notice that if $B<0$, then there is a p where $\bar{T}$ is imaginary. Solving for this p gives us:
+
+\begin{equation}
+p_{max}=1-\frac{A^2\Delta \tau}{2B}
+\end{equation}
+
+If $B<0$ and $P>p_{max}$, then there is no event. Similarly if $\bar{T}>1$, then there is no event.
+
+Also, if B is close to zero (much smaller than A), then the above equation becomes unstable. Instead we assume that the rate is constant with time. Solving for $\bar{T}$ gives us:
+
+\begin{equation}
+\bar{T}=-\frac{\exp(1-p)}{A\Delta \tau}
+\end{equation}
+
+Finally, we can decide which event happens by drawing a uniform random number, U, between 0 and 1. The $j^{th}$ event happens if:
+
+\begin{equation}
+\sum_{i=1}^{j}\frac{dn}{d\tau}_{i} < U\frac{dn}{d\tau}_{total} < \sum_{i=1}^{j+1}\frac{dn}{d\tau}_{i}
+\end{equation}
+
+NEEDS MORE WORK! Generic inverse transform sampling. Walker Aliased inverse transform sampling.
+
+\section{Shielded Coulomb Scattering}
 
 As the electrons and positrons travel through the simulation, they will collide off of atomic nuclei. We simulate this by including the effects of elastic scattering off of atomic nuclei via the shielded coulomb cross section. The differential cross section for the shielded coulomb cross section is:
 

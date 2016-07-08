@@ -35,4 +35,8 @@ add_executable(test_2D_spline
               ./test_2D_spline.cpp)
 target_link_libraries(test_2D_spline gsl gslcblas)
 
+add_executable(test_aliasing
+              ./test_walker_alias.cpp)
+target_link_libraries(test_aliasing gsl gslcblas)
+
 

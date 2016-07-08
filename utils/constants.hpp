@@ -16,7 +16,8 @@ const double Nano=1.0e-9;
 const double C=2.99792e8;  //meters per second
 const double elementary_charge=1.602e-19; //charge of electron in coulombs
 const double electron_rest_energy=510.998*Kilo*elementary_charge;   //(9.1093835e-31)*C*C;// in joules   //510.998; //in keV
-const double average_air_atomic_number=14.5;
+const double average_molecular_air_atomic_number=14.5;  //was called average_air_atomic_number
+double hbar=1.054571726e-34; //J per radius per second
 
 
 //const double minimum_energy=2*Kilo*elementary_charge/electron_rest_energy; //minimum energy is 2 keV.   This needs to be removed

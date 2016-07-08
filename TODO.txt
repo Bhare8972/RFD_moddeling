@@ -2,20 +2,19 @@ TODO:
 
 turn main loop into a class
 
-Test diffusion scattering against lehtinen method and mollier scattering ????
+notice that the "Z" of air is molecular Z!! find errors that this has caused (namely in diffision scattering) and fix it!
 
 test results of simulation against lehtenin.
 
-create a special utility that works for inserting and retrieving data related to doubles. (span_tree) probably implented as variant of AVL tree 
-		(better for lookups than inserts)
-
-add atmosphere density
+add atmosphere density vs altitude
 
 BREMSTRALHUNG!!!!!
 
 Then test simulation against Dwyer and find slowdowns.
 
-improve spline to use GSl spline functions where applicable
+improve spline to use GSl spline functions where applicable.
+
+add new walker aliasing!!
 
 
 
