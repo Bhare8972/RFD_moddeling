@@ -51,6 +51,30 @@ namespace gsl {
   class vector {
   public:
   //my personal additions
+    double& back()
+    {
+        // Always try to return something
+        static double something = 0;
+        // First check that iterator is initialised.
+        if( ccgsl_pointer == 0 )
+        {
+            gsl_error( "vector is null", __FILE__, __LINE__, exception::GSL_EFAULT );
+            return something;
+        }
+
+        #ifndef GSL_RANGE_CHECK_OFF
+            // Check that position make sense
+            if( size() == 0)
+            {
+                gsl_error( "trying to read from empty vector", __FILE__, __LINE__, exception::GSL_EINVAL );
+                return something;
+            }
+            // n is a valid position
+        #endif
+
+        return *(ccgsl_pointer->data + (size()-1) * ccgsl_pointer->stride);
+    }
+
 
 	inline double sum() const
     {

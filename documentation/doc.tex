@@ -191,7 +191,7 @@ With $\frac{dn}{dt}_i$ being the rate that the $i^{th}$ event occurs, N is the n
 
 In dimensionless units:
 
-\begin{equation}
+\begin{equation} \label{eq:CS_rate}
 \frac{dn}{d\tau}_{i} = \frac{1}{2 \pi} \frac{N}{N_m} \beta \frac{\sigma_i(E)}{Z_mr_e^2}
 \end{equation}
 
@@ -275,6 +275,8 @@ Finally, we can decide which event happens by drawing a uniform random number, U
 NEEDS MORE WORK! Generic inverse transform sampling. Walker Aliased inverse transform sampling.
 
 \section{Shielded Coulomb Scattering}
+
+Note this this is not correct. There are too many factors of $Z_m$. See equation \ref{eq:CS_rate}.
 
 As the electrons and positrons travel through the simulation, they will collide off of atomic nuclei. We simulate this by including the effects of elastic scattering off of atomic nuclei via the shielded coulomb cross section. The differential cross section for the shielded coulomb cross section is:
 
@@ -419,13 +421,15 @@ Plugging into equation \ref{dimensionless_cross_section_eq}, converting to dimen
 \frac{dn_{M\o ller}}{d E'} = \frac{\Delta \tau}{\beta}\left[  \frac{E^2}{E'^2(E-E')^2} - \frac{2\gamma^2 + 2\gamma -1}{E'(E-E')\gamma^2}  + \frac{1}{\gamma^2}  \right]
 \end{equation}
 
+(Note that, unlike shielded coulomb scattering above, this equation is actually somewhat correct in reference to eq \ref{eq:CS_rate}. Need to just turn delta tau into dtau and move to LHS)
+
 Where E' is the dimensionless version of K, and E is the kinetic energy of the original electron before scattering. This equation can be turned into a distribution using the method discussed above for a number of pertinent energies, and these distributions can be saved in a table for later use. The normalization factor (used to normalize the distribution) will need to be saved as well in order to know how many times to sample the distributions.
 
 In the main simulation, once equation \ref{dimensionless_moller_scattering_eq}, we need to use the final energy to find the angles of the two electrons.
 
 \begin{figure}
 \centering
-\includegraphics[width=0.7\linewidth]{./scattering_kinematics}
+\includegraphics[width=0.7\linewidth]{./figures/moller_kinematics/scattering_kinematics}
 \caption{Diagram showing an electron scattering off of an electron at rest.}
 \label{scattering_kin_fig}
 \end{figure}

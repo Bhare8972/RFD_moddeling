@@ -65,8 +65,8 @@ double bethe_subtract_moller(double mom_sq, double minimum_energy)
 namespace bethe_table{
 
 double density=1.205E-3; // g cm^-3
-double air_molecular_density=2.688E25; // m^-3
-double electron_classical_radius=2.8179E-15;
+//double air_molecular_density=2.688E25; // m^-3
+//double average_air_molecular_atomic_number=14.2;
 
 //energy of electrons in keV
 //gsl::vector electron_energy({ 0.02, 0.04, 0.06, 0.1, 0.2, 0.4, 0.6, 1, 2,
@@ -220,8 +220,8 @@ public:
         raw_electron_mom_sq-=1.0; //subtract one
 
         //convert electron stopping power
-        double conversion_factor=elementary_charge*1.0E8*bethe_table::density/(2.0*3.1415926*average_air_atomic_number*bethe_table::electron_classical_radius*electron_rest_energy*
-                                                                                                    bethe_table::electron_classical_radius*bethe_table::air_molecular_density);
+        double conversion_factor=elementary_charge*1.0E8*bethe_table::density/(2.0*3.1415926*average_air_atomic_number*electron_classical_radius*electron_rest_energy*
+                                                                                                    electron_classical_radius*average_air_atomic_density);
         gsl::vector raw_electron_stopping_power=bethe_table::electron_SP*conversion_factor; //multiplication makes a new vector
 
         if(save_output_table)

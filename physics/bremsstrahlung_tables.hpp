@@ -200,7 +200,7 @@ namespace selterBerger_brem_tables
 namespace bremsstrahlung_distribution
 {
 
-    gsl::vector initial_energies({1.00E+03,5.00E+03,1.00E+04,5.00E+04,1.00E+05,5.00E+05});
+    gsl::vector initial_energies({1.00E+0,5.00E+0,1.00E+01,5.00E+01,1.00E+02,5.00E+02});
 
     gsl::vector photon_energies({0.00E+00,6.00E-01,8.00E-01,9.50E-01});
 

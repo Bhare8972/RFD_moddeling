@@ -221,8 +221,9 @@ public:
 	    energy=energy_;
 	    timesteps=timesteps_;
 
-	    num_interactions_per_timestep=gsl::vector(timesteps.size());
-	    LOOP(num_interactions_per_timestep, A, timesteps,  cross_section.num_interactions_per_tau*A);
+	    num_interactions_per_timestep=timesteps*cross_section.num_interactions_per_tau;
+	    //gsl::vector(timesteps.size());
+	    //LOOP(num_interactions_per_timestep, A, timesteps,  cross_section.num_interactions_per_tau*A);
 
         distributions.reserve(timesteps.size());
         for(auto TS : timesteps)

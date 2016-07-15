@@ -18,7 +18,7 @@
 #include "physics/bethe_eq.hpp"
 #include "physics/apply_force.hpp"
 #include "physics/moller_scattering.hpp"
-#include "physics/bremsstrahlung.hpp"
+//#include "physics/bremsstrahlung.hpp"
 #include "physics/interaction_chooser.hpp"
 
 using namespace gsl;
@@ -27,10 +27,8 @@ using namespace std;
 
 int main()
 {
-    double threshold_electric_field=2.84E5/E_field_units;
-    double fraction_field=5;
-    string output_fname="output_R1";
-    size_t nseeds=100;
+    string output_fname="output";
+    size_t nseeds=10;
 
 
 	int number_itterations=40000*nseeds;
@@ -42,8 +40,8 @@ int main()
 	//initialize electric field
 	uniform_field E_field;
 	E_field.set_minimum(-Kilo/distance_units, -Kilo/distance_units, -Kilo/distance_units);
-	E_field.set_maximum(Kilo/distance_units, Kilo/distance_units, 1000/distance_units);
-	E_field.set_value(0, 0, -1*fraction_field*threshold_electric_field);
+	E_field.set_maximum(Kilo/distance_units, Kilo/distance_units, 300/distance_units);
+	E_field.set_value(0, 0, -3.75E5/E_field_units);
 	//E_field.set_value(0, 0, 0/E_field_units);
 
 	//magnetic field is zero
@@ -64,10 +62,10 @@ int main()
     diffusion_table coulomb_scattering_engine;
 
     //bremsstrahlung
-    print("building brem tables");
-    bremsstrahlung_table brem_engine(particle_removal_energy, 200000/energy_units_kev);
-    print("brem tables built");
-    brem_engine.output_table();
+    //print("building brem tables");
+    //bremsstrahlung_table brem_engine(particle_removal_energy, 200000/energy_units_kev);
+    //print("brem tables built");
+    //brem_engine.output_table();
 
     //interaction chooser
     interaction_chooser_linear<1> interaction_engine(moller_engine); //only one interaction at the moment
@@ -192,7 +190,7 @@ int main()
         }
 
 //// shielded coulomb scattering ////
-        coulomb_scattering_engine.scatter(energy_before_scattering, current_electron);
+        coulomb_scattering_engine.scatter(energy_before_scattering, current_electron); //note:: this needs to be fixed!!!
 
 //// update electron ////
         save_data.update_electron(current_electron);
