@@ -202,7 +202,7 @@ namespace bremsstrahlung_distribution
 
     gsl::vector initial_energies({1.00E+0,5.00E+0,1.00E+01,5.00E+01,1.00E+02,5.00E+02});
 
-    gsl::vector photon_energies({0.00E+00,6.00E-01,8.00E-01,9.50E-01});
+    gsl::vector photon_reduced_energies({0.00E+00,6.00E-01,8.00E-01,9.50E-01});
 
     gsl::vector charges({2.00E+00,8.00E+00,1.30E+01,4.70E+01,7.90E+01,9.20E+01});
 

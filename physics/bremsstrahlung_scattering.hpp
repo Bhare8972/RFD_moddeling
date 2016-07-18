@@ -40,7 +40,7 @@ namespace brem_tools
         {
             gsl::vector diff_cross(selterBerger_brem_tables::photon_reduced_energies.size());
             gsl::vector all_photon_energies(selterBerger_brem_tables::photon_reduced_energies.size());
-            double electron_energy=selterBerger_brem_tables::initial_energies[energy_index]/energy_units_kev;
+            electron_energy=selterBerger_brem_tables::initial_energies[energy_index]/energy_units_kev;
             std::list<double> photon_energy_init;
             photon_energy_init.push_back(_min_photon_energy);
 
@@ -81,16 +81,13 @@ namespace brem_tools
         }
     };
 
-
-CHANGE THESE TO WORK WITH PHOTON enerGY FRACTIONS, nOT FULL ENERGy
-
     class PA_electron_energy_inverter
     {
     public:
         gsl::vector A_values;
         gsl::vector B_values;
 
-        PA_electron_energy_inverter(gsl::vector electron_energies, int photon_energy_index)
+        PA_electron_energy_inverter(gsl::vector electron_energies_kev, int photon_energy_index)
         {
             //first interpolate to get the A and B values for the correct Z. Assume that Z can just be average air atomic number
             gsl::vector initial_A_vector(bremsstrahlung_distribution::initial_energies.size());
@@ -101,7 +98,7 @@ CHANGE THESE TO WORK WITH PHOTON enerGY FRACTIONS, nOT FULL ENERGy
             {
 
                 //first do 'A' values
-                double* YA=distribution_factor_A[energy_index][photon_energy_index];
+                double* YA=bremsstrahlung_distribution::distribution_factor_A[energy_index][photon_energy_index];
                 gsl_spline_init(spline, &bremsstrahlung_distribution::charges[0], YA, bremsstrahlung_distribution::charges.size());
                 initial_A_vector[energy_index]= gsl_spline_eval(spline, average_air_atomic_number, NULL);
 
@@ -119,13 +116,13 @@ CHANGE THESE TO WORK WITH PHOTON enerGY FRACTIONS, nOT FULL ENERGy
             gsl_spline_init(Avalue_spline,   &bremsstrahlung_distribution::initial_energies[0],   initial_A_vector,   initial_A_vector.size());
             gsl_spline_init(Bvalue_spline,   &bremsstrahlung_distribution::initial_energies[0],   initial_B_vector,   initial_B_vector.size());
 
-            A_values= gsl::vector(electron_energies.size());
-            B_values= gsl::vector(electron_energies.size());
+            A_values= gsl::vector(electron_energies_kev.size());
+            B_values= gsl::vector(electron_energies_kev.size());
 
-            for(new_energy_i=0; new_energy_i<electron_energies.size(); new_energy_i++)
+            for(new_energy_i=0; new_energy_i<electron_energies_kev.size(); new_energy_i++)
             {
-                A_values[new_energy_i]=gsl_spline_eval(Avalue_spline, electron_energies[new_energy_i], NULL);
-                B_values[new_energy_i]=gsl_spline_eval(Bvalue_spline, electron_energies[new_energy_i], NULL);
+                A_values[new_energy_i]=gsl_spline_eval(Avalue_spline, electron_energies_kev[new_energy_i], NULL);
+                B_values[new_energy_i]=gsl_spline_eval(Bvalue_spline, electron_energies_kev[new_energy_i], NULL);
             }
 
             gsl_spline_free(Avalue_spline);
@@ -137,96 +134,98 @@ CHANGE THESE TO WORK WITH PHOTON enerGY FRACTIONS, nOT FULL ENERGy
     {
     public:
 
-        gsl::vector photon_energy_fractions;
+//        gsl::vector photon_energy_fractions;
         std::shared_ptr<poly_spline> A_spline;
         std::shared_ptr<poly_spline> B_spline;
 
-        double electron_energy;
-        double beta;
-        double beta_sq;
+//        double electron_energy;
+//        double beta;
+//        double beta_sq;
+//
+//        double CL_factor;
+//        double NL_factor;
+//        double B4;
+//        double B3;
+//        double B1;
 
-        double CL_factor;
-        double NL_factor;
-        double B4;
-        double B3;
-        double B1;
-
-        photon_angle_sampler(double _electron_energy, gsl::vector _photon_energy_fractions, gsl::vector _A_values, gsl::vector _B_values)
+        //photon_angle_sampler(double electron_energy, gsl::vector _photon_energy_fractions, gsl::vector _A_values, gsl::vector _B_values)
+        photon_angle_sampler(gsl::vector photon_reduced_energies, gsl::vector A_values, gsl::vector B_values)
         {
             //can accelerate lookup by re-sampling photon energies to be exponential, then need to add exponential/linear acceleration to poly_spline
 
-            photon_energy_fractions=_photon_energy_fractions;
-            A_spline=akima_spline(photon_energy_fractions, _A_values);
-            B_spline=akima_spline(photon_energy_fractions, _B_values);
+            //photon_energy_fractions=_photon_energy_fractions;
+            A_spline=akima_spline(photon_reduced_energies, A_values);
+            B_spline=akima_spline(photon_reduced_energies, B_values);
 
-            electron_energy=_electron_energy;
-            beta=KE_to_beta(electron_energy);
-            beta_sq=beta*beta;
-            double beta_tri=beta_sq*beta;
-            double beta_quad=beta_tri*beta;
-
-            double beta_p1=beta+1;
-            CL_factor=(beta_quad + 3*beta_tri + 4.0*beta_sq + 3.0*beta + 1)/(3.0*beta_sq*beta_p1*beta_p1*beta_p1);
-
-            double beta_m1=beta-1.0;
-            NL_factor=(beta_quad - 3*beta_tri + 4.0*beta_sq - 3.0*beta + 1)/(3.0*beta_sq*beta_m1*beta_m1*beta_m1);
-
-            B4=3.0*beta_sq * 6.0;
-            B3=beta_quad + 4.0*beta_sq + 4.0;
-            B1=beta_quad + beta_sq + 1.0;
+            //electron_energy=_electron_energy;
+//            beta=KE_to_beta(electron_energy);
+//            beta_sq=beta*beta;
+//            double beta_tri=beta_sq*beta;
+//            double beta_quad=beta_tri*beta;
+//
+//            double beta_p1=beta+1;
+//            CL_factor=(beta_quad + 3*beta_tri + 4.0*beta_sq + 3.0*beta + 1)/(3.0*beta_sq*beta_p1*beta_p1*beta_p1);
+//
+//            double beta_m1=beta-1.0;
+//            NL_factor=(beta_quad - 3*beta_tri + 4.0*beta_sq - 3.0*beta + 1)/(3.0*beta_sq*beta_m1*beta_m1*beta_m1);
+//
+//            B4=3.0*beta_sq * 6.0;
+//            B3=beta_quad + 4.0*beta_sq + 4.0;
+//            B1=beta_quad + beta_sq + 1.0;
         }
 
-        double angle_sample(double photon_energy_fraction, double uniform_rand)
+        void find_parameters(double photon_reduced_energy, double& return_A_value, double& return_B_value)
         {
-            double A_value=A_spline->call(photon_energy);
-            double B_value=B_spline->call(photon_energy);
-
-            double K= 4.0/3.0 - A_value*23.0/24.0;
-            double L= A_value*41.0/21.0 -4.0/3.0;
-            double C=L*CL_factor - K/(1.0 + beta);
-            double N_bar=C-K*NL_factor + K/(1.0 - beta);
-            double Q=3.0*beta_sq*(N_bar*uniform_rand - C);
-            double inv_Q=1.0/Q;
-
-            K*=beta_sq;
-
-            double constant_term=(1.0 - 3.0*K - L*B2)*inv_Q;
-            double first_term=(9.0*K - 4.0*Q + L*B3)*inv_Q;;
-            double second_term=(6.0*Q-9.0*K-L*B4)*inv_Q;
-            double third_term=3.0*K - 4.0*Q -3*L)*inv_Q;
-
-// solve equation x^4 + a*x^3 + b*x^2 + c*x + d by Dekart-Euler method
-// return 4: 4 real roots x[0], x[1], x[2], x[3], possible multiple roots
-// return 2: 2 real roots x[0], x[1] and complex x[2]±i*x[3],
-// return 0: two pair of complex roots: x[0]±i*x[1],  x[2]±i*x[3],
-            double poly_solution[4];
-            int solution_type=SolveP4(poly_solution, third_term, second_term, first_term, constant_term);
-
-            //assume that there is a correct real solution
-            double U;
-            if(poly_solution[0]>=-beta and poly_solution[0]<=beta) //all types have real component at zero
-            {
-                U=poly_solution[0]/beta;
-            }
-            else if(poly_solution[2]>=-beta and poly_solution[2]<=beta)
-            {
-                U=poly_solution[2]/beta;
-            }
-            else if(solution_type!=0 and poly_solution[1]>=-beta and poly_solution[1]<=beta)
-            {
-                U=poly_solution[1]/beta;
-            }
-            else if(solution_type!=0 and poly_solution[3]>=-beta and poly_solution[3]<=beta)
-            {
-                U=poly_solution[3]/beta;
-            }
-            else
-            {
-                throw gen_exception("cannot solve for photon angle in brem");
-            }
-
-            return std::acos(U);
+            return_A_value=A_spline->call(photon_reduced_energy);
+            return_B_value=B_spline->call(photon_reduced_energy);
         }
+
+//            double K= 4.0/3.0 - A_value*23.0/24.0;
+//            double L= A_value*41.0/21.0 -4.0/3.0;
+//            double C=L*CL_factor - K/(1.0 + beta);
+//            double N_bar=C-K*NL_factor + K/(1.0 - beta);
+//            double Q=3.0*beta_sq*(N_bar*uniform_rand - C);
+//            double inv_Q=1.0/Q;
+//
+//            K*=beta_sq;
+//
+//            double constant_term=(1.0 - 3.0*K - L*B2)*inv_Q;
+//            double first_term=(9.0*K - 4.0*Q + L*B3)*inv_Q;;
+//            double second_term=(6.0*Q-9.0*K-L*B4)*inv_Q;
+//            double third_term=3.0*K - 4.0*Q -3*L)*inv_Q;
+//
+//// solve equation x^4 + a*x^3 + b*x^2 + c*x + d by Dekart-Euler method
+//// return 4: 4 real roots x[0], x[1], x[2], x[3], possible multiple roots
+//// return 2: 2 real roots x[0], x[1] and complex x[2]±i*x[3],
+//// return 0: two pair of complex roots: x[0]±i*x[1],  x[2]±i*x[3],
+//            double poly_solution[4];
+//            int solution_type=SolveP4(poly_solution, third_term, second_term, first_term, constant_term);
+//
+//            //assume that there is a correct real solution
+//            double U;
+//            if(poly_solution[0]>=-beta and poly_solution[0]<=beta) //all types have real component at zero
+//            {
+//                U=poly_solution[0]/beta;
+//            }
+//            else if(poly_solution[2]>=-beta and poly_solution[2]<=beta)
+//            {
+//                U=poly_solution[2]/beta;
+//            }
+//            else if(solution_type!=0 and poly_solution[1]>=-beta and poly_solution[1]<=beta)
+//            {
+//                U=poly_solution[1]/beta;
+//            }
+//            else if(solution_type!=0 and poly_solution[3]>=-beta and poly_solution[3]<=beta)
+//            {
+//                U=poly_solution[3]/beta;
+//            }
+//            else
+//            {
+//                throw gen_exception("cannot solve for photon angle in brem");
+//            }
+//
+//            return std::acos(U);
+        //}
 
     };
 
@@ -239,9 +238,11 @@ public:
     //sampling photon energy
     gsl::vector PE_initial_electron_energies;
     std::vector<brem_energy_sampler> PE_samplers;
+    size_t PE_index;
 
     //sampling photon angle
     gsl::vector PA_initial_electron_energies;
+    std::vector<photon_angle_sampler> PA_param_samplers;
 
     rand_threadsafe rand;
 
@@ -267,12 +268,11 @@ public:
         for(size_t energy_i=first_electron_energy_index; energy_i<selterBerger_brem_tables::initial_energies.size(); energy_i++)
         {
             PE_samplers.emplace_back(min_photon_energy, energy_i);
-            PE_initial_electron_energies[energy_i]=energy_samplers.back().electron_energy;
+            PE_initial_electron_energies[energy_i]=PE_samplers.back().electron_energy;
         }
 
 
 
-CHANGE BELOW TO WORK WITH PHOTON enerGY FRACTIONS, nOT FULL ENERGy
 
         //set up photon angle samplers
         PA_initial_electron_energies=logspace(std::log10(_min_photon_energy*energy_units_kev), std::log10(bremsstrahlung_distribution::initial_energies.back() ), 100 ); //notice that this is in Kev!!
@@ -283,7 +283,134 @@ CHANGE BELOW TO WORK WITH PHOTON enerGY FRACTIONS, nOT FULL ENERGy
         PA_electron_energy_inverter PA_inverter_3(PA_initial_electron_energies, 3);
 
         PA_initial_electron_energies/=energy_units_kev; //convert back to dimensionless units
+        PA_param_samplers.reserve(PA_initial_electron_energies.size());
+        for(size_t initial_energy_i=0; initial_energy_i<PA_initial_electron_energies.size(); initial_energy_i++)
+        {
+            gsl::vector energy_A_values(4);
+            gsl::vector energy_B_values(4);
 
+            //technically should be a loop.but again, there are only 4
+            energy_A_values[0]=PA_inverter_0.A_values[initial_energy_i];
+            energy_B_values[0]=PA_inverter_0.B_values[initial_energy_i];
+            energy_A_values[1]=PA_inverter_1.A_values[initial_energy_i];
+            energy_B_values[1]=PA_inverter_1.B_values[initial_energy_i];
+            energy_A_values[2]=PA_inverter_2.A_values[initial_energy_i];
+            energy_B_values[2]=PA_inverter_2.B_values[initial_energy_i];
+            energy_A_values[3]=PA_inverter_3.A_values[initial_energy_i];
+            energy_B_values[3]=PA_inverter_3.B_values[initial_energy_i];
+
+            PA_param_samplers.emplace_back(bremsstrahlung_distribution::photon_reduced_energies, energy_A_values, energy_B_values);
+        }
+        PE_index=0;
+    }
+
+    double rate(double initial_electron_energy)
+    {
+        if(initial_electron_energy<PE_initial_electron_energies[0]) return 0;
+
+        PE_index = search_sorted_d(PE_initial_electron_energies, initial_electron_energy); //make this perfect exponential for faster sampler
+
+        double low_value=PE_samplers[PE_index].rate;
+        double high_value=PE_samplers[PE_index+1].rate;
+
+        return linear_interpolate(PE_initial_electron_energies[PE_index],low_value,     PE_initial_electron_energies[PE_index+1],high_value,     initial_electron_energy);
+    }
+
+    double sample_photon_energy(double initial_electron_energy)
+    {
+        //assume that initial_electron_energy isn't too large
+        if(initial_electron_energy<PE_initial_electron_energies[0]) return 0;
+
+        if(not( initial_electron_energy>=PE_initial_electron_energies[PE_index] and initial_electron_energy<PE_initial_electron_energies[PE_index+1] ))
+        {
+            PE_index = search_sorted_d(PE_initial_electron_energies, initial_electron_energy); //make this perfect exponential for faster sampler
+        }
+
+
+        double R=rand.uniform();
+        double low_value=PE_samplers[PE_index].sample(R);
+        double high_value=PE_samplers[PE_index+1].sample(R);
+
+        return linear_interpolate(PE_initial_electron_energies[PE_index],low_value,     PE_initial_electron_energies[PE_index+1],high_value,     initial_electron_energy);
+    }
+
+    double sample_photon_angle(double initial_electron_energy, double photon_energy)
+    {
+        size_t sampler_index;
+        if(initial_electron_energy > PA_initial_electron_energies.back())
+        {
+            sampler_index=PA_initial_electron_energies.size()-1; //assume that A and B parameters do not change much at high energy...for now
+        }
+        else
+        {
+            sampler_index=search_sorted_exponential(PA_initial_electron_energies, initial_electron_energy);
+        }
+        double reduced_photon_energy=photon_energy/initial_electron_energy;
+
+        double A_low;
+        double B_low;
+        double A_high;
+        double B_high;
+        PA_initial_electron_energies[sampler_index].find_parameters(reduced_photon_energy, A_low, B_low);
+        PA_initial_electron_energies[sampler_index+1].find_parameters(reduced_photon_energy, A_high, B_high);
+
+        double A_param = linear_interpolate(PA_initial_electron_energies[sampler_index],A_low,     PA_initial_electron_energies[sampler_index+1],A_high,     initial_electron_energy);
+        double B_param = linear_interpolate(PA_initial_electron_energies[sampler_index],B_low,     PA_initial_electron_energies[sampler_index+1],B_high,     initial_electron_energy);
+
+        //maybe turn the following equation into a spline?....entire point is to avoid excess splining
+        double beta_prime=KE_to_beta(electron_energy)*(1.0-B_param);
+        double beta_pSQ=beta_prime*beta_prime;
+        double beta_pTRI=beta_pSQ*beta_prime;
+        double beta_pFOURTH=beta_pTRI*beta_prime;
+
+        double R=rand.uniform();
+
+        double K=4.0/3.0 - A_param*23.0/24.0;
+        double L=A_param*41.0/21.0 - 4.0/3.0;
+        double B1=beta_pFOURTH + beta_pSQ +1;
+        double B2= 3.0*(beta_pSQ + 1);
+        double betap1=beta_prime+1;
+        double nbetam1=1 - beta_prime;
+        double C=L*(B1 + 3*beta_prime*(beta_pSQ + beta_prime +1.0))/(3.0*beta_pSQ*betap1*betap1*betap1)  - K/betap1;
+        double N_bar=L*(B1 - B2*beta_prime + 3.0*beta_pSQ)/(3*beta_pSQ*nbetam1*nbetam1*nbetam1) + C + K/nbetam1;
+        double Q=3*beta_pSQ*(N_bar*R - C);
+
+        double zeroth_term=3.0*beta_pSQ*K - Q + L*B1;
+        double first_term=3.0*Q - 6.0*beta_pSQ*K - L*B2;
+        double second_term=3.0*beta_pSQ*K + 3*L -3*Q)
+
+        zeroth_term/=Q
+        first_term/=Q;
+        second_term/=Q;
+
+// solve cubic equation x^3 + a*x^2 + b*x + c
+// x - array of size 3
+// In case 3 real roots: => x[0], x[1], x[2], return 3
+//         2 real roots: x[0], x[1],          return 2
+//         1 real root : x[0], x[1] ± i*x[2], return 1
+        double output[3];
+        int solution_type= SolveP3(output, second_term, first_term, zeroth_term);
+
+        //assume that there is a correct real solution
+        double U;
+        if(output[0]>=-beta_prime and output[0]<=beta_prime) //all types have real component at zero
+        {
+            U=output[0]/beta_prime;
+        }
+        else if(output[1]>=-beta_prime and output[1]<=beta_prime)
+        {
+            U=output[1]/beta_prime;
+        }
+        else if(solution_type==3 and output[2]>=-beta_prime and output[2]<=beta_prime)
+        {
+            U=output[2]/beta_prime;
+        }
+        else
+        {
+            throw gen_exception("cannot solve for photon angle in brem");
+        }
+
+        return std::acos(U);
     }
 
 
