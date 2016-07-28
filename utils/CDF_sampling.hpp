@@ -41,7 +41,7 @@ public:
 
     gsl::vector_long aliases;
     gsl::vector alias_probabilities;
-    gsl::vector alias_boundAdjust;
+    //gsl::vector alias_boundAdjust;
 
     CDF_sampler(gsl::vector x_values, gsl::vector CDF_values)
     {
@@ -62,7 +62,7 @@ public:
         //setup walker aliasing
         aliases = gsl::vector_long(spline_sampler.splines.size());
         alias_probabilities = gsl::vector(spline_sampler.splines.size());
-        alias_boundAdjust = gsl::vector(spline_sampler.splines.size());
+        //alias_boundAdjust = gsl::vector(spline_sampler.splines.size());
 
         std::list<alias_data> too_low;
         std::list<alias_data> too_high;
@@ -77,7 +77,7 @@ public:
             //initialize the alias data most of this will change
             aliases[spline_i]=spline_i;
             alias_probabilities[spline_i]=new_data.size;
-            alias_boundAdjust[spline_i]=1.0;
+            //alias_boundAdjust[spline_i]=1.0;
 
             if( std::abs(1.0-new_data.size) < 1.0E-10  )
             {
@@ -110,7 +110,7 @@ public:
                 aliases[low_iter->index]=high_iter->index;
                 alias_probabilities[low_iter->index]=low_iter->size;
 
-                alias_boundAdjust[low_iter->index]=spline_sampler.x_vals[high_iter->index] + (high_iter->size-1.0)/double(aliases.size());//
+                //alias_boundAdjust[low_iter->index]=spline_sampler.x_vals[high_iter->index] + (high_iter->size-1.0)/double(aliases.size());//
 
                 high_iter->size+=low_iter->size-1.0;
 
@@ -158,12 +158,14 @@ public:
         double ret=-1;
         if(remainder<alias_probabilities[index])
         {
-            ret= spline_sampler.splines[index].y( spline_sampler.x_vals[index] + remainder/aliases.size() );
+            //ret= spline_sampler.splines[index].y( spline_sampler.x_vals[index] + remainder/aliases.size() );
+            ret= spline_sampler.splines[index].y( spline_sampler.x_vals[index] + remainder*(spline_sampler.x_vals[index+1]-spline_sampler.x_vals[index]) );
         }
         else
         {
             int alias_index=aliases[index];
-            ret=spline_sampler.splines[alias_index].y( alias_boundAdjust[index] + remainder/aliases.size() );
+            //ret=spline_sampler.splines[alias_index].y( alias_boundAdjust[index] + remainder/aliases.size() );
+            ret=spline_sampler.splines[alias_index].y( spline_sampler.x_vals[alias_index] + remainder*(spline_sampler.x_vals[alias_index+1]-spline_sampler.x_vals[alias_index]) );
         }
         return ret;
     }

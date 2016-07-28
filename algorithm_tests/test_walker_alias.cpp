@@ -227,12 +227,16 @@ print("sample new method");
         double sample=-1;
         if(remainder<alias_probabilities[index])
         {
-            sample= sampler.splines[index].y( sampler.x_vals[index] + remainder/double(aliases.size()) );
+            //sample= sampler.splines[index].y( sampler.x_vals[index] + remainder/double(aliases.size()) );
+            double X=sampler.x_vals[index] + remainder*(sampler.x_vals[index+1]-sampler.x_vals[index]); //don't need anything fancy. Just map the remainder to the bound of the spline!!
+            sample=sampler.splines[index].y( X );
         }
         else
         {
             int alias_index=aliases[index];
-            sample=sampler.splines[alias_index].y( alias_boundAdjust[index] + remainder/double(aliases.size()) );
+            double X=sampler.x_vals[alias_index] + remainder*(sampler.x_vals[alias_index+1]-sampler.x_vals[alias_index]); //don't need anything fancy. Just map the remainder to the bound of the spline!!
+            sample=sampler.splines[alias_index].y( X );
+            //sample=sampler.splines[alias_index].y( alias_boundAdjust[index] + remainder/double(aliases.size()) );
 /*
             if(sample<0 and not shown)
             {
@@ -248,7 +252,7 @@ print("sample new method");
         new_samples[sample_i]=sample;
     }
 
-    /*
+
 print("saving");
 
     arrays_output tables_out;
@@ -260,5 +264,5 @@ print("saving");
     tables_out.add_array(new_sample_table);
 
 	binary_output fout("./walker_test");
-	tables_out.write_out( &fout);*/
+	tables_out.write_out( &fout);
 }
