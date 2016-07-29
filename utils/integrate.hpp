@@ -13,6 +13,9 @@
 #include "gen_ex.hpp"
 #include "spline.hpp"
 
+//this is out of date
+//consider using chebyshev instead
+
 class cum_adap_simps_data
 {
 private:

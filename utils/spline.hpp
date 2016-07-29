@@ -13,6 +13,10 @@
 #include "functor.hpp"
 #include "gen_ex.hpp"
 
+
+//much of the algorithms here are out of date and need to be improved with chebyshev spline algorithms
+
+
 class poly_spline : public functor_1D //we should extend this to work for first order as well
 {
 public:
