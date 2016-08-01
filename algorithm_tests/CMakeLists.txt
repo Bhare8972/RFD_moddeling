@@ -39,4 +39,8 @@ add_executable(test_aliasing
               ./test_walker_alias.cpp)
 target_link_libraries(test_aliasing gsl gslcblas)
 
+add_executable(test_chebyshev
+              ./cheby_sampler_test.cpp)
+target_link_libraries(test_chebyshev gsl gslcblas)
+
 

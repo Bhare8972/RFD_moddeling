@@ -4,7 +4,7 @@ import numpy as np
 class binary_input(object):
     def __init__(self, fname):
         self.fname=fname
-        self.fin=file(fname, 'rb')
+        self.fin=open(fname, 'rb')
         
     def in_short(self):
         return unpack('b', self.fin.read(1))[0]
@@ -19,12 +19,12 @@ class binary_input(object):
         return unpack('d', self.fin.read(8))[0]
         
     def at_end(self):
-		L=self.fin.read(1)
-		if L=='':
-			return True
-		else:
-			self.fin.seek(-1,1)
-			return False
+        L=self.fin.read(1)
+        if L=='':
+            return True
+        else:
+            self.fin.seek(-1,1)
+            return False
         
 class array_input(object):
     def __init__(self, binary_in):

@@ -196,7 +196,7 @@ public:
         {
             spline_index=search_sorted_d(x_vals, X);
         }
-
+        
 		double Y= splines[spline_index].y(X);
 
 		return Y;

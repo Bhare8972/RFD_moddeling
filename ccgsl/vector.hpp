@@ -471,7 +471,8 @@ namespace gsl {
     /**
      * The default constructor is only really useful for assigning to.
      */
-    vector(){
+    vector()
+    {
       ccgsl_pointer = 0;
       count = 0; // initially nullptr will do
     }
@@ -481,7 +482,8 @@ namespace gsl {
      * The default constructor creates a new vector with n elements
      * @param n The number of elements in the vector
      */
-    explicit vector( size_t const n ){
+    explicit vector( size_t const n )
+    {
       if( n > 0 ) ccgsl_pointer = gsl_vector_alloc( n );
       else { ccgsl_pointer = new gsl_vector; ccgsl_pointer->size = 0; ccgsl_pointer->data = 0; }
       // just plausibly we could allocate vector but not count
@@ -498,7 +500,8 @@ namespace gsl {
      * we should not use gsl_vector_free() to deallocate the memory.
      * @param v The vector
      */
-    explicit vector( gsl_vector* v ){
+    explicit vector( gsl_vector* v )
+    {
       ccgsl_pointer = v;
       // just plausibly we could fail to allocate count: no further action needed.
       count = new size_t;
@@ -509,7 +512,8 @@ namespace gsl {
      * Could construct from a std::initializer_list in C++11
      * @param initializer_list The initializer_list.
      */
-    vector( std::initializer_list<double> initializer_list ){
+    vector( std::initializer_list<double> initializer_list )
+    {
       size_t const n = initializer_list.size();
       ccgsl_pointer = gsl_vector_alloc( n );
       // just plausibly we could allocate vector but not count
@@ -530,14 +534,16 @@ namespace gsl {
      * The copy constructor. This shares the vector. Use clone() if you want a full copy.
      * @param v The vector to copy.
      */
-    vector( vector const& v ) : ccgsl_pointer( v.ccgsl_pointer ), count( v.count ){
+    vector( vector const& v ) : ccgsl_pointer( v.ccgsl_pointer ), count( v.count )
+    {
       if( count != 0 ) ++*count; // vector is now shared.
     }
     /**
      * The copy constructor. This shares the vector. Use clone() if you want a full copy.
      * @param v The vector to copy.
      */
-    vector( vector& v ) : ccgsl_pointer( v.ccgsl_pointer ), count( v.count ){
+    vector( vector& v ) : ccgsl_pointer( v.ccgsl_pointer ), count( v.count )
+    {
       if( count != 0 ) ++*count; // vector is now shared.
     }
     // assignment operator
@@ -560,7 +566,6 @@ namespace gsl {
       return *this;
     }
 
-    //I hate the following function it always makes me unsure what will happen
 
     /**
      * Construct from an object that implements data() and size(). This is primarily intended
@@ -575,7 +580,9 @@ namespace gsl {
      * @param stride The stride.
      */
      /*
-    template<typename V> vector( V& v, size_t const stride = 1 ){
+    template<typename V>
+    vector( V& v, size_t const stride = 1 )
+    {
       size_t const n = v.size() / stride;
       ccgsl_pointer = static_cast<gsl_vector*>( malloc( sizeof( gsl_vector ) ) );
       ccgsl_pointer->size = n;
