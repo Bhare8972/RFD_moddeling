@@ -506,17 +506,55 @@ public:
                 rate=W0 + W1*Xhigh + W2*X2 + W3*X3 + W4*X4;
 
                 //we can do some fancy stuff here to make next function faster (Which needs to be done)
-print("setup");
-print(W0, W1, W2, W3, W4);
-X2=Xhigh*Xhigh;
-X3=X2*Xhigh;
-X4=X2*X2;
-print( (W0 + W1*Xhigh + W2*X2 + W3*X3 + W4*X4)/rate,  float(W1+W4)==float(W1) );
 
                 return rate;
             }
-
+            
             double invert(double N)
+            {
+                if(float(W1+W4)==float(W1))
+                {
+                    return invert3(N);
+                }
+                else
+                {
+                    return invert4(N);
+                }
+            }
+
+            double invert3(double N)
+            //N is from 0 to 1
+            //this can be improved significantly
+            {
+               
+                // solve cubic equation x^3 + a*x^2 + b*x + c
+                // x - array of size 3
+                // In case 3 real roots: => x[0], x[1], x[2], return 3
+                //         2 real roots: x[0], x[1],          return 2
+                //         1 real root : x[0], x[1] ± i*x[2], return 1
+                double sol[3];
+                int ret= SolveP3(sol, W2/W3, W1/W3, (W0-N*rate)/W3);
+
+
+                if( (sol[0]>=Xlow and sol[0]<=Xhigh) or float(Xhigh + float(Xlow-sol[0]))==float(Xhigh) or float(Xhigh + float(Xhigh-sol[0]))==float(Xhigh) )
+                {
+                    return sol[0];
+                }
+                else if((sol[1]>=Xlow and sol[1]<=Xhigh) or float(Xhigh + float(Xlow-sol[1]))==float(Xhigh) or float(Xhigh + float(Xhigh-sol[1]))==float(Xhigh) )
+                {
+                    return sol[1];
+                }
+                else if(ret==3 and ( (sol[2]>=Xlow and sol[2]<=Xhigh) or float(Xhigh + float(Xlow-sol[2]))==float(Xhigh) or float(Xhigh + float(Xhigh-sol[2]))==float(Xhigh) ) )
+                {
+                    return sol[2];
+                }
+                else
+                {
+                    throw gen_exception("3rd O polynomial cannot be inverted");
+                }
+            }
+
+            double invert4(double N)
             //N is from 0 to 1
             //this can be improved significantly
             {
@@ -528,54 +566,27 @@ print( (W0 + W1*Xhigh + W2*X2 + W3*X3 + W4*X4)/rate,  float(W1+W4)==float(W1) );
 
                 double sol[4];
                 int ret = SolveP4(sol, W3/W4, W2/W4, W1/W4, (W0-N*rate)/W4); //much of this can be pre-calculated
-print();
-print();
-print("sol");
-print(Xlow, Xhigh, rate, ret);
-double X02=sol[0]*sol[0];
-double X03=X02*sol[0];
-double X04=X02*X02;
-print(0, sol[0], W0 + W1*sol[0] + W2*X02 + W3*X03 + W4*X04, N*rate);
-
-double X12=sol[1]*sol[1];
-double X13=X12*sol[1];
-double X14=X12*X12;
-print(1, sol[1], W0 + W1*sol[1] + W2*X12 + W3*X13 + W4*X14, N*rate);
-
-double X22=sol[2]*sol[2];
-double X23=X22*sol[2];
-double X24=X22*X22;
-print(2, sol[2], W0 + W1*sol[2] + W2*X22 + W3*X23 + W4*X24, N*rate);
-
-double X32=sol[3]*sol[3];
-double X33=X32*sol[3];
-double X34=X32*X32;
-print(3, sol[3], W0 + W1*sol[3] + W2*X32 + W3*X33 + W4*X34, N*rate);
 
 
                 if( (sol[0]>=Xlow and sol[0]<=Xhigh) or float(Xhigh + float(Xlow-sol[0]))==float(Xhigh) or float(Xhigh + float(Xhigh-sol[0]))==float(Xhigh) )
                 {
-print("ret 0");
                     return sol[0];
                 }
                 else if((sol[2]>=Xlow and sol[2]<=Xhigh) or float(Xhigh + float(Xlow-sol[2]))==float(Xhigh) or float(Xhigh + float(Xhigh-sol[2]))==float(Xhigh) )
                 {
-print("ret 2");
                     return sol[2];
                 }
                 else if(ret!=0 and ( (sol[1]>=Xlow and sol[1]<=Xhigh) or float(Xhigh + float(Xlow-sol[1]))==float(Xhigh) or float(Xhigh + float(Xhigh-sol[1]))==float(Xhigh) ) )
                 {
-print("ret 1");
                     return sol[1];
                 }
                 else if(ret==4 and ((sol[3]>=Xlow and sol[3]<=Xhigh) or float(Xhigh + float(Xlow-sol[3]))==float(Xhigh) or float(Xhigh + float(Xhigh-sol[3]))==float(Xhigh) ) )
                 {
-print("ret 3");
                     return sol[3];
                 }
                 else
                 {
-                    throw gen_exception("polynomial cannot be inverted");
+                    throw gen_exception("4th O polynomial cannot be inverted");
                 }
             }
         };
