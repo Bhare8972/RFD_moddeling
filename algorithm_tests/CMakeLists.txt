@@ -43,4 +43,8 @@ add_executable(test_chebyshev
               ./cheby_sampler_test.cpp)
 target_link_libraries(test_chebyshev gsl gslcblas)
 
+add_executable(random_seeding_test
+              ./random_seeding_test.cpp)
+target_link_libraries(random_seeding_test gsl gslcblas)
+
 
