@@ -2,7 +2,7 @@ TODO:
 
 turn main loop into a class
 
-notice that the "Z" of air is molecular Z!! find errors that this has caused (namely in diffision scattering) and fix it!
+notice that the "Z" of air is molecular Z!! find errors that this has caused (namely in diffision scattering) and fix it! (I think this is mostly done)
 
 test results of simulation against lehtenin.
 
@@ -13,12 +13,11 @@ BREMSTRALHUNG!!!!!
 Then test simulation against Dwyer and find slowdowns.
 
 improve spline to use GSl spline functions where applicable.
-
-add new walker aliasing!!
-
+add new walker aliasing and cheby polys
 
 
 
+test random seeding procedure.
 
 Fix production of the diffusion table, so that the convergence condition has a better statisitcal basis. (Maybe use pearson chi-square test)
 	Also need to add adaptive bin sizes.

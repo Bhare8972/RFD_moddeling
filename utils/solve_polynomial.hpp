@@ -45,8 +45,12 @@ int SolveP3(double *x,double a,double b,double c)
     } else {
         A =-std::pow(std::fabs(r)+std::sqrt(r2-q3),1./3);
 		if( r<0 ) A=-A;
-		B = A==0? 0 : B=q/A;
-
+        
+		//B = A==0 ? 0 : B=q/A;
+        if(A==0) { B=0;}
+        else {B=q/A;}
+        
+        
 		a/=3;
 		x[0] =(A+B)-a;
         x[1] =-0.5*(A+B)-a;
@@ -123,10 +127,11 @@ int   SolveP4Bi(double *x, double b, double d)	// solve equation x^4 + b*x^2 + d
 static void  dblSort3( double &a, double &b, double &c) // make: a <= b <= c
 {
 	double t;
-	if( a>b ) { t=b; b=a; a=t; }(a,b);	// now a<=b
-	if( c<b ) {
-		{ t=b; b=a; a=t; }(b,c);			// now a<=b, b<=c
-		if( a>b ) { t=b; b=a; a=t; }(a,b);// now a<=b
+	if( a>b ) { t=b; b=a; a=t; }//(a,b);	// now a<=b
+	if( c<b ) 
+    {
+		{ t=b; b=a; a=t; }//(b,c);			// now a<=b, b<=c
+		if( a>b ) { t=b; b=a; a=t; }//(a,b);// now a<=b
 	}
 }
 

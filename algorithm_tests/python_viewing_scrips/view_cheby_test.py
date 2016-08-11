@@ -27,6 +27,12 @@ if __name__=="__main__":
     cheby_samples_table=table_in.get_array()
     samples=cheby_samples_table.read_doubles()
     
+    inverse_X_table=table_in.get_array()
+    inverse_X=inverse_X_table.read_doubles()
+    
+    inverse_Y_table=table_in.get_array()
+    inverse_Y=inverse_Y_table.read_doubles()
+    
     plt.plot(X, cheby_Y, 'b')
     plt.plot(X, actual_Y, 'g')
     plt.plot(X, simps_Y, 'r')
@@ -37,8 +43,16 @@ if __name__=="__main__":
     plt.plot(X, np.abs(simps_Y-actual_Y), 'r')
     plt.show()
     
-    plt.hist(samples)
-    X=np.linspace(0,np.pi,10000)
-    plt.plot(X, PDF(X))
+    plt.hist(samples, normed=True)
+    X_pdf=np.linspace(0,np.pi,10000)
+    plt.plot(X_pdf, PDF(X_pdf))
+    plt.show()
+    
+    
+    
+    I=cumtrapz(actual_Y, X, initial=0)
+    
+    plt.plot(inverse_X, inverse_Y, '-o')
+    plt.plot(I, X)
     plt.show()
     

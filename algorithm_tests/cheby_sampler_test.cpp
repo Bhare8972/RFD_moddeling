@@ -53,31 +53,36 @@ int main()
     auto simps_X=simps_integrator.points();
     auto simps_Y=simps_integrator.values();
 
-    //auto simps_spline = natural_cubic_spline(simps_X, simps_Y);
-    auto simps_spline = make_shared<poly_spline>(simps_X, simps_Y);
+    auto simps_spline = natural_cubic_spline(simps_X, simps_Y);
+    //auto simps_spline = akima_spline(simps_X, simps_Y); //Akima sucks!!
+    //auto simps_spline = make_shared<poly_spline>(simps_X, simps_Y);
     auto simps_functions=simps_spline->callv(X);
 
 
     ////use chebys
-    AdaptiveSpline_Cheby_O3 cheby_integrator(un_normed_pdf, 1E3, 0, 3.1415926);
+    AdaptiveSpline_Cheby_O3 cheby_integrator(un_normed_pdf, 1E2, 0, 3.1415926);
     print("Cheby calls:", un_normed_pdf.fcalls);
     auto spliner=cheby_integrator.get_spline();
     auto cheby_Y=spliner->callv(X);
 
+    
+    
+    auto inverse_spline=cheby_integrator.get_inverse_spline(0.01);
+    auto inverse_X=linspace( inverse_spline->x_vals[0], inverse_spline->x_vals.back(), 1000 );
+    auto inverse_Y=inverse_spline->callv(inverse_X);
 
-
+    
+    gsl::vector out_samples(num_samples);
 
     double rate;
     auto sampler=cheby_integrator.inverse_transform(0.01, rate);
 
     print("testing");
     rand_gen rand;
-    gsl::vector out_samples(num_samples);
     for(int i=0; i<num_samples; i++)
     {
         out_samples[i]=sampler.sample(rand.uniform());
     }
-
 
 
 
@@ -101,6 +106,14 @@ int main()
 
     shared_ptr<doubles_output> cheby_samples=make_shared<doubles_output>(out_samples);
     tables_out.add_array(cheby_samples);
+    
+    
+
+    shared_ptr<doubles_output> inverse_X_table=make_shared<doubles_output>(inverse_X);
+    tables_out.add_array(inverse_X_table);
+
+    shared_ptr<doubles_output> inverse_Y_table=make_shared<doubles_output>(inverse_Y);
+    tables_out.add_array(inverse_Y_table);
 
 
 
