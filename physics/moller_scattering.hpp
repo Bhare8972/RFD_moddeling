@@ -278,7 +278,7 @@ class moller_table : public physical_interaction
     {
         if(initial_energy< energies[0]) return NULL;
 
-        double initial_momentum=sqrt((initial_energy+1)*(initial_energy+1)-1);;
+        double initial_momentum=std::sqrt((initial_energy+1)*(initial_energy+1)-1);
 
         double azimuth_angle=sample_azimuth();
 
@@ -287,24 +287,26 @@ class moller_table : public physical_interaction
         double production_energy=sample_production_energy(initial_energy);
         double new_energy=initial_energy-production_energy;
 
-        double production_mom=sqrt((production_energy+1)*(production_energy+1)-1);
-        double new_momentum=sqrt((new_energy+1)*(new_energy+1)-1);
+        double production_mom=std::sqrt((production_energy+1)*(production_energy+1)-1);
+        double new_momentum=std::sqrt((new_energy+1)*(new_energy+1)-1);
 
         //calculate relavent angles
-        double old_inclination_scatter=acos( ((initial_energy+1)*(new_energy+1)-(production_energy+1))/(initial_momentum*new_momentum) );
-        double new_inclination_scatter=acos( ((initial_energy+1)*(production_energy+1)-(new_energy+1))/(initial_momentum*production_mom) );
+        double old_inclination_scatter=std::acos( ((initial_energy+1)*(new_energy+1)-(production_energy+1))/(initial_momentum*new_momentum) );
+        double new_inclination_scatter=std::acos( ((initial_energy+1)*(production_energy+1)-(new_energy+1))/(initial_momentum*production_mom) );
 
         //make new electron
         electron_T* new_electron=new electron_T;
 
+        normalize(electron->momentum);
+        
         new_electron->position=electron->position.clone();
-        new_electron->momentum=electron->momentum*(production_mom/initial_momentum);
+        new_electron->momentum=electron->momentum*production_mom;
         new_electron->timestep=electron->timestep;
         new_electron->charge=-1;//set_electron
         new_electron->current_time=electron->current_time;
 
         //adjust energy of old electron
-        electron->momentum*=(new_momentum/initial_momentum);
+        electron->momentum*=new_momentum;
 
         //scatter both particles
         electron->scatter_angle(old_inclination_scatter, azimuth_angle);

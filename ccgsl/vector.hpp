@@ -466,6 +466,22 @@ namespace gsl {
         }
         return out;
     }
+    
+    inline void clone_from(vector const& v)
+    //version of clone that doesn't instantiate new memory
+    {
+        // check if vectors are null
+        if( ccgsl_pointer == 0 ) throw vector_exception();
+        if( v.ccgsl_pointer == 0 ) throw vector_exception();
+        //check sizes
+        if( ccgsl_pointer->size != v.ccgsl_pointer->size) throw vector_exception();
+        
+        //copy
+        for( size_t i = 0; i<ccgsl_pointer->size; ++i )
+        {
+            (*this)[i]=v[i];
+        }
+    }
 
 
     /**

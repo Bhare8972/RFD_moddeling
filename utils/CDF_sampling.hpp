@@ -60,8 +60,8 @@ public:
         spline_sampler=akima_spline(sampler_X, sampler_Y);
 
         //setup walker aliasing
-        aliases = gsl::vector_long(spline_sampler.splines.size());
-        alias_probabilities = gsl::vector(spline_sampler.splines.size());
+        aliases = gsl::vector_long(spline_sampler->splines.size());
+        alias_probabilities = gsl::vector(spline_sampler->splines.size());
         //alias_boundAdjust = gsl::vector(spline_sampler.splines.size());
 
         std::list<alias_data> too_low;
@@ -72,7 +72,7 @@ public:
             //make alias_data, which is just needed for this algorithm
             alias_data new_data;
             new_data.index=spline_i;
-            new_data.size=(spline_sampler.x_vals[spline_i+1] - spline_sampler.x_vals[spline_i])*spline_sampler.splines.size();
+            new_data.size=(spline_sampler->x_vals[spline_i+1] - spline_sampler->x_vals[spline_i])*spline_sampler->splines.size();
 
             //initialize the alias data most of this will change
             aliases[spline_i]=spline_i;

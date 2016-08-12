@@ -65,7 +65,7 @@ public:
 	}
 
     void scatter_angle(double inclination, double azimuth)
-	//scatter the particle by an angle
+	//scatter the particle by an angle. Inclination is degrees from current angle, azimuth is degrees from a vector perpindicular to current travel direction and perpindicular to absolute Y.
 	{
 		double momentum_squared=momentum.sum_of_squares();
 
@@ -75,11 +75,11 @@ public:
 		double C=std::sin(inclination)*sin(azimuth); //basis vector will be vector Cv below
 
 		//find vector Bv, perpinduclar to momentum
-		gsl::vector init({1,0,0});
+		gsl::vector init({0,1,0});
 		gsl::vector Bv=cross(init, momentum);
 		if(Bv.sum_of_squares()<0.1) //init and momentum are close to parellel. Which would cause errors below
 		{
-			init=gsl::vector({0,1,0}); //so we try a different init. momentum cannot be parrellel to both inits
+			init=gsl::vector({0,0,1}); //so we try a different init. momentum cannot be parrellel to both inits
 			Bv=cross(init, momentum);
 		}
 
@@ -97,10 +97,58 @@ public:
 	}
 };
 
-class photon_T
+class photon_T : public particle_ID_T
 {
     //stuff
-    double energy;
+    double energy; //in units of electron mass
+    double current_time;
+    gsl::vector position; //dimensionless, in units of distance_units
+    gsl::vector travel_direction;
+    
+    photon_T()
+    //some default values
+    {
+        ID=next_ID;
+        next_ID++;
+        current_time=0;
+        energy=0;
+        
+        position=gsl::vector({0,0,0});
+        travel_direction=gsl::vector({0,0,0});
+    }
+    
+    void propagate(double time)
+    {
+        position+=time*travel_direction;
+    }
+    
+    void scatter_angle(double inclination, double azimuth)
+    //rotate direction by an angle. Inclination is degrees from current angle, azimuth is degrees from a vector perpindicular to current travel direction and perpindicular to absolute Y.
+    {
+        //calculate the three vector magnitudes
+        double A=std::cos(inclination); //basis vector is original direction
+        double B=std::sin(inclination)*cos(azimuth); //basis vector will be vector Bv below
+        double C=std::sin(inclination)*sin(azimuth); //basis vector will be vector Cv below
+        
+        //find vector Bv, perpinduclar to travel_direction
+        gsl::vector init({0,1,0});
+        gsl::vector Bv=cross(init, travel_direction);
+        if(Bv.sum_of_squares()<0.1) //init and momentum are close to parellel. Which would cause errors below
+        {
+            init=gsl::vector({0,0,1}); //so we try a different init. momentum cannot be parrellel to both inits
+            Bv=cross(init, travel_direction);
+        }
+
+        //normalize Bv
+        Bv/=sqrt(Bv.sum_of_squares());
+
+        //now we find Cv
+        gsl::vector Cv=cross(Bv, travel_direction); //Bv and momentum are garenteed to be perpindicular.
+
+        //find new momentum
+        travel_direction=A*travel_direction + B*Bv + C*Cv;
+        travel_direction/=std::sqrt(travel_direction.sum_of_squares()); //insure direction is normalized
+    }
 };
 
 

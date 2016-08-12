@@ -62,8 +62,8 @@ namespace brem_tools
             gsl::vector photon_energy(photon_energy_init);
 
             //integrate
-            auto diff_CS=akima_spline(all_photon_energies, diff_cross);
-            auto cross_section_spline=diff_CS.integrate()'
+            auto diff_CS=natural_cubic_spline(all_photon_energies, diff_cross);
+            auto cross_section_spline=diff_CS.integrate();
 
             //sample
             gsl::vector cross_section=cross_section_spline->callv(photon_energy);
@@ -71,7 +71,7 @@ namespace brem_tools
 
             //setup sampler
             rate=cross_section.back();
-            photon_energy_sampler.set(phton_energy, cross_section);
+            photon_energy_sampler.set(photon_energy, cross_section);
 
         }
 
@@ -111,8 +111,8 @@ namespace brem_tools
             gsl_spline_free(spline);
 
             //now interpolate A an B values across electron energies
-            gsl_spline *Avalue_spline = gsl_spline_alloc(gsl_interp_akima,  initial_A_vector.size());
-            gsl_spline *Bvalue_spline = gsl_spline_alloc(gsl_interp_akima,  initial_B_vector.size());
+            gsl_spline *Avalue_spline = gsl_spline_alloc(gsl_interp_cspline,  initial_A_vector.size());
+            gsl_spline *Bvalue_spline = gsl_spline_alloc(gsl_interp_cspline,  initial_B_vector.size());
             gsl_spline_init(Avalue_spline,   &bremsstrahlung_distribution::initial_energies[0],   initial_A_vector,   initial_A_vector.size());
             gsl_spline_init(Bvalue_spline,   &bremsstrahlung_distribution::initial_energies[0],   initial_B_vector,   initial_B_vector.size());
 
@@ -154,8 +154,8 @@ namespace brem_tools
             //can accelerate lookup by re-sampling photon energies to be exponential, then need to add exponential/linear acceleration to poly_spline
 
             //photon_energy_fractions=_photon_energy_fractions;
-            A_spline=akima_spline(photon_reduced_energies, A_values);
-            B_spline=akima_spline(photon_reduced_energies, B_values);
+            A_spline=natural_cubic_spline(photon_reduced_energies, A_values);
+            B_spline=natural_cubic_spline(photon_reduced_energies, B_values);
 
             //electron_energy=_electron_energy;
 //            beta=KE_to_beta(electron_energy);
@@ -326,7 +326,6 @@ public:
             PE_index = search_sorted_d(PE_initial_electron_energies, initial_electron_energy); //make this perfect exponential for faster sampler
         }
 
-
         double R=rand.uniform();
         double low_value=PE_samplers[PE_index].sample(R);
         double high_value=PE_samplers[PE_index+1].sample(R);
@@ -337,9 +336,9 @@ public:
     double sample_photon_angle(double initial_electron_energy, double photon_energy)
     {
         size_t sampler_index;
-        if(initial_electron_energy > PA_initial_electron_energies.back())
+        if(initial_electron_energy >= PA_initial_electron_energies.back())
         {
-            sampler_index=PA_initial_electron_energies.size()-1; //assume that A and B parameters do not change much at high energy...for now
+            sampler_index=PA_initial_electron_energies.size()-1; //assume that A and B parameters do not change significantly if energy is too high....for now
         }
         else
         {
@@ -358,7 +357,7 @@ public:
         double B_param = linear_interpolate(PA_initial_electron_energies[sampler_index],B_low,     PA_initial_electron_energies[sampler_index+1],B_high,     initial_electron_energy);
 
         //maybe turn the following equation into a spline?....entire point is to avoid excess splining
-        double beta_prime=KE_to_beta(electron_energy)*(1.0-B_param);
+        double beta_prime=KE_to_beta(initial_electron_energy)*(1.0-B_param);
         double beta_pSQ=beta_prime*beta_prime;
         double beta_pTRI=beta_pSQ*beta_prime;
         double beta_pFOURTH=beta_pTRI*beta_prime;
@@ -377,9 +376,9 @@ public:
 
         double zeroth_term=3.0*beta_pSQ*K - Q + L*B1;
         double first_term=3.0*Q - 6.0*beta_pSQ*K - L*B2;
-        double second_term=3.0*beta_pSQ*K + 3*L -3*Q)
+        double second_term=3.0*beta_pSQ*K + 3*L -3*Q;
 
-        zeroth_term/=Q
+        zeroth_term/=Q;
         first_term/=Q;
         second_term/=Q;
 
@@ -413,7 +412,33 @@ public:
         return std::acos(U);
     }
 
+    //eventually return photon
+    photon_T* single_interaction(double initial_energy, electron_T *electron)
+    {
+        if(initial_energy< min_photon_energy) return NULL;
 
+        //sample the distributions
+        double azimuth_angle=rand.uniform()*2*PI;
+        double photon_energy=sample_photon_energy(initial_energy);
+        double photon_angle=sample_photon_angle(initial_energy, photon_energy);
+        
+        double final_energy=initial_energy-photon_energy;
+        double final_momentum=std::sqrt((final_energy+1)*(final_energy+1)-1);
+
+        //normalize electron momentum. Assume that direction isn't affected
+        normalize(electron->momentum);
+        
+        //make new photon
+        photon_T new_photon= new photon_T;
+        new_photon->position.clone_from( electron->position);
+        new_photon->travel_direction.clone_from( electron->momentum); //electron momentum is normalized
+        new_photon->scatter_angle(photon_angle, azimuth_angle);
+        
+        //fix electron
+        electron->momentum*=final_momentum;
+        
+        return new_photon;
+    }
 };
 
 #endif // BREMSSTRAHLUNG_SCATTERING

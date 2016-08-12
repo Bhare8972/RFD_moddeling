@@ -18,7 +18,7 @@
 #include "physics/bethe_eq.hpp"
 #include "physics/apply_force.hpp"
 #include "physics/moller_scattering.hpp"
-//#include "physics/bremsstrahlung.hpp"
+#include "physics/bremsstrahlung_scattering.hpp"
 #include "physics/interaction_chooser.hpp"
 
 using namespace gsl;
@@ -33,9 +33,12 @@ int main()
 
 	int number_itterations=40000*nseeds;
     double particle_removal_energy=2.0/energy_units_kev; //remove particles that have energy less than this
+    double minimum_photon_energy=1.1/energy_units_kev; // will not produce discrete brem photons with energy less than this
 
     double pos_tol=0.0001;
     double mom_tol=0.0001;
+    
+////// initialize fields //////
 
 	//initialize electric field
 	uniform_field E_field;
@@ -52,7 +55,7 @@ int main()
 	B_field.set_value(0, 0, 0);
 
 
-	////  initialize physics engines ////
+///////  initialize physics engines ////////
 	rand_gen rand;
 
     //moller scattering
@@ -62,13 +65,10 @@ int main()
     diffusion_table coulomb_scattering_engine;
 
     //bremsstrahlung
-    //print("building brem tables");
-    //bremsstrahlung_table brem_engine(particle_removal_energy, 200000/energy_units_kev);
-    //print("brem tables built");
-    //brem_engine.output_table();
+    bremsstrahlung_scattering brem_engine( minimum_photon_energy );
 
     //interaction chooser
-    interaction_chooser_linear<1> interaction_engine(moller_engine); //only one interaction at the moment
+    interaction_chooser_linear<1> interaction_engine(moller_engine);//, brem_engine);
 
 	//force
 	apply_charged_force force_engine(particle_removal_energy, E_field.pntr(), B_field.pntr() );
@@ -92,7 +92,7 @@ int main()
         save_data.new_electron(new_electron);
     }
 
-	//simulate!
+///// BEGIN SIMULATION //////
     int timestep_trims=0;
     int timestep_redone=0;
     int i=0;
@@ -102,7 +102,7 @@ int main()
         auto current_electron=electrons.pop_first();
         if(not current_electron) {break; } //if current_electron is null, then tree is empty
 
-/////solve equations of motion////
+    /////solve equations of motion////
         double old_energy=current_electron->energy;
         auto old_position=current_electron->position;
         auto old_momentum=current_electron->momentum;
@@ -125,7 +125,7 @@ int main()
 
         double energy_before_scattering=current_electron->energy;
 
-//// scattering (moller only presently) ////
+    //// scattering (moller only presently) ////
         int interaction=-1;
         double time_to_scatter=interaction_engine.sample(old_energy, current_electron->energy, current_electron->timestep, interaction);
 

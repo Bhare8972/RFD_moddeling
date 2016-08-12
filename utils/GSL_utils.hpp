@@ -149,6 +149,11 @@ gsl::vector cross(gsl::vector& A, gsl::vector& B)
 	return out;
 }
 
+inline void normalize(gsl::vector& IN)
+{
+    IN/=std::sqrt(IN.sum_of_squares());
+}
+
 size_t search_sorted_d(gsl::vector A, double v)
 {
 	if(v<A[0] or v>=A[A.size()-1]) throw gen_exception("value out of range");

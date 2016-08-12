@@ -8,21 +8,23 @@ test results of simulation against lehtenin.
 
 add atmosphere density vs altitude
 
-BREMSTRALHUNG!!!!!
+BREMSTRALHUNG:
+	double check accuracy
 
 Then test simulation against Dwyer and find slowdowns.
 
-improve spline to use GSl spline functions where applicable.
 add new walker aliasing and cheby polys
 
+improve physics documentation
 
 
-test random seeding procedure.
+
 
 Fix production of the diffusion table, so that the convergence condition has a better statisitcal basis. (Maybe use pearson chi-square test)
 	Also need to add adaptive bin sizes.
 
 test diffusion tables!
+
 
 other:
 improve utility documentation.  less important.
