@@ -431,10 +431,10 @@ public:
 
 int main()
 {
-	double min_energy=0.0158735;  //100.0/energy_units_kev;
+	double min_energy=100.0/energy_units_kev;  //100.0/energy_units_kev;
 	bool skip_first_energy=true; //if this is true, we do not cover the lower energy, which may be handeled by a different simulation
-	double max_energy=100.0/energy_units_kev; //100000/energy_units_kev;
-	int num_energies=34; //100;
+	double max_energy=100000.0/energy_units_kev; //100000/energy_units_kev;
+	int num_energies=100; //100;
 
     double min_timestep=6e-7;
     double max_timestep=0.01;

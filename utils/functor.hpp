@@ -16,6 +16,8 @@ class functor_1D
 	public:
 
 	virtual double call(double)=0;
+    
+    double operator()(double A){ return call(A); }
 
     gsl::vector callv(const gsl::vector& data)
 	{

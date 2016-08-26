@@ -33,7 +33,7 @@ int main()
 
 	int number_itterations=40000*nseeds;
     double particle_removal_energy=2.0/energy_units_kev; //remove particles that have energy less than this
-    double minimum_photon_energy=1.1/energy_units_kev; // will not produce discrete brem photons with energy less than this
+    double minimum_photon_energy=5.1/energy_units_kev; // will not produce discrete brem photons with energy less than this
 
     double pos_tol=0.0001;
     double mom_tol=0.0001;
@@ -190,7 +190,7 @@ int main()
         }
 
 //// shielded coulomb scattering ////
-        coulomb_scattering_engine.scatter(energy_before_scattering, current_electron); //note:: this needs to be fixed!!!
+        coulomb_scattering_engine.scatter(energy_before_scattering, current_electron);
 
 //// update electron ////
         save_data.update_electron(current_electron);

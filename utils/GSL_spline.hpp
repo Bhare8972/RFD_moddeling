@@ -11,13 +11,14 @@ namespace GSL_SPLINE_TOOLS
     //copied from GSL code
     static inline void
     coeff_calc (const double c_array[], double dy, double dx, size_t index,
-                double * b, double * c, double * d)
+                double& b, double& c, double& d)
     {
       const double c_i = c_array[index];
       const double c_ip1 = c_array[index + 1];
-      *b = (dy / dx) - dx * (c_ip1 + 2.0 * c_i) / 3.0;
-      *c = c_i;
-      *d = (c_ip1 - c_i) / (3.0 * dx);
+      
+      b = (dy / dx) - dx * (c_ip1 + 2.0 * c_i) / 3.0;
+      c = c_i;
+      d = (c_ip1 - c_i) / (3.0 * dx);
     }
 
     typedef struct
@@ -60,7 +61,7 @@ std::shared_ptr<poly_spline> natural_cubic_spline(gsl::vector X, gsl::vector Y)
         double dy = y_hi - y_lo;
         //double delx = x_hi - x_lo;
         double b_i, c_i, d_i;
-        GSL_SPLINE_TOOLS::coeff_calc(state->c, dy, dx, spline_index,  &b_i, &c_i, &d_i);
+        GSL_SPLINE_TOOLS::coeff_calc(state->c, dy, dx, spline_index,  b_i, c_i, d_i);
 
         gsl::vector weights(4);
 

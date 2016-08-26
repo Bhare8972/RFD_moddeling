@@ -43,6 +43,8 @@ public:
     gsl::vector alias_probabilities;
     //gsl::vector alias_boundAdjust;
 
+    CDF_sampler(){}
+    
     CDF_sampler(gsl::vector x_values, gsl::vector CDF_values)
     {
         set(x_values, CDF_values);
@@ -50,14 +52,18 @@ public:
 
     void set(gsl::vector x_values, gsl::vector CDF_values)
     {
+print("1");
         //invert
         gsl::vector sampler_X;
         gsl::vector sampler_Y;
         make_fix_spline(CDF_values, x_values, sampler_X, sampler_Y);
         sampler_X/=sampler_X[sampler_X.size() - 1]; //normalize
 
-        //use akima spline interpolation
-        spline_sampler=akima_spline(sampler_X, sampler_Y);
+        //use spline interpolation
+     
+print("A");
+        spline_sampler=natural_cubic_spline(sampler_X, sampler_Y);
+print("B");
 
         //setup walker aliasing
         aliases = gsl::vector_long(spline_sampler->splines.size());
@@ -67,7 +73,7 @@ public:
         std::list<alias_data> too_low;
         std::list<alias_data> too_high;
 
-        for(size_t spline_i=0; spline_i<spline_sampler.splines.size(); spline_i++)
+        for(size_t spline_i=0; spline_i<spline_sampler->splines.size(); spline_i++)
         {
             //make alias_data, which is just needed for this algorithm
             alias_data new_data;
@@ -147,6 +153,8 @@ public:
         {
             print("WALKER ALIAS ALGORITHM ERROR 1");
         }
+
+print("2");
     }
 
     double sample(double uniform_rand)
@@ -159,13 +167,13 @@ public:
         if(remainder<alias_probabilities[index])
         {
             //ret= spline_sampler.splines[index].y( spline_sampler.x_vals[index] + remainder/aliases.size() );
-            ret= spline_sampler.splines[index].y( spline_sampler.x_vals[index] + remainder*(spline_sampler.x_vals[index+1]-spline_sampler.x_vals[index]) );
+            ret= spline_sampler->splines[index].y( spline_sampler->x_vals[index] + remainder*(spline_sampler->x_vals[index+1]-spline_sampler->x_vals[index]) );
         }
         else
         {
             int alias_index=aliases[index];
             //ret=spline_sampler.splines[alias_index].y( alias_boundAdjust[index] + remainder/aliases.size() );
-            ret=spline_sampler.splines[alias_index].y( spline_sampler.x_vals[alias_index] + remainder*(spline_sampler.x_vals[alias_index+1]-spline_sampler.x_vals[alias_index]) );
+            ret=spline_sampler->splines[alias_index].y( spline_sampler->x_vals[alias_index] + remainder*(spline_sampler->x_vals[alias_index+1]-spline_sampler->x_vals[alias_index]) );
         }
         return ret;
     }

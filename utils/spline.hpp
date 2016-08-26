@@ -239,6 +239,7 @@ public:
             for(unsigned int w_i=0; w_i<splines[sp_i].weights.size(); w_i++)
             {
                 new_weights[w_i+1]=splines[sp_i].weights[w_i]/(w_i+1);
+                new_weights[0]-=new_weights[w_i+1]*lower_X;
                 total_integral+=new_weights[w_i+1]*(upper_X - lower_X);
                 lower_X*=x_vals[sp_i];
                 upper_X*=x_vals[sp_i+1];

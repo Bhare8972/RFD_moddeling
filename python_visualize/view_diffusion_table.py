@@ -72,7 +72,7 @@ class diff_cross_section(object):
         self.set_energy(energy)
         
         self.integrated_num_interactions=quad(self.cross_section, 0, np.pi)[0]
-        print "predicted num interactions:", self.integrated_num_interactions
+        #print "predicted num interactions:", self.integrated_num_interactions
         
         self.set_mollier_variables()
 
@@ -184,8 +184,8 @@ class CS_table(object):
 
 if __name__=='__main__':
     
-    energy_indeces=[50]
-    time_indeces=[19]
+    energy_indeces=[199, 199, 199, 199, 199, 199]
+    time_indeces=[0, 4, 8, 12, 16, 19]
     
     if len(energy_indeces)!=len(time_indeces):
         print "ERROR"
@@ -221,17 +221,17 @@ if __name__=='__main__':
         dist_X=tables[energy_index].get_X(time_index)
         dist_Y=tables[energy_index].get_Y(time_index)
         
-        CS=diff_cross_section(timesteps[time_index], energies[energy_index])
+        #CS=diff_cross_section(timesteps[time_index], energies[energy_index])
         
-        mollier_theta=np.linspace(0.0001,np.pi,100000)
-        MS=CS.mollier_scattering(mollier_theta)
-        MS_integrand=cumtrapz(y=MS, x=mollier_theta, initial=0)
-        plt.plot(MS_integrand/MS_integrand[-1], mollier_theta)
+        #mollier_theta=np.linspace(0.0001,np.pi,100000)
+        #MS=CS.mollier_scattering(mollier_theta)
+        #MS_integrand=cumtrapz(y=MS, x=mollier_theta, initial=0)
+       # plt.plot(MS_integrand/MS_integrand[-1], mollier_theta,'r')
         
         ##diffusion_X, diffusion_Y=CS.diffusion_integrand(1000)
         ##plt.plot(diffusion_X, diffusion_Y)
         plt.plot(dist_X, dist_Y)
-        plt.show()
+    plt.show()
 
 
 

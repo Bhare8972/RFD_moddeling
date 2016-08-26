@@ -349,6 +349,7 @@ public:
             }
             else
             {
+                print(sol[0], sol[1], sol[2], sol[3], Xlow, Xhigh);
                 throw gen_exception("4th O polynomial cannot be inverted");
             }
         }
@@ -397,6 +398,8 @@ public:
         std::vector<fourth_order_weights>  splines;
         gsl::vector_long aliases;
         gsl::vector alias_probabilities;
+        
+        rand_sampler(){}
 
         rand_sampler(std::vector<fourth_order_weights>& _splines, gsl::vector weights, double& out_rate)
         {

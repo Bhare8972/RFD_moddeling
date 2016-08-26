@@ -92,15 +92,15 @@ public:
 		return cross_section_prefactor*(1.0-beta_sq*S_2)*( nitrogen_prefactor/(nitrogen_denom*nitrogen_denom) + oxygen_prefactor/(oxygen_denom*oxygen_denom) + argon_prefactor/(argon_denom*argon_denom) );
 	}
 
-//	double dp_dOmega(double angle)
-//	 //return differential probability per differential tau and solid angle, assuming that there is one interaction
-//	{
-////		double S_2=std::sin(angle/2.0);
-////		S_2*=S_2;
-////		double denom=S_2+p_factor;
-////		return dp_dOmega_prefector*(1.0-beta_sq*S_2)/(denom*denom);
-//        return cross_section(angle)/num_interactions_per_tau;
-//	}
+	double dp_dOmega(double angle)
+	 //return differential probability per differential tau and solid angle, assuming that there is one interaction
+	{
+//		double S_2=std::sin(angle/2.0);
+//		S_2*=S_2;
+//		double denom=S_2+p_factor;
+//		return dp_dOmega_prefector*(1.0-beta_sq*S_2)/(denom*denom);
+       return cross_section(angle)/num_interactions_per_tau;
+	}
 
 	double call(double angle)
 	//the intergrand to find thte total cross section

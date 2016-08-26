@@ -12,12 +12,13 @@
 
 #include "solve_polynomial.hpp" //the power to solve polynomials of orders 3 and 4 is NOT insignificant to the power of the dark side of the force
 
-//#include "binary_IO.hpp"
-//#include "arrays_IO.hpp"
+#include "binary_IO.hpp"
+#include "arrays_IO.hpp"
 //#include "functor.hpp"
 //#include "integrate.hpp"
 #include "GSL_spline.hpp"
 #include "CDF_sampling.hpp"
+#include "chebyshev.hpp"
 #include "gen_ex.hpp"
 #include "rand.hpp"
 //#include "root_finding.hpp"
@@ -32,46 +33,81 @@ namespace brem_tools
     class brem_energy_sampler
     {
     public:
-        CDF_sampler photon_energy_sampler;
+        AdaptiveSpline_Cheby_O3::rand_sampler photon_energy_sampler;
         double rate;
         double electron_energy;
 
         brem_energy_sampler(double _min_photon_energy, int energy_index)
         {
-            gsl::vector diff_cross(selterBerger_brem_tables::photon_reduced_energies.size());
-            gsl::vector all_photon_energies(selterBerger_brem_tables::photon_reduced_energies.size());
             electron_energy=selterBerger_brem_tables::initial_energies[energy_index]/energy_units_kev;
-            std::list<double> photon_energy_init;
-            photon_energy_init.push_back(_min_photon_energy);
+            double min_reduced_photon_energy=_min_photon_energy/electron_energy;
+            int lowest_photon_energy_index=search_sorted_d(selterBerger_brem_tables::photon_reduced_energies, min_reduced_photon_energy);
+            int num_values=selterBerger_brem_tables::photon_reduced_energies.size()-lowest_photon_energy_index;
+            
+            gsl::vector diff_cross(num_values);
+            gsl::vector photon_energies(num_values);
 
-            for( int j=0; j<selterBerger_brem_tables::photon_reduced_energies.size(); j++)
+            for( int j=0; j<num_values; j++)
             {
-                all_photon_energies[j]=electron_energy*selterBerger_brem_tables::photon_reduced_energies[j];
+                photon_energies[j]=electron_energy*selterBerger_brem_tables::photon_reduced_energies[j+lowest_photon_energy_index];
 
                 // atmosphere is hard wired in. note: ATOMIC percentage
-                diff_cross[j]=selterBerger_brem_tables::diff_brem_7[energy_i][j]*0.784*7.0*7.0; //nitrogen
-                diff_cross[j]+=selterBerger_brem_tables::diff_brem_8[energy_i][j]*0.211*8.0*8.0; //oxygen
-                diff_cross[j]+=selterBerger_brem_tables::diff_brem_18[energy_i][j]*0.005*18.0*18.0; //argon
-                diff_cross[j]/=all_photon_energies[j];
-
-                if(PE>_min_photon_energy) photon_energy_init.push_back(all_photon_energies[j]);
+                diff_cross[j]=selterBerger_brem_tables::diff_brem_7[energy_index][j+lowest_photon_energy_index]*0.784*7.0*7.0; //nitrogen
+                diff_cross[j]+=selterBerger_brem_tables::diff_brem_8[energy_index][j+lowest_photon_energy_index]*0.211*8.0*8.0; //oxygen
+                diff_cross[j]+=selterBerger_brem_tables::diff_brem_18[energy_index][j+lowest_photon_energy_index]*0.005*18.0*18.0; //argon
+                diff_cross[j]/=photon_energies[j];
             }
 
             const double millibarn_conversion_factor=1.0E31;
+
+//for(auto v : diff_cross ) {print("A",v);}
             diff_cross*=1.0/(2*PI*average_air_atomic_number*electron_classical_radius*millibarn_conversion_factor*KE_to_beta(electron_energy)*electron_classical_radius);
-            gsl::vector photon_energy(photon_energy_init);
+
+//for(auto v : diff_cross ) {print("B",v);}
 
             //integrate
-            auto diff_CS=natural_cubic_spline(all_photon_energies, diff_cross);
-            auto cross_section_spline=diff_CS.integrate();
+//print("A");
+            auto diff_CS=akima_spline(photon_energies, diff_cross);
+            
+            
+            AdaptiveSpline_Cheby_O3 cheby_sampler(*diff_CS,  10E4, photon_energies[0], photon_energies[photon_energies.size()-1] );
+            photon_energy_sampler=cheby_sampler.inverse_transform(10E4, rate);
+            
+            /*
+            auto cross_section_spline=diff_CS->integrate();
+
+//gsl::vector TMP=diff_CS->callv(photon_energies);
+//for(auto v : TMP ) {print("a",v);}
+ 
+            
+auto X=linspace(photon_energies[0], photon_energies[photon_energies.size()-2], 10000);
+            
+arrays_output tables_out;
+std::shared_ptr<doubles_output> X_table=std::make_shared<doubles_output>(X);
+tables_out.add_array(X_table);
+
+std::shared_ptr<doubles_output> diffCS_table=std::make_shared<doubles_output>(diff_CS->callv(X));
+tables_out.add_array(diffCS_table);
+
+std::shared_ptr<doubles_output> CS_table=std::make_shared<doubles_output>(cross_section_spline->callv(X));
+tables_out.add_array(CS_table);
+
+
+binary_output fout("./out_arg");
+tables_out.write_out( &fout);
+fout.flush();
+print("out_arg");
 
             //sample
-            gsl::vector cross_section=cross_section_spline->callv(photon_energy);
+            photon_energies[0]=_min_photon_energy; //is too small initially
+            gsl::vector cross_section=cross_section_spline->callv(photon_energies);
+for(auto v : cross_section ) {print("a",v);}
             cross_section-=cross_section[0];
+for(auto v : cross_section ) {print("b",v);}
 
             //setup sampler
             rate=cross_section.back();
-            photon_energy_sampler.set(photon_energy, cross_section);
+            photon_energy_sampler.set(photon_energies, cross_section);*/
 
         }
 
@@ -103,7 +139,7 @@ namespace brem_tools
                 initial_A_vector[energy_index]= gsl_spline_eval(spline, average_air_atomic_number, NULL);
 
                 //first do 'B' values
-                double* YB=distribution_factor_B[energy_index][photon_energy_index];
+                double* YB=bremsstrahlung_distribution::distribution_factor_B[energy_index][photon_energy_index];
                 gsl_spline_init(spline, &bremsstrahlung_distribution::charges[0], YB, bremsstrahlung_distribution::charges.size());
                 initial_B_vector[energy_index]= gsl_spline_eval(spline, average_air_atomic_number, NULL);
 
@@ -113,13 +149,13 @@ namespace brem_tools
             //now interpolate A an B values across electron energies
             gsl_spline *Avalue_spline = gsl_spline_alloc(gsl_interp_cspline,  initial_A_vector.size());
             gsl_spline *Bvalue_spline = gsl_spline_alloc(gsl_interp_cspline,  initial_B_vector.size());
-            gsl_spline_init(Avalue_spline,   &bremsstrahlung_distribution::initial_energies[0],   initial_A_vector,   initial_A_vector.size());
-            gsl_spline_init(Bvalue_spline,   &bremsstrahlung_distribution::initial_energies[0],   initial_B_vector,   initial_B_vector.size());
+            gsl_spline_init(Avalue_spline,   &bremsstrahlung_distribution::initial_energies[0],   &initial_A_vector[0],   initial_A_vector.size());
+            gsl_spline_init(Bvalue_spline,   &bremsstrahlung_distribution::initial_energies[0],   &initial_B_vector[0],   initial_B_vector.size());
 
             A_values= gsl::vector(electron_energies_kev.size());
             B_values= gsl::vector(electron_energies_kev.size());
 
-            for(new_energy_i=0; new_energy_i<electron_energies_kev.size(); new_energy_i++)
+            for(int new_energy_i=0; new_energy_i<electron_energies_kev.size(); new_energy_i++)
             {
                 A_values[new_energy_i]=gsl_spline_eval(Avalue_spline, electron_energies_kev[new_energy_i], NULL);
                 B_values[new_energy_i]=gsl_spline_eval(Bvalue_spline, electron_energies_kev[new_energy_i], NULL);
@@ -237,12 +273,12 @@ public:
     double min_photon_energy;
     //sampling photon energy
     gsl::vector PE_initial_electron_energies;
-    std::vector<brem_energy_sampler> PE_samplers;
+    std::vector<brem_tools::brem_energy_sampler> PE_samplers;
     size_t PE_index;
 
     //sampling photon angle
     gsl::vector PA_initial_electron_energies;
-    std::vector<photon_angle_sampler> PA_param_samplers;
+    std::vector<brem_tools::photon_angle_sampler> PA_param_samplers;
 
     rand_threadsafe rand;
 
@@ -277,10 +313,10 @@ public:
         //set up photon angle samplers
         PA_initial_electron_energies=logspace(std::log10(_min_photon_energy*energy_units_kev), std::log10(bremsstrahlung_distribution::initial_energies.back() ), 100 ); //notice that this is in Kev!!
         //note that PA_electron_energy_inverter works in inherent units of the table (Kev)
-        PA_electron_energy_inverter PA_inverter_0(PA_initial_electron_energies, 0); //technically a loop across bremsstrahlung_distribution::photon_energies. But there are only 4 of these guys(gals) presently
-        PA_electron_energy_inverter PA_inverter_1(PA_initial_electron_energies, 1);
-        PA_electron_energy_inverter PA_inverter_2(PA_initial_electron_energies, 2);
-        PA_electron_energy_inverter PA_inverter_3(PA_initial_electron_energies, 3);
+        brem_tools::PA_electron_energy_inverter PA_inverter_0(PA_initial_electron_energies, 0); //technically a loop across bremsstrahlung_distribution::photon_energies. But there are only 4 of these guys(gals) presently
+        brem_tools::PA_electron_energy_inverter PA_inverter_1(PA_initial_electron_energies, 1);
+        brem_tools::PA_electron_energy_inverter PA_inverter_2(PA_initial_electron_energies, 2);
+        brem_tools::PA_electron_energy_inverter PA_inverter_3(PA_initial_electron_energies, 3);
 
         PA_initial_electron_energies/=energy_units_kev; //convert back to dimensionless units
         PA_param_samplers.reserve(PA_initial_electron_energies.size());
@@ -350,8 +386,8 @@ public:
         double B_low;
         double A_high;
         double B_high;
-        PA_initial_electron_energies[sampler_index].find_parameters(reduced_photon_energy, A_low, B_low);
-        PA_initial_electron_energies[sampler_index+1].find_parameters(reduced_photon_energy, A_high, B_high);
+        PA_param_samplers[sampler_index].find_parameters(reduced_photon_energy, A_low, B_low);
+        PA_param_samplers[sampler_index+1].find_parameters(reduced_photon_energy, A_high, B_high);
 
         double A_param = linear_interpolate(PA_initial_electron_energies[sampler_index],A_low,     PA_initial_electron_energies[sampler_index+1],A_high,     initial_electron_energy);
         double B_param = linear_interpolate(PA_initial_electron_energies[sampler_index],B_low,     PA_initial_electron_energies[sampler_index+1],B_high,     initial_electron_energy);
@@ -429,7 +465,7 @@ public:
         normalize(electron->momentum);
         
         //make new photon
-        photon_T new_photon= new photon_T;
+        photon_T* new_photon= new photon_T;
         new_photon->position.clone_from( electron->position);
         new_photon->travel_direction.clone_from( electron->momentum); //electron momentum is normalized
         new_photon->scatter_angle(photon_angle, azimuth_angle);

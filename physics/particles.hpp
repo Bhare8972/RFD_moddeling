@@ -99,6 +99,7 @@ public:
 
 class photon_T : public particle_ID_T
 {
+public:
     //stuff
     double energy; //in units of electron mass
     double current_time;

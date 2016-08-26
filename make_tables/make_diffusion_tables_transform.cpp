@@ -365,9 +365,9 @@ class process_energy_level
 
 int main()
 {
-    double max_energy=0.0158735;//100.0/energy_units_kev; //cannot go above 100 kev  for  5E4.
+    double max_energy=100.0/energy_units_kev;//100.0/energy_units_kev; //cannot go above 100 kev  for  5E4.
     double min_energy=lowest_physical_energy;
-    size_t num_energies=66; //100
+    size_t num_energies=100; //100
 
     double min_timestep=6e-7;
     double max_timestep=0.01;

@@ -47,9 +47,9 @@ public:
 
 int main()
 {
-    string file_location="../tables/diffusion_segments/";
-    list<string> fnames({"diffusion_table_TRANSFORM", "diffusion_table_MONTECARLO_B", "diffusion_table_MONTECARLO_A"});
-    list<int> first_energy({0, 1, 1});
+    string file_location="./";
+    list<string> fnames({"diffusion_table_TRANSFORM", "diffusion_table_MONTECARLO"});
+    list<int> first_energy({0, 1});
 
     list< gsl::vector > energy_vectors;
     gsl::vector timesteps;
@@ -114,6 +114,7 @@ int main()
         W.output(tables_out);
     }
 
-	binary_output fout("../tables/shielded_coulomb_diffusion");
+    print("saving out");
+	binary_output fout("./shielded_coulomb_diffusion");
 	tables_out.write_out( &fout);
 }

@@ -125,7 +125,7 @@ namespace gsl {
 		return new_vector;
 	}
 
-    inline vector operator+(double const& v) const
+    inline vector operator+(double v) const
     {
 		// check if vectors are null
 		if( ccgsl_pointer == 0 ) throw vector_exception();
@@ -152,7 +152,7 @@ namespace gsl {
 		}
 	}
 
-    inline void operator+=(double const& v)
+    inline void operator+=(double v)
     {
 		// check if vectors are null
 		if( ccgsl_pointer == 0 ) throw vector_exception();
@@ -179,7 +179,7 @@ namespace gsl {
 		return new_vector;
 	}
 
-    inline vector operator-(double const& v) const
+    inline vector operator-(double v) const
     {
 		// check if vectors are null
 		if( ccgsl_pointer == 0 ) throw vector_exception();
@@ -206,12 +206,12 @@ namespace gsl {
 	}
 
 
-    inline void operator-=(double const& v)
+    inline void operator-=(double v)
     {
 		// check if vectors are null
 		if( ccgsl_pointer == 0 ) throw vector_exception();
 		for( size_t i = 0; i<ccgsl_pointer->size; ++i )
-		{
+		{ 
 			(*this)[i]-=v;
 		}
 	}
@@ -233,7 +233,7 @@ namespace gsl {
 		return new_vector;
 	}
 
-    inline vector operator*(double const& v) const
+    inline vector operator*(double v) const
     {
 		// check if vectors are null
 		if( ccgsl_pointer == 0 ) throw vector_exception();
@@ -252,7 +252,7 @@ namespace gsl {
 		return rhs*lhs;
 	}
 
-    inline void operator*=(double const& v)
+    inline void operator*=(double v)
     {
 		// check if vectors are null
 		if( ccgsl_pointer == 0 ) throw vector_exception();
@@ -277,7 +277,7 @@ namespace gsl {
 		}
 	}
 
-    inline vector operator/(double const& v) const
+    inline vector operator/(double v) const
     {
 		// check if vectors are null
 		if( ccgsl_pointer == 0 ) throw vector_exception();
@@ -290,7 +290,7 @@ namespace gsl {
 		return new_vector;
 	}
 
-    inline void operator/=(double const& v)
+    inline void operator/=(double v)
     {
 		// check if vectors are null
 		if( ccgsl_pointer == 0 ) throw vector_exception();
@@ -390,7 +390,7 @@ namespace gsl {
         return new_vector;
     }
 
-    inline void mult_add(vector const& A, double const& B)
+    inline void mult_add(vector const& A, double B)
     //multiplies A by B and adds it to vector
     {
 		// check if vectors are null
@@ -615,6 +615,8 @@ namespace gsl {
       }
       *count = 1; // initially there is just one reference to ccgsl_pointer
     }*/
+     
+     
     // clone()
     /**
      * The clone function. Use this if you want a copy of the block that does
