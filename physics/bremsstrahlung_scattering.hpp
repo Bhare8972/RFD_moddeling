@@ -69,9 +69,10 @@ namespace brem_tools
 //print("A");
             auto diff_CS=akima_spline(photon_energies, diff_cross);
             
-            
+print("CHEBY A");
             AdaptiveSpline_Cheby_O3 cheby_sampler(*diff_CS,  10E4, photon_energies[0], photon_energies[photon_energies.size()-1] );
             photon_energy_sampler=cheby_sampler.inverse_transform(10E4, rate);
+print("CHEBY B");
             
             /*
             auto cross_section_spline=diff_CS->integrate();

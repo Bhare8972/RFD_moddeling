@@ -161,6 +161,9 @@ public:
                 delete left_spline;
                 delete right_spline;
                 delete middle_spline;
+                left_spline=0;
+                right_spline=0;
+                middle_spline=0;
                 return;
             }
             stage=1;
@@ -191,7 +194,7 @@ public:
 
         void get_points(std::list<double>& out_points)
         {
-            if(stage!=0)
+            if(stage!=0 and stage !=3)
             {
                 left_spline->get_points(out_points);
                 middle_spline->get_points(out_points);
@@ -207,7 +210,7 @@ public:
 
         void get_values(std::list<double>& out_values)
         {
-            if(stage!=0)
+            if(stage!=0 and stage !=3)
             {
                 left_spline->get_values(out_values);
                 middle_spline->get_values(out_values);
@@ -223,7 +226,7 @@ public:
 
         void get_sorted(std::list<sampler_helper*>& out_samplers)
         {
-            if(stage!=0)
+            if(stage!=0 and stage !=3)
             {
                 left_spline->get_sorted(out_samplers);
                 middle_spline->get_sorted(out_samplers);
@@ -269,13 +272,18 @@ public:
             rate=W0 + W1*Xhigh + W2*X2 + W3*X3 + W4*X4;
 
             //we can do some fancy stuff here to make next function faster (Which needs to be done)
+            /*
+            if(rate!=rate)
+            {
+                throw gen_exception("Nans Error");
+            }*/
 
             return rate;
         }
         
         double invert(double N)
         {
-            if(float(W1+W4)==float(W1))
+            if(float(W1+W2+W3+W0+W4)==float(W0+W1+W2+W3))
             {
                 return invert3(N);
             }
@@ -321,6 +329,8 @@ public:
         //N is from 0 to 1
         //this can be improved significantly
         {
+            double error_factor=Xhigh*10E4;
+            
             // x - array of size 4
             // solve equation x^4 + a*x^3 + b*x^2 + c*x + d by Dekart-Euler method
             // return 4: 4 real roots x[0], x[1], x[2], x[3], possible multiple roots
@@ -331,26 +341,28 @@ public:
             int ret = SolveP4(sol, W3/W4, W2/W4, W1/W4, (W0-N*rate)/W4); //much of this can be pre-calculated
 
 
-            if( (sol[0]>=Xlow and sol[0]<=Xhigh) or float(Xhigh + float(Xlow-sol[0]))==float(Xhigh) or float(Xhigh + float(Xhigh-sol[0]))==float(Xhigh) )
+            if( (sol[0]>=Xlow and sol[0]<=Xhigh) or float(error_factor + float(Xlow-sol[0]))==float(error_factor) or float(error_factor + float(Xhigh-sol[0]))==float(error_factor) )
             {
                 return sol[0];
             }
-            else if((sol[2]>=Xlow and sol[2]<=Xhigh) or float(Xhigh + float(Xlow-sol[2]))==float(Xhigh) or float(Xhigh + float(Xhigh-sol[2]))==float(Xhigh) )
+            else if((sol[2]>=Xlow and sol[2]<=Xhigh) or float(error_factor + float(Xlow-sol[2]))==float(error_factor) or float(error_factor + float(Xhigh-sol[2]))==float(error_factor) )
             {
                 return sol[2];
             }
-            else if(ret!=0 and ( (sol[1]>=Xlow and sol[1]<=Xhigh) or float(Xhigh + float(Xlow-sol[1]))==float(Xhigh) or float(Xhigh + float(Xhigh-sol[1]))==float(Xhigh) ) )
+            else if(ret!=0 and ( (sol[1]>=Xlow and sol[1]<=Xhigh) or float(error_factor + float(Xlow-sol[1]))==float(error_factor) or float(error_factor + float(Xhigh-sol[1]))==float(error_factor) ) )
             {
                 return sol[1];
             }
-            else if(ret==4 and ((sol[3]>=Xlow and sol[3]<=Xhigh) or float(Xhigh + float(Xlow-sol[3]))==float(Xhigh) or float(Xhigh + float(Xhigh-sol[3]))==float(Xhigh) ) )
+            else if(ret==4 and ((sol[3]>=Xlow and sol[3]<=Xhigh) or float(error_factor + float(Xlow-sol[3]))==float(error_factor) or float(error_factor + float(Xhigh-sol[3]))==float(error_factor) ) )
             {
                 return sol[3];
             }
             else
             {
-                print(sol[0], sol[1], sol[2], sol[3], Xlow, Xhigh);
-                throw gen_exception("4th O polynomial cannot be inverted");
+                print(ret, sol[0], sol[1], sol[2], sol[3], Xlow, Xhigh);
+                print(W0, W1, W2, W3, W4, -N*rate );
+                return invert3(N);
+                //throw gen_exception("4th O polynomial cannot be inverted");
             }
         }
     };
@@ -400,6 +412,14 @@ public:
         gsl::vector alias_probabilities;
         
         rand_sampler(){}
+        
+        rand_sampler& operator=(const rand_sampler& RHS)
+        {
+            splines=RHS.splines;
+            aliases=RHS.aliases;
+            alias_probabilities=RHS.alias_probabilities;
+            return *this;
+        }
 
         rand_sampler(std::vector<fourth_order_weights>& _splines, gsl::vector weights, double& out_rate)
         {
