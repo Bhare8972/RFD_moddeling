@@ -43,7 +43,7 @@ namespace brem_tools
             double min_reduced_photon_energy=_min_photon_energy/electron_energy;
             int lowest_photon_energy_index=search_sorted_d(selterBerger_brem_tables::photon_reduced_energies, min_reduced_photon_energy);
             int num_values=selterBerger_brem_tables::photon_reduced_energies.size()-lowest_photon_energy_index;
-            
+
             gsl::vector diff_cross(num_values);
             gsl::vector photon_energies(num_values);
 
@@ -68,21 +68,19 @@ namespace brem_tools
             //integrate
 //print("A");
             auto diff_CS=akima_spline(photon_energies, diff_cross);
-            
-print("CHEBY A");
+
             AdaptiveSpline_Cheby_O3 cheby_sampler(*diff_CS,  10E4, photon_energies[0], photon_energies[photon_energies.size()-1] );
             photon_energy_sampler=cheby_sampler.inverse_transform(10E4, rate);
-print("CHEBY B");
-            
+
             /*
             auto cross_section_spline=diff_CS->integrate();
 
 //gsl::vector TMP=diff_CS->callv(photon_energies);
 //for(auto v : TMP ) {print("a",v);}
- 
-            
+
+
 auto X=linspace(photon_energies[0], photon_energies[photon_energies.size()-2], 10000);
-            
+
 arrays_output tables_out;
 std::shared_ptr<doubles_output> X_table=std::make_shared<doubles_output>(X);
 tables_out.add_array(X_table);
@@ -305,7 +303,7 @@ public:
         for(size_t energy_i=first_electron_energy_index; energy_i<selterBerger_brem_tables::initial_energies.size(); energy_i++)
         {
             PE_samplers.emplace_back(min_photon_energy, energy_i);
-            PE_initial_electron_energies[energy_i]=PE_samplers.back().electron_energy;
+            PE_initial_electron_energies[energy_i-first_electron_energy_index]=PE_samplers.back().electron_energy;
         }
 
 
@@ -458,22 +456,22 @@ public:
         double azimuth_angle=rand.uniform()*2*PI;
         double photon_energy=sample_photon_energy(initial_energy);
         double photon_angle=sample_photon_angle(initial_energy, photon_energy);
-        
+
         double final_energy=initial_energy-photon_energy;
         double final_momentum=std::sqrt((final_energy+1)*(final_energy+1)-1);
 
         //normalize electron momentum. Assume that direction isn't affected
         normalize(electron->momentum);
-        
+
         //make new photon
         photon_T* new_photon= new photon_T;
         new_photon->position.clone_from( electron->position);
         new_photon->travel_direction.clone_from( electron->momentum); //electron momentum is normalized
         new_photon->scatter_angle(photon_angle, azimuth_angle);
-        
+
         //fix electron
         electron->momentum*=final_momentum;
-        
+
         return new_photon;
     }
 };

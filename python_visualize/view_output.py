@@ -98,6 +98,7 @@ def read_particles(fname):
     particles={}
     while not fin.at_end():
         command=fin.in_short()
+        print(command)
         if command==1: ## a  new particle
             ID=fin.in_int()
             particles[ID]=electron_history(ID, fin)
@@ -109,6 +110,9 @@ def read_particles(fname):
         elif command==3: ##remove existing particle
             ID=fin.in_int()
             particles[ID].remove(fin)
+        else:
+			print("error")
+			exit()
             
     return particles
 
@@ -290,9 +294,9 @@ def ave_kev_per_T(time_checks, num_electrons, electrons):
     plt.show()
     
 if __name__=='__main__':
-    print "A"
-    particle_data=read_particles('./output_R1')
-    print "B"
+    print( "A" )
+    particle_data=read_particles('./output')
+    print( "B" )
 
     #p_final=particle_data[1].mom_history[-1][2]
     #gamma=np.sqrt(1+np.sum(p_final*p_final))
@@ -314,7 +318,7 @@ if __name__=='__main__':
     #print 'classical position:', final_position
 
     ## print "final pos", particle_data[1].pos_history[-1][2]
-    print len(particle_data), "particles"
+    print( len(particle_data), "particles")
 
     #plot_particles_XYZ(particle_data)
     #plot_particles_XZ(particle_data)

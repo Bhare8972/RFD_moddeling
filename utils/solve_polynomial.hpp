@@ -45,12 +45,12 @@ int SolveP3(double *x,double a,double b,double c)
     } else {
         A =-std::pow(std::fabs(r)+std::sqrt(r2-q3),1./3);
 		if( r<0 ) A=-A;
-        
+
 		//B = A==0 ? 0 : B=q/A;
         if(A==0) { B=0;}
         else {B=q/A;}
-        
-        
+
+
 		a/=3;
 		x[0] =(A+B)-a;
         x[1] =-0.5*(A+B)-a;
@@ -124,13 +124,13 @@ int   SolveP4Bi(double *x, double b, double d)	// solve equation x^4 + b*x^2 + d
 
 //---------------------------------------------------------------------------
 //#define SWAP(a,b) { t=b; b=a; a=t; }
-static void  dblSort3( double &a, double &b, double &c) // make: a <= b <= c
+static void  dblSort3( double & a, double &b, double &c) // make: a <= b <= c
 {
 	double t;
 	if( a>b ) { t=b; b=a; a=t; }//(a,b);	// now a<=b
-	if( c<b ) 
+	if( c<b )
     {
-		{ t=b; b=a; a=t; }//(b,c);			// now a<=b, b<=c
+		{ t=b; b=c; c=t; }//(b,c);			// now a<=b, b<=c
 		if( a>b ) { t=b; b=a; a=t; }//(a,b);// now a<=b
 	}
 }
@@ -170,6 +170,7 @@ int   SolveP4De(double *x, double b, double c, double d)	// solve equation x^4 +
 		} // if( x[0] > 0) // all roots are positive
 		// now x[0] <= x[1] < 0, x[2] > 0
 		// two pair of comlex roots
+
 		double sz1 = std::sqrt(-x[0]);
 		double sz2 = std::sqrt(-x[1]);
 		double sz3 = std::sqrt( x[2]);
@@ -231,6 +232,7 @@ int   SolveP4(double *x,double a,double b,double c,double d)
 	double c1 = c + 0.5*a*(0.25*a*a - b);
 	double b1 = b - 0.375*a*a;
 	int res = SolveP4De( x, b1, c1, d1);
+
 	if( res==4) { x[0]-= a/4; x[1]-= a/4; x[2]-= a/4; x[3]-= a/4; }
 	else if (res==2) { x[0]-= a/4; x[1]-= a/4; x[2]-= a/4; }
 	else             { x[0]-= a/4; x[2]-= a/4; }

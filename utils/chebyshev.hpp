@@ -12,11 +12,12 @@
 //#include "GSL_utils.hpp"
 #include "vector.hpp"
 #include "vector_long.hpp"
-//#include "functor.hpp"
+#include "functor.hpp"
 #include "gen_ex.hpp"
 #include "spline.hpp"
+#include "root_finding.hpp"
 
-#include "solve_polynomial.hpp"
+//#include "solve_polynomial.hpp"
 
 
 namespace cheby_tables
@@ -238,8 +239,8 @@ public:
             }
         }
     };
-    
-    class quartic_inversion_helper
+
+    class quartic_inversion_helper : public functor_1D
     {
     public:
         double W1;
@@ -253,6 +254,7 @@ public:
         double Xlow;
         double Xhigh;
         double rate;
+        double Wr0;
 
         double set(double _Xlow, double _Xhigh)
         //return rate
@@ -261,109 +263,26 @@ public:
             Xlow=_Xlow;
             Xhigh=_Xhigh;
 
-            double X2=Xlow*Xlow;
-            double X3=X2*Xlow;
-            double X4=X3*Xlow;
-            W0=-(W1*Xlow + W2*X2 + W3*X3 + W4*X4);
+            Wr0=0;
+            W0=-call(Xlow);
 
-            X2=Xhigh*Xhigh;
-            X3=X2*Xhigh;
-            X4=X3*Xhigh;
-            rate=W0 + W1*Xhigh + W2*X2 + W3*X3 + W4*X4;
-
-            //we can do some fancy stuff here to make next function faster (Which needs to be done)
-            /*
-            if(rate!=rate)
-            {
-                throw gen_exception("Nans Error");
-            }*/
+            Wr0=W0;
+            rate=call(Xhigh);
 
             return rate;
         }
-        
+
+        double call(double x)
+        {
+            return (((W4*x + W3)*x + W2)*x + W1)*x + Wr0;
+        }
+
         double invert(double N)
         {
-            if(float(W1+W2+W3+W0+W4)==float(W0+W1+W2+W3))
-            {
-                return invert3(N);
-            }
-            else
-            {
-                return invert4(N);
-            }
-        }
 
-        double invert3(double N)
-        //N is from 0 to 1
-        //this can be improved significantly
-        {
-            
-            // solve cubic equation x^3 + a*x^2 + b*x + c
-            // x - array of size 3
-            // In case 3 real roots: => x[0], x[1], x[2], return 3
-            //         2 real roots: x[0], x[1],          return 2
-            //         1 real root : x[0], x[1] ± i*x[2], return 1
-            double sol[3];
-            int ret= SolveP3(sol, W2/W3, W1/W3, (W0-N*rate)/W3);
+            Wr0=W0-N*rate;
 
-
-            if( (sol[0]>=Xlow and sol[0]<=Xhigh) or float(Xhigh + float(Xlow-sol[0]))==float(Xhigh) or float(Xhigh + float(Xhigh-sol[0]))==float(Xhigh) )
-            {
-                return sol[0];
-            }
-            else if((sol[1]>=Xlow and sol[1]<=Xhigh) or float(Xhigh + float(Xlow-sol[1]))==float(Xhigh) or float(Xhigh + float(Xhigh-sol[1]))==float(Xhigh) )
-            {
-                return sol[1];
-            }
-            else if(ret==3 and ( (sol[2]>=Xlow and sol[2]<=Xhigh) or float(Xhigh + float(Xlow-sol[2]))==float(Xhigh) or float(Xhigh + float(Xhigh-sol[2]))==float(Xhigh) ) )
-            {
-                return sol[2];
-            }
-            else
-            {
-                throw gen_exception("3rd O polynomial cannot be inverted");
-            }
-        }
-
-        double invert4(double N)
-        //N is from 0 to 1
-        //this can be improved significantly
-        {
-            double error_factor=Xhigh*10E4;
-            
-            // x - array of size 4
-            // solve equation x^4 + a*x^3 + b*x^2 + c*x + d by Dekart-Euler method
-            // return 4: 4 real roots x[0], x[1], x[2], x[3], possible multiple roots
-            // return 2: 2 real roots x[0], x[1] and complex x[2]±i*x[3],
-            // return 0: two pair of complex roots: x[0]±i*x[1],  x[2]±i*x[3]
-
-            double sol[4];
-            int ret = SolveP4(sol, W3/W4, W2/W4, W1/W4, (W0-N*rate)/W4); //much of this can be pre-calculated
-
-
-            if( (sol[0]>=Xlow and sol[0]<=Xhigh) or float(error_factor + float(Xlow-sol[0]))==float(error_factor) or float(error_factor + float(Xhigh-sol[0]))==float(error_factor) )
-            {
-                return sol[0];
-            }
-            else if((sol[2]>=Xlow and sol[2]<=Xhigh) or float(error_factor + float(Xlow-sol[2]))==float(error_factor) or float(error_factor + float(Xhigh-sol[2]))==float(error_factor) )
-            {
-                return sol[2];
-            }
-            else if(ret!=0 and ( (sol[1]>=Xlow and sol[1]<=Xhigh) or float(error_factor + float(Xlow-sol[1]))==float(error_factor) or float(error_factor + float(Xhigh-sol[1]))==float(error_factor) ) )
-            {
-                return sol[1];
-            }
-            else if(ret==4 and ((sol[3]>=Xlow and sol[3]<=Xhigh) or float(error_factor + float(Xlow-sol[3]))==float(error_factor) or float(error_factor + float(Xhigh-sol[3]))==float(error_factor) ) )
-            {
-                return sol[3];
-            }
-            else
-            {
-                print(ret, sol[0], sol[1], sol[2], sol[3], Xlow, Xhigh);
-                print(W0, W1, W2, W3, W4, -N*rate );
-                return invert3(N);
-                //throw gen_exception("4th O polynomial cannot be inverted");
-            }
+            return root_finder_brent(this, Xhigh, Xlow, (Xhigh-Xlow)/100000.0, (Xhigh-Xlow)/1000.0, 10000);
         }
     };
 
@@ -410,9 +329,9 @@ public:
         std::vector<fourth_order_weights>  splines;
         gsl::vector_long aliases;
         gsl::vector alias_probabilities;
-        
+
         rand_sampler(){}
-        
+
         rand_sampler& operator=(const rand_sampler& RHS)
         {
             splines=RHS.splines;
@@ -611,16 +530,16 @@ public:
         ret->upper_fill=std::nan("");
         return ret;
     }
-    
+
     std::shared_ptr<poly_spline> get_inverse_spline(double inverse_precision)//, gsl::vector& inverse_X_samples, gsl::vector& inverse_Y_samples)
     {
         std::list<sampler_helper*> samplers;
         top_section->get_sorted(samplers);
-        
+
         gsl::vector x_vals(samplers.size()+1);
         std::vector<poly_spline::spline_piece> splines;
         splines.reserve(samplers.size());
-        
+
         //inverse_X_samples=gsl::vector(samplers.size()*5); //these were for testing purposes
         //inverse_Y_samples=gsl::vector(samplers.size()*5);
 
@@ -628,36 +547,36 @@ public:
         double spline_low=0;
         for(auto SH : samplers)
         {
-            quartic_inversion_helper inverter; 
+            quartic_inversion_helper inverter;
 
             inverter.W1=SH->K0;
             inverter.W2=SH->K1*0.5;
             inverter.W3=SH->K2/3.0;
             inverter.W4=SH->K3*0.25;
-            
+
             double spline_width = inverter.set(SH->Xlow, SH->Xhigh );
 
-            double Y0=inverter.invert((cheby_tables::U4_i[0]+1)*0.5);
+            double Y0=SH->Xhigh; //inverter.invert((cheby_tables::U4_i[0]+1)*0.5);
             double Y1=inverter.invert((cheby_tables::U4_i[1]+1)*0.5);
             double Y2=inverter.invert((cheby_tables::U4_i[2]+1)*0.5);
             double Y3=inverter.invert((cheby_tables::U4_i[3]+1)*0.5);
-            double Y4=inverter.invert((cheby_tables::U4_i[4]+1)*0.5);
-            
+            double Y4=SH->Xlow;//inverter.invert((cheby_tables::U4_i[4]+1)*0.5);
+
             /*
             inverse_X_samples[i*5+4]= (cheby_tables::U4_i[0]+1)*0.5*spline_width + spline_low;
             inverse_X_samples[i*5+3]= (cheby_tables::U4_i[1]+1)*0.5*spline_width + spline_low;
             inverse_X_samples[i*5+2]= (cheby_tables::U4_i[2]+1)*0.5*spline_width + spline_low;
             inverse_X_samples[i*5+1]= (cheby_tables::U4_i[3]+1)*0.5*spline_width + spline_low;
             inverse_X_samples[i*5]= (cheby_tables::U4_i[4]+1)*0.5*spline_width + spline_low;
-            
-            
+
+
             inverse_Y_samples[i*5+4]=Y0;
             inverse_Y_samples[i*5+3]=Y1;
             inverse_Y_samples[i*5+2]=Y2;
             inverse_Y_samples[i*5+1]=Y3;
             inverse_Y_samples[i*5]=Y4;
             */
-            
+
             double C0=Y0*cheby_tables::F4_ij[0][0] + Y1*cheby_tables::F4_ij[0][1]  + Y2*cheby_tables::F4_ij[0][2]  + Y3*cheby_tables::F4_ij[0][3]  + Y4*cheby_tables::F4_ij[0][4];
             double C1=Y0*cheby_tables::F4_ij[1][0] + Y1*cheby_tables::F4_ij[1][1]  + Y2*cheby_tables::F4_ij[1][2]  + Y3*cheby_tables::F4_ij[1][3]  + Y4*cheby_tables::F4_ij[1][4];
             double C2=Y0*cheby_tables::F4_ij[2][0] + Y1*cheby_tables::F4_ij[2][1]  + Y2*cheby_tables::F4_ij[2][2]  + Y3*cheby_tables::F4_ij[2][3]  + Y4*cheby_tables::F4_ij[2][4];
@@ -675,7 +594,7 @@ public:
             double W2= 8*C2 - 48*C3 + 160*C4;
             double W3= 32*C3 - 256*C4;
             double W4= 125*C4;
-            
+
             /*
             double X=0.0/5.0;
             double X_2=X*X;
@@ -683,28 +602,28 @@ public:
             double X_4=X_3*X;
             inverse_Y_samples[i*5]=W0 + W1*X + W2*X_2 + W3*X_3 + W4*X_4;
             inverse_X_samples[i*5]= X*spline_width + spline_low;
-            
+
             X=1.0/5.0;
             X_2=X*X;
             X_3=X_2*X;
             X_4=X_3*X;
             inverse_Y_samples[i*5+1]=W0 + W1*X + W2*X_2 + W3*X_3 + W4*X_4;
             inverse_X_samples[i*5+1]= X*spline_width + spline_low;
-            
+
             X=2.0/5.0;
             X_2=X*X;
             X_3=X_2*X;
             X_4=X_3*X;
             inverse_Y_samples[i*5+2]=W0 + W1*X + W2*X_2 + W3*X_3 + W4*X_4;
             inverse_X_samples[i*5+2]= X*spline_width + spline_low;
-            
+
             X=3.0/5.0;
             X_2=X*X;
             X_3=X_2*X;
             X_4=X_3*X;
             inverse_Y_samples[i*5+3]=W0 + W1*X + W2*X_2 + W3*X_3 + W4*X_4;
             inverse_X_samples[i*5+3]= X*spline_width + spline_low;
-            
+
             X=4.0/5.0;
             X_2=X*X;
             X_3=X_2*X;
@@ -719,17 +638,17 @@ public:
             {
                 print("Low inverse precision:", P, "Consider implmenting 8th order");
             }
-            
+
             //weights are chosen for an x between 0 and 1
             double SL_2=spline_low*spline_low;
             double SL_3=SL_2*spline_low;
             double SL_4=SL_3*spline_low;
-            
+
             double inv_width=1.0/spline_width;
             double inv_width_2=inv_width*inv_width;
             double inv_width_3=inv_width_2*inv_width;
             double inv_width_4=inv_width_3*inv_width;
-            
+
             double new_W0=W0             - W1*spline_low*inv_width       + W2*SL_2*inv_width_2     - W3*SL_3*inv_width_3     + W4*inv_width_4*SL_4;
             double new_W1=W1*inv_width   - 2.0*W2*spline_low*inv_width_2 + 3.0*W3*SL_2*inv_width_3 - 4.0*W4*inv_width_4*SL_3;
             double new_W2=W2*inv_width_2 - 3.0*W3*spline_low*inv_width_3 + 6.0*W4*inv_width_4*SL_2;
@@ -757,7 +676,7 @@ public:
     rand_sampler inverse_transform(double inverse_precision, double& rate_out)
     //POWER!!! UNLIMITED POWER!!!
     {
-       
+
         std::list<sampler_helper*> samplers;
         top_section->get_sorted(samplers);
 
@@ -777,11 +696,11 @@ public:
 
             spline_weights[i] = inverter.set(SH->Xlow, SH->Xhigh );
 
-            double Y0=inverter.invert((cheby_tables::U4_i[0]+1)*0.5);
+            double Y0=SH->Xhigh; //inverter.invert((cheby_tables::U4_i[0]+1)*0.5);
             double Y1=inverter.invert((cheby_tables::U4_i[1]+1)*0.5);
             double Y2=inverter.invert((cheby_tables::U4_i[2]+1)*0.5);
             double Y3=inverter.invert((cheby_tables::U4_i[3]+1)*0.5);
-            double Y4=inverter.invert((cheby_tables::U4_i[4]+1)*0.5);
+            double Y4=SH->Xlow;//inverter.invert((cheby_tables::U4_i[4]+1)*0.5);
 
             double C0=Y0*cheby_tables::F4_ij[0][0] + Y1*cheby_tables::F4_ij[0][1]  + Y2*cheby_tables::F4_ij[0][2]  + Y3*cheby_tables::F4_ij[0][3]  + Y4*cheby_tables::F4_ij[0][4];
             double C1=Y0*cheby_tables::F4_ij[1][0] + Y1*cheby_tables::F4_ij[1][1]  + Y2*cheby_tables::F4_ij[1][2]  + Y3*cheby_tables::F4_ij[1][3]  + Y4*cheby_tables::F4_ij[1][4];
@@ -794,7 +713,7 @@ public:
             C2*=0.5;
             C3*=0.5;
             C4*=0.5;
-            
+
             double W0= C0*0.5 - C1 + C2 -C3 + C4;
             double W1= 2*C1 -8*C2 + 18*C3 - 32*C4;
             double W2= 8*C2 - 48*C3 + 160*C4;
