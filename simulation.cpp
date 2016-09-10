@@ -28,7 +28,7 @@ using namespace std;
 int main()
 {
     string output_fname="output";
-    size_t nseeds=10;
+    size_t nseeds=5;
 
 
 	int number_itterations=40000*nseeds;
@@ -37,7 +37,7 @@ int main()
 
     double pos_tol=0.0001;
     double mom_tol=0.0001;
-    
+
 ////// initialize fields //////
 
 	//initialize electric field
@@ -56,7 +56,6 @@ int main()
 
 
 ///////  initialize physics engines ////////
-	rand_gen rand;
 
     //moller scattering
     moller_table moller_engine(particle_removal_energy, 200000/energy_units_kev, 400, true);
@@ -65,7 +64,7 @@ int main()
     diffusion_table coulomb_scattering_engine;
 
     //bremsstrahlung
-    bremsstrahlung_scattering brem_engine( minimum_photon_energy );
+    //bremsstrahlung_scattering brem_engine( minimum_photon_energy );
 
     //interaction chooser
     interaction_chooser_linear<1> interaction_engine(moller_engine);//, brem_engine);
