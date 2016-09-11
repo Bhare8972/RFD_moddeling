@@ -211,7 +211,7 @@ namespace gsl {
 		// check if vectors are null
 		if( ccgsl_pointer == 0 ) throw vector_exception();
 		for( size_t i = 0; i<ccgsl_pointer->size; ++i )
-		{ 
+		{
 			(*this)[i]-=v;
 		}
 	}
@@ -466,7 +466,7 @@ namespace gsl {
         }
         return out;
     }
-    
+
     inline void clone_from(vector const& v)
     //version of clone that doesn't instantiate new memory
     {
@@ -475,7 +475,7 @@ namespace gsl {
         if( v.ccgsl_pointer == 0 ) throw vector_exception();
         //check sizes
         if( ccgsl_pointer->size != v.ccgsl_pointer->size) throw vector_exception();
-        
+
         //copy
         for( size_t i = 0; i<ccgsl_pointer->size; ++i )
         {
@@ -615,15 +615,16 @@ namespace gsl {
       }
       *count = 1; // initially there is just one reference to ccgsl_pointer
     }*/
-     
-     
+
+
     // clone()
     /**
      * The clone function. Use this if you want a copy of the block that does
      * not share the underlying data.
      * @return a new copy of @c this.
      */
-    vector clone() const {
+    vector clone() const
+    {
       vector copy( get()->size );
       // Now copy
       gsl_vector_memcpy( copy.get(), get() );
@@ -634,7 +635,8 @@ namespace gsl {
     /**
      * The destructor only deletes the pointers if count reaches zero.
      */
-    ~vector(){
+    ~vector()
+    {
       if( count != 0 and --*count == 0 ){
 	// could have allocated null pointer
 	if( ccgsl_pointer != 0 ){

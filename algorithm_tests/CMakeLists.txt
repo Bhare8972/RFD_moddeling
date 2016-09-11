@@ -47,4 +47,8 @@ add_executable(random_seeding_test
               ./random_seeding_test.cpp)
 target_link_libraries(random_seeding_test gsl gslcblas)
 
+add_executable(output_tester
+              ./output_tester.cpp)
+target_link_libraries(output_tester gsl gslcblas)
+
 

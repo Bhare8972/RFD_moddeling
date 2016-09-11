@@ -99,6 +99,11 @@ public:
         in_file->read((char*)&to_read,sizeof(double));
         return to_read;
     }
+
+    bool at_end()
+    {
+        return in_file->eof();
+    }
 };
 
 #endif

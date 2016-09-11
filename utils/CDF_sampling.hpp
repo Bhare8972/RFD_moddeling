@@ -16,6 +16,10 @@
 // fits the CDF to an akima spline, then finds the correct spline using walker alias sampling
 // algorithm is expensive to initialize and takes significant space, but is very fast (constant time) sampling
 
+//TODO:
+  //add saving and recalling from text
+  //consider removing dependance on spline_sampler
+
 
 class CDF_sampler
 {
@@ -44,7 +48,7 @@ public:
     //gsl::vector alias_boundAdjust;
 
     CDF_sampler(){}
-    
+
     CDF_sampler(gsl::vector x_values, gsl::vector CDF_values)
     {
         set(x_values, CDF_values);
@@ -52,7 +56,6 @@ public:
 
     void set(gsl::vector x_values, gsl::vector CDF_values)
     {
-print("1");
         //invert
         gsl::vector sampler_X;
         gsl::vector sampler_Y;
@@ -60,10 +63,8 @@ print("1");
         sampler_X/=sampler_X[sampler_X.size() - 1]; //normalize
 
         //use spline interpolation
-     
-print("A");
+
         spline_sampler=natural_cubic_spline(sampler_X, sampler_Y);
-print("B");
 
         //setup walker aliasing
         aliases = gsl::vector_long(spline_sampler->splines.size());

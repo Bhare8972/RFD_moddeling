@@ -370,26 +370,31 @@ public:
 
     double sample_photon_angle(double initial_electron_energy, double photon_energy)
     {
+        double reduced_photon_energy=photon_energy/initial_electron_energy;
+
+        double A_param;
+        double B_param;
+
         size_t sampler_index;
         if(initial_electron_energy >= PA_initial_electron_energies.back())
         {
             sampler_index=PA_initial_electron_energies.size()-1; //assume that A and B parameters do not change significantly if energy is too high....for now
+            PA_param_samplers[sampler_index].find_parameters(reduced_photon_energy, A_param, B_param);
         }
         else
         {
             sampler_index=search_sorted_exponential(PA_initial_electron_energies, initial_electron_energy);
+
+            double A_low;
+            double B_low;
+            double A_high;
+            double B_high;
+            PA_param_samplers[sampler_index].find_parameters(reduced_photon_energy, A_low, B_low);
+            PA_param_samplers[sampler_index+1].find_parameters(reduced_photon_energy, A_high, B_high);
+
+            A_param = linear_interpolate(PA_initial_electron_energies[sampler_index],A_low,     PA_initial_electron_energies[sampler_index+1],A_high,     initial_electron_energy);
+            B_param = linear_interpolate(PA_initial_electron_energies[sampler_index],B_low,     PA_initial_electron_energies[sampler_index+1],B_high,     initial_electron_energy);
         }
-        double reduced_photon_energy=photon_energy/initial_electron_energy;
-
-        double A_low;
-        double B_low;
-        double A_high;
-        double B_high;
-        PA_param_samplers[sampler_index].find_parameters(reduced_photon_energy, A_low, B_low);
-        PA_param_samplers[sampler_index+1].find_parameters(reduced_photon_energy, A_high, B_high);
-
-        double A_param = linear_interpolate(PA_initial_electron_energies[sampler_index],A_low,     PA_initial_electron_energies[sampler_index+1],A_high,     initial_electron_energy);
-        double B_param = linear_interpolate(PA_initial_electron_energies[sampler_index],B_low,     PA_initial_electron_energies[sampler_index+1],B_high,     initial_electron_energy);
 
         //maybe turn the following equation into a spline?....entire point is to avoid excess splining
         double beta_prime=KE_to_beta(initial_electron_energy)*(1.0-B_param);
@@ -413,10 +418,15 @@ public:
         double first_term=3.0*Q - 6.0*beta_pSQ*K - L*B2;
         double second_term=3.0*beta_pSQ*K + 3*L -3*Q;
 
-        zeroth_term/=Q;
-        first_term/=Q;
-        second_term/=Q;
+        //zeroth_term/=Q;
+        //first_term/=Q;
+        //second_term/=Q;
 
+        polynomial poly({zeroth_term, first_term, second_term, Q});
+        if(poly(-beta_prime)>0  and   poly(beta_prime)>0) {return 0.0;} //this is hacky
+        double U=bracketed_poly_solver( &poly, -beta_prime, beta_prime, 1000);
+        U/=beta_prime;
+/*
 // solve cubic equation x^3 + a*x^2 + b*x + c
 // x - array of size 3
 // In case 3 real roots: => x[0], x[1], x[2], return 3
@@ -442,7 +452,7 @@ public:
         else
         {
             throw gen_exception("cannot solve for photon angle in brem");
-        }
+        }*/
 
         return std::acos(U);
     }

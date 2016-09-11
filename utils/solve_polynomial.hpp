@@ -7,6 +7,9 @@
 #ifndef SOLVE_POLYNOMIAL_HPP
 #define SOLVE_POLYNOMIAL_HPP
 
+//NOTE:: this code is HIGHLY unstable, and GSL has an implimentation anyway.
+//Use GSL implimentation if necisary, or use root finding.  This code needs to be removed!
+
 #define	TwoPi  6.28318530717958648
 const double eps=1e-14;
 

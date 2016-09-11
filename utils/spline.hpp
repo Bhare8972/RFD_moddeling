@@ -6,84 +6,104 @@
 #include <list>
 #include <vector>
 //#include <gsl/gsl_spline.h>
+#include <gsl/gsl_poly.h>
 
 
 #include "GSL_utils.hpp"
 #include "vector.hpp"
 #include "functor.hpp"
 #include "gen_ex.hpp"
-
+#include "root_finding.hpp"
 
 //much of the algorithms here are out of date and need to be improved with chebyshev spline algorithms
+//re-work this file to focus on generic algorithms for polynomials
 
 
-class poly_spline : public functor_1D //we should extend this to work for first order as well
+//generic polynomials
+
+class polynomial: public functor_1D
 {
 public:
-	class spline_piece
-	{
-	public:
-		gsl::vector weights;
 
-		spline_piece(const poly_spline::spline_piece &SP)
-		{
-            weights=SP.weights.clone();
-		}
+    gsl::vector weights;
 
-        spline_piece(const gsl::vector &weights_)
-		{
-            weights=weights_;
-		}
+    polynomial(const polynomial &SP)
+    {
+        weights=SP.weights.clone();
+    }
 
-		spline_piece(double left_point, double middle_point, double right_point, double left_value, double middle_value, double right_value)
-		{
-            //second order spline
-            weights=gsl::vector(3);
+    polynomial(const std::initializer_list<double> L )
+    {
+        weights=gsl::vector(L);
+    }
 
-			double weight_three_num=(middle_point-left_point)*(right_value-left_value) - (right_point-left_point)*(middle_value-left_value);
-			double weight_three_denom=(middle_point-left_point)*(right_point*right_point - left_point*left_point) - (right_point-left_point)*(middle_point*middle_point-left_point*left_point);
-			weights[2]=weight_three_num/weight_three_denom;
-			weights[1]=(middle_value-left_value)/(middle_point-left_point) - weights[2]*(middle_point*middle_point-left_point*left_point)/(middle_point-left_point);
-			weights[0]=left_value - weights[2]*left_point*left_point - weights[1]*left_point;
+    polynomial(const gsl::vector &weights_) //note:: C++ may be smart enough to take an initializer list here
+    {
+        weights=weights_;
+    }
 
-			if(weights[2]!=weights[2] or weights[1]!=weights[1] or weights[0]!=weights[0] or std::isinf(weights[2]) or std::isinf(weights[1]) or std::isinf(weights[0]))
-			{
-                print("second order spline");
-                print(left_point, middle_point, right_point);
-			    throw gen_exception("function cannot be represented by a spline");
-			}
-		}
+    inline double call(double X)
+    {
+        return gsl_poly_eval(weights.data() , weights.size(), X);
+    }
 
-		spline_piece(double left_point, double right_point, double left_value, double right_value)
-		{
-            //first order spline
-            weights=gsl::vector(2);
+//need to be depreciated
+    polynomial(double left_point, double middle_point, double right_point, double left_value, double middle_value, double right_value)
+    {
+        //second order spline
+        weights=gsl::vector(3);
 
-			weights[1]=(right_value-left_value)/(right_point-left_point);
-			weights[0]=left_value - weights[1]*left_point;
+        double weight_three_num=(middle_point-left_point)*(right_value-left_value) - (right_point-left_point)*(middle_value-left_value);
+        double weight_three_denom=(middle_point-left_point)*(right_point*right_point - left_point*left_point) - (right_point-left_point)*(middle_point*middle_point-left_point*left_point);
+        weights[2]=weight_three_num/weight_three_denom;
+        weights[1]=(middle_value-left_value)/(middle_point-left_point) - weights[2]*(middle_point*middle_point-left_point*left_point)/(middle_point-left_point);
+        weights[0]=left_value - weights[2]*left_point*left_point - weights[1]*left_point;
 
-			if(weights[1]!=weights[1] or weights[0]!=weights[0] or std::isinf(weights[1]) or std::isinf(weights[0]))
-			{
-                print("first order spline");
-                print(left_point, right_point);
-			    throw gen_exception("function cannot be represented by a spline");
-			}
-		}
+        if(weights[2]!=weights[2] or weights[1]!=weights[1] or weights[0]!=weights[0] or std::isinf(weights[2]) or std::isinf(weights[1]) or std::isinf(weights[0]))
+        {
+            print("second order spline");
+            print(left_point, middle_point, right_point);
+            throw gen_exception("function cannot be represented by a spline");
+        }
+    }
 
-		double y(double x)
-		{
-            double ret=weights[0];
-            double F=x;
-            for(unsigned int i=1; i<weights.size(); i++)
-            {
-                ret+=weights[i]*F;
-                F*=x;
-            }
-            return ret;
-		}
-	};
+    polynomial(double left_point, double right_point, double left_value, double right_value)
+    {
+        //first order spline
+        weights=gsl::vector(2);
 
-	std::vector<spline_piece> splines;
+        weights[1]=(right_value-left_value)/(right_point-left_point);
+        weights[0]=left_value - weights[1]*left_point;
+
+        if(weights[1]!=weights[1] or weights[0]!=weights[0] or std::isinf(weights[1]) or std::isinf(weights[0]))
+        {
+            print("first order spline");
+            print(left_point, right_point);
+            throw gen_exception("function cannot be represented by a spline");
+        }
+    }
+
+    inline double y(double x)
+    {
+        return call(x);
+    }
+};
+
+//need to add some polynomial solving functions here
+
+double bracketed_poly_solver(polynomial* input_poly, double Xlow, double Xhigh, int max_iter)
+{
+    return root_finder_brent(input_poly, Xhigh, Xlow, (Xhigh-Xlow)/100000.0, (Xhigh-Xlow)/1000.0, max_iter);
+}
+
+
+
+//a spline from a collection of polynomials
+class poly_spline : public functor_1D
+{
+public:
+
+	std::vector<polynomial> splines;
 	gsl::vector x_vals; //length is one greater than splines
 
 	double lower_fill;
@@ -196,7 +216,7 @@ public:
         {
             spline_index=search_sorted_d(x_vals, X);
         }
-        
+
 		double Y= splines[spline_index].y(X);
 
 		return Y;
@@ -348,7 +368,7 @@ void make_fix_spline(gsl::vector X, gsl::vector Y, gsl::vector &X_new, gsl::vect
     Y_new=make_vector(new_y);
 }
 
-
+//depereciate or fix rest of these algorithms
 class adaptive_sampler_data
 {
 private:
@@ -609,7 +629,7 @@ public:
         //don't do last point
     }
 
-    std::list<poly_spline::spline_piece> get_spline()
+    std::list<polynomial> get_spline()
     {
         if(left_data)//if we have left_data, we have right as well
         {
@@ -621,7 +641,7 @@ public:
         else
         {
             gsl::vector weights({weight_one, weight_two, weight_three});
-            std::list<poly_spline::spline_piece> ret;
+            std::list<polynomial> ret;
             ret.emplace_back(weights);
             return ret;
         }

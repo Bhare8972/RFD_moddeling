@@ -96,9 +96,9 @@ class electron_history(object):
 def read_particles(fname):
     fin=binary_input(fname)
     particles={}
+    n=0
     while not fin.at_end():
         command=fin.in_short()
-        print(command)
         if command==1: ## a  new particle
             ID=fin.in_int()
             particles[ID]=electron_history(ID, fin)
@@ -110,9 +110,12 @@ def read_particles(fname):
         elif command==3: ##remove existing particle
             ID=fin.in_int()
             particles[ID].remove(fin)
+        elif command==4: ##at end!
+            break
         else:
-			print("error")
-			exit()
+            print("error", command, n)
+            exit()
+        n+=1
             
     return particles
 
@@ -124,7 +127,7 @@ def plot_particles_XYZ(particles):
     ax.set_xlabel('X axis')
     ax.set_ylabel('Y axis')
     ax.set_zlabel('Z axis')
-    for p in particle_data.itervalues():
+    for p in particle_data.values():
         ax.plot(p.get_X()*distance_units, p.get_Y()*distance_units, p.get_Z()*distance_units)
     plt.show()
 
@@ -134,7 +137,7 @@ def plot_particles_XZ(particles):
     ax = fig.add_subplot(1,1,1)
     ax.set_xlabel('X axis')
     ax.set_ylabel('Z axis')
-    for p in particle_data.itervalues():
+    for p in particle_data.values():
         ax.plot(p.get_X()*distance_units, p.get_Z()*distance_units)
     plt.show()
 
@@ -146,7 +149,7 @@ def plot_particles_ZvsTIME(particles):
     ax.set_ylabel('Z axis (m)')
     creation_Z=[]
     creation_T=[]
-    for p in particle_data.itervalues():
+    for p in particle_data.values():
         T=p.get_T()*time_units*10**9
         Z=p.get_Z()*distance_units
         ax.plot(T, Z, '.-')
@@ -165,12 +168,12 @@ def plot_particles_TIMEYZ(particles):
     ax.set_xlabel('time')
     ax.set_ylabel('Y axis')
     ax.set_zlabel('Z axis')
-    for p in particles.itervalues():
+    for p in particles.values():
         ax.plot(p.get_T()*time_units, p.get_Y()*distance_units, p.get_Z()*distance_units)
     plt.show()
 
 def speed_VS_time(particles):
-    for p in particles.itervalues():
+    for p in particles.values():
         Px=p.get_Px()
         Py=p.get_Py()
         Pz=p.get_Pz()
@@ -181,7 +184,7 @@ def speed_VS_time(particles):
     plt.show()
 
 def KE_VS_time(particles):
-    for p in particles.itervalues():
+    for p in particles.values():
         Px=p.get_Px()
         Py=p.get_Py()
         Pz=p.get_Pz()
@@ -192,7 +195,7 @@ def KE_VS_time(particles):
     plt.show()
 
 def KE_VS_Z(particles):
-    for p in particles.itervalues():
+    for p in particles.values():
         Px=p.get_Px()
         Py=p.get_Py()
         Pz=p.get_Pz()
@@ -206,7 +209,7 @@ def KE_VS_Z(particles):
 def plot_timesteps(particles):
     fig=plt.figure()
     axis=fig.add_subplot(111)
-    for p in particles.itervalues():
+    for p in particles.values():
         axis.plot(p.get_T()*time_units, np.array(p.timestep_history), 'o-')
 
     y1, y2=axis.get_ylim()
@@ -230,7 +233,7 @@ def timesteps_vs_energy(particles):
     fig=plt.figure()
     axis=fig.add_subplot(111)
     max_E=0
-    for p in particles.itervalues():
+    for p in particles.values():
         Px=p.get_Px()
         Py=p.get_Py()
         Pz=p.get_Pz()
@@ -253,17 +256,17 @@ def timesteps_vs_energy(particles):
 def num_electrons_per_T(electrons, num_seeds=1.0, max_T=None):
     if max_T is None:
         max_T=0
-        for e in electrons.itervalues():
+        for e in electrons.values():
             etm=np.max(e.get_T())
             if etm>max_T:
                 max_T=etm
                 
     time_checks=np.linspace(0, max_T, 1000)
     electrons_each_T=np.zeros(len(time_checks))
-    for e in electrons.itervalues():
+    for e in electrons.values():
         start_T=np.min(e.get_T())
         end_T=np.max(e.get_T())
-        for i in xrange(len(electrons_each_T)):
+        for i in range(len(electrons_each_T)):
             if time_checks[i]>=start_T and time_checks[i]<=end_T:
                 electrons_each_T[i]+=1.0
     
@@ -275,11 +278,11 @@ def num_electrons_per_T(electrons, num_seeds=1.0, max_T=None):
 def ave_kev_per_T(time_checks, num_electrons, electrons):
 
     kev_each_T=np.zeros(len(time_checks))
-    for e in electrons.itervalues():
+    for e in electrons.values():
         times=e.get_T()
         start_T=np.min(times)
         end_T=np.max(times)
-        for i in xrange(len(time_checks)):
+        for i in range(len(time_checks)):
             if time_checks[i]>=start_T and time_checks[i]<=end_T:
                 t_index=np.searchsorted(times, time_checks[i])-1
                 Px=e.get_Px()[t_index]
@@ -320,15 +323,15 @@ if __name__=='__main__':
     ## print "final pos", particle_data[1].pos_history[-1][2]
     print( len(particle_data), "particles")
 
-    #plot_particles_XYZ(particle_data)
-    #plot_particles_XZ(particle_data)
-    #plot_particles_TIMEYZ(particle_data)
-    #plot_particles_ZvsTIME(particle_data)
-    #speed_VS_time(particle_data)
-    #KE_VS_time(particle_data)
-    #KE_VS_Z(particle_data)
-    #plot_timesteps(particle_data)
-    #timesteps_vs_energy(particle_data)
+    plot_particles_XYZ(particle_data)
+    plot_particles_XZ(particle_data)
+    plot_particles_TIMEYZ(particle_data)
+    plot_particles_ZvsTIME(particle_data)
+    speed_VS_time(particle_data)
+    KE_VS_time(particle_data)
+    KE_VS_Z(particle_data)
+    plot_timesteps(particle_data)
+    timesteps_vs_energy(particle_data)
     
     
     time_checks, num_electrons = num_electrons_per_T(particle_data, 100.0)

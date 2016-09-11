@@ -19,6 +19,8 @@
 
 //#include "solve_polynomial.hpp"
 
+//reuse code from spline.hpp and CDF_sampling!
+
 
 namespace cheby_tables
 {
@@ -305,7 +307,7 @@ public:
         }
     };
 
-    class rand_sampler
+    class rand_sampler //consider replacing this with other walker alias structure
     {
         private:
         class alias_data //needed for initializing the sampler
@@ -510,7 +512,7 @@ public:
 
 
         gsl::vector x_vals(samplers.size()+1);
-        std::vector<poly_spline::spline_piece> splines;
+        std::vector<polynomial> splines;
         splines.reserve(samplers.size());
 
         int i=0;
@@ -537,7 +539,7 @@ public:
         top_section->get_sorted(samplers);
 
         gsl::vector x_vals(samplers.size()+1);
-        std::vector<poly_spline::spline_piece> splines;
+        std::vector<polynomial> splines;
         splines.reserve(samplers.size());
 
         //inverse_X_samples=gsl::vector(samplers.size()*5); //these were for testing purposes

@@ -9,13 +9,18 @@ test results of simulation against lehtenin.
 add atmosphere density vs altitude
 
 BREMSTRALHUNG:
-	double check accuracy
+	check cross section formula against seltzer n' berger tables to test cross section
+	compare angular distribution agains cross section formula at lower energies
+	compare ""                                         "" at higher energies to test linearity assumptions
+	find best way to calculate bremsstrahlung at energies higher than table
+	check energy loss due to low-energy photons is significant or not?
+
 
 Then test simulation against Dwyer and find slowdowns.
 
 add new walker aliasing and cheby polys
 
-improve physics documentation
+improve physics documentation (Desperatly needs to be done!)
 
 
 
@@ -23,11 +28,13 @@ improve physics documentation
 Fix production of the diffusion table, so that the convergence condition has a better statisitcal basis. (Maybe use pearson chi-square test)
 	Also need to add adaptive bin sizes.
 
-test diffusion tables!
+test diffusion tables
 
 
 other:
 improve utility documentation.  less important.
 figure out why interpolant is not thread safe
 make reading/writing binary files to correctly handel big-endian machines
+work GSL code into project itself instead of being external dependancy
+fix multiple implementation of polynomials (amoung other utilities)
 

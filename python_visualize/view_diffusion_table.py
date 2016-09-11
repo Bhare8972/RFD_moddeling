@@ -98,13 +98,13 @@ class diff_cross_section(object):
     def diffusion_approximation(self, angle):
         U=np.cos(angle)
         if(self.diffusion_Ddt>0.1):
-            print "ERROR"
+            print( "ERROR")
             return 0
         else:
             return np.exp((U-1)/(2*self.diffusion_Ddt))/(2*self.diffusion_Ddt)
             
     def diffusion_integrand(self, N):
-        print "diffustion dt", self.diffusion_Ddt
+        print( "diffustion dt", self.diffusion_Ddt)
         theta_space=np.linspace(0,np.pi,N)
         F=self.diffusion_approximation(theta_space)
         F_integrate=cumtrapz(y=F, x=theta_space, initial=0)
@@ -133,10 +133,10 @@ class diff_cross_section(object):
         ##num_interactions=omega_prefactor*distance_traveled/(self.beta*self.beta)
         num_interactions=self.integrated_num_interactions
         
-        print "mollier theory:", num_interactions
+        print( "mollier theory:", num_interactions)
         
         if(num_interactions<20):
-            print "mollier theory not applicable"
+            print( "mollier theory not applicable")
         
         #### next we find 'B' ####
         def B_finder(B): ##B solves this equation
@@ -167,7 +167,7 @@ class CS_table(object):
         self.dist_X=[]
         self.dist_Y=[]
         
-        for x in xrange(num_timesteps):
+        for x in range(num_timesteps):
             X_table=table_in.get_array()
             X_values=X_table.read_doubles()
             Y_table=table_in.get_array()
@@ -188,7 +188,7 @@ if __name__=='__main__':
     time_indeces=[0, 4, 8, 12, 16, 19]
     
     if len(energy_indeces)!=len(time_indeces):
-        print "ERROR"
+        print( "ERROR" )
         exit()
     
     ##open
@@ -199,24 +199,24 @@ if __name__=='__main__':
     timesteps_table=table_in.get_array()
     timesteps=timesteps_table.read_doubles()
     
-    #print energies*energy_units_kev
-    #print timesteps
+    print( "E(keV):", energies*energy_units_kev)
+    print("TS:", timesteps)
     
     #energies=energies[1:]
     
-    print len(energies), "energies"
-    print len(timesteps), "timesteps"
+    print( len(energies), "energies")
+    print( len(timesteps), "timesteps")
     
     tables=[]
-    for table_i in xrange(len(energies)):
+    for table_i in range(len(energies)):
         tables.append(CS_table(len(timesteps), table_in))
 
-    for print_i in xrange(len(energy_indeces)):
+    for print_i in range(len(energy_indeces)):
         energy_index=energy_indeces[print_i]
         time_index=time_indeces[print_i]
         
-        print 'energy:', energies[energy_index]*energy_units_kev, "Kev"
-        print 'timestep:', timesteps[time_index]
+        print( 'energy:', energies[energy_index]*energy_units_kev, "Kev")
+        print( 'timestep:', timesteps[time_index])
         
         dist_X=tables[energy_index].get_X(time_index)
         dist_Y=tables[energy_index].get_Y(time_index)
