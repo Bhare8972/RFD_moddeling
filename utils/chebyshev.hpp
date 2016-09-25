@@ -534,6 +534,7 @@ public:
     }
 
     std::shared_ptr<poly_spline> get_inverse_spline(double inverse_precision)//, gsl::vector& inverse_X_samples, gsl::vector& inverse_Y_samples)
+    //returns inverse of cumulative intregral
     {
         std::list<sampler_helper*> samplers;
         top_section->get_sorted(samplers);
