@@ -51,4 +51,7 @@ add_executable(output_tester
               ./output_tester.cpp)
 target_link_libraries(output_tester gsl gslcblas)
 
+add_executable(brem_test
+              ./brem_test.cpp)
+target_link_libraries(brem_test gsl gslcblas)
 
