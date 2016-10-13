@@ -13,3 +13,5 @@ define a new feedback paramater as "number of positrons and photons that produce
 Find how long it takes an avalanche to reach equlibrium. (Find average energy vs number of avalanche lengths, and fit to exponential curve)
 
 model RF emissions from TGF (consider both models) and find if avanlanch component or "recoil pulse" is more significant.
+
+look at TGF beam angles

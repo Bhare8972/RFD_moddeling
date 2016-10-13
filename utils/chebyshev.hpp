@@ -174,13 +174,16 @@ public:
 
             //check to see if precision is reached
             double guess=sample(left_spline->X1);
-            bool left_accurate=float(guess*precision_factor + float( guess - (left_spline->Y1))) == float(guess*precision_factor);
+            bool left_accurate=float((left_spline->Y1)*precision_factor + float( guess - (left_spline->Y1))) == float((left_spline->Y1)*precision_factor);
+            //bool left_accurate= std::abs(left_spline->Y1 - guess) < std::abs(precision_factor*left_spline->Y1);
 
             guess=sample(middle_spline->X1);
-            bool middle_accurate=float(guess*precision_factor + float( guess - (middle_spline->Y1))) == float(guess*precision_factor);
+            bool middle_accurate=float((middle_spline->Y1)*precision_factor + float( guess - (middle_spline->Y1))) == float((middle_spline->Y1)*precision_factor);
+            //bool middle_accurate= std::abs(middle_spline->Y1 - guess) < std::abs(precision_factor*middle_spline->Y1);
 
             guess=sample(right_spline->X1);
-            bool right_accurate=float(guess*precision_factor + float( guess - (right_spline->Y1))) == float(guess*precision_factor);
+            bool right_accurate=float((right_spline->Y1)*precision_factor + float( guess - (right_spline->Y1))) == float((right_spline->Y1)*precision_factor);
+            //bool right_accurate= std::abs(right_spline->Y1 - guess) < std::abs(precision_factor*right_spline->Y1);
 
             if( (not left_accurate) or (not middle_accurate) or (not right_accurate))
             {
@@ -281,7 +284,6 @@ public:
 
         double invert(double N)
         {
-
             Wr0=W0-N*rate;
 
             return root_finder_brent(this, Xhigh, Xlow, (Xhigh-Xlow)/100000.0, (Xhigh-Xlow)/1000.0, 10000);
@@ -639,7 +641,7 @@ public:
             double P=std::abs( W4/(W0+W1+W2+W3) ); //fraction of answer due to W4.
             if( P> inverse_precision)
             {
-                print("Low inverse precision:", P, "Consider implmenting 8th order");
+                print("Low inverse precision:", P, "Consider implementing 8th order");
             }
 
             //weights are chosen for an x between 0 and 1
