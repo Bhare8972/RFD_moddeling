@@ -144,9 +144,10 @@ public:
 
         double sample(double X)
         {
-            double F2=X*X;
-            double F3=F2*X;
-            return K0 + K1*X + K2*F2 + K3*F3;
+            //double F2=X*X;
+            //double F3=F2*X;
+            //return K0 + K1*X + K2*F2 + K3*F3;
+            return ((K3*X + K2)*X + K1)*X + K0;
         }
 
         template<typename functor_T>
@@ -173,29 +174,55 @@ public:
 //return;
 
             //check to see if precision is reached
-            double guess=sample(left_spline->X1);
-            bool left_accurate=float((left_spline->Y1)*precision_factor + float( guess - (left_spline->Y1))) == float((left_spline->Y1)*precision_factor);
+            double guess_1=sample(left_spline->X1);
+            double guess_2=sample(left_spline->X2);
+            bool left_accurate_1=float((left_spline->Y1)*precision_factor + float( guess_1 - (left_spline->Y1))) == float((left_spline->Y1)*precision_factor);
+            bool left_accurate_2=float((left_spline->Y2)*precision_factor + float( guess_2 - (left_spline->Y2))) == float((left_spline->Y2)*precision_factor);
             //bool left_accurate= std::abs(left_spline->Y1 - guess) < std::abs(precision_factor*left_spline->Y1);
 
-            guess=sample(middle_spline->X1);
-            bool middle_accurate=float((middle_spline->Y1)*precision_factor + float( guess - (middle_spline->Y1))) == float((middle_spline->Y1)*precision_factor);
+            guess_1=sample(middle_spline->X1);
+            guess_2=sample(middle_spline->X2);
+            bool middle_accurate_1=float((middle_spline->Y1)*precision_factor + float( guess_1 - (middle_spline->Y1))) == float((middle_spline->Y1)*precision_factor);
+            bool middle_accurate_2=float((middle_spline->Y2)*precision_factor + float( guess_2 - (middle_spline->Y2))) == float((middle_spline->Y2)*precision_factor);
             //bool middle_accurate= std::abs(middle_spline->Y1 - guess) < std::abs(precision_factor*middle_spline->Y1);
 
-            guess=sample(right_spline->X1);
-            bool right_accurate=float((right_spline->Y1)*precision_factor + float( guess - (right_spline->Y1))) == float((right_spline->Y1)*precision_factor);
+            guess_1=sample(right_spline->X1);
+            guess_2=sample(right_spline->X2);
+            bool right_accurate_1=float((right_spline->Y1)*precision_factor + float( guess_1 - (right_spline->Y1))) == float((right_spline->Y1)*precision_factor);
+            bool right_accurate_2=float((right_spline->Y2)*precision_factor + float( guess_2 - (right_spline->Y2))) == float((right_spline->Y2)*precision_factor);
             //bool right_accurate= std::abs(right_spline->Y1 - guess) < std::abs(precision_factor*right_spline->Y1);
 
-            if( (not left_accurate) or (not middle_accurate) or (not right_accurate))
+            //if( (not left_accurate) or (not middle_accurate) or (not right_accurate))
+            //{
+            //    left_spline->refine(func, precision_factor);
+            //    middle_spline->refine(func, precision_factor);
+            //    right_spline->refine(func, precision_factor);
+
+            //    if( right_spline->stage==3 or right_spline->stage==4 or middle_spline->stage==3 or middle_spline->stage==4 or left_spline->stage==3 or left_spline->stage==4)
+            //    {
+            //        stage=4;
+            //    }
+            //}
+
+            if( not (left_accurate_1 and left_accurate_2))
             {
                 left_spline->refine(func, precision_factor);
-                middle_spline->refine(func, precision_factor);
-                right_spline->refine(func, precision_factor);
-
-                if( right_spline->stage==3 or right_spline->stage==4 or middle_spline->stage==3 or middle_spline->stage==4 or left_spline->stage==3 or left_spline->stage==4)
-                {
-                    stage=4;
-                }
             }
+            if( not (middle_accurate_1 and middle_accurate_2))
+            {
+                middle_spline->refine(func, precision_factor);
+            }
+            if( not (right_accurate_1 and right_accurate_2))
+            {
+               right_spline->refine(func, precision_factor);
+            }
+
+            if( right_spline->stage==3 or right_spline->stage==4 or middle_spline->stage==3 or middle_spline->stage==4 or left_spline->stage==3 or left_spline->stage==4)
+            {
+                stage=4;
+            }
+
+
         }
 
         void get_points(std::list<double>& out_points)
@@ -225,8 +252,8 @@ public:
             else
             {
                 out_values.push_back(Ylow);
-                out_values.push_back(Y1);
                 out_values.push_back(Y2);
+                out_values.push_back(Y1);
             }
         }
 
@@ -241,6 +268,102 @@ public:
             else
             {
                 out_samplers.push_back(this);
+            }
+        }
+
+        double integrand(double I_Xlow, double I_Xhigh, double& compinsation)
+        {
+            if(stage!=0 and stage !=3)
+            {
+                double IL_compinsation;
+                auto IL=left_spline->integrand(I_Xlow, I_Xhigh, IL_compinsation);
+
+                double IM_compinsation;
+                auto IM=middle_spline->integrand(I_Xlow, I_Xhigh, IM_compinsation);
+
+                double IR_compinsation;
+                auto IR=right_spline->integrand(I_Xlow, I_Xhigh, IR_compinsation);
+
+
+                //return IL+IM+IR;
+
+                compinsation=IL_compinsation+IM_compinsation;
+                double y=IM - compinsation;
+                double temp=IL + y;
+                compinsation=(temp - IL) - y;
+                double sum=temp;
+
+                y=IR-compinsation;
+                temp=sum+y;
+                compinsation=(temp-sum)-y;
+
+                return temp;
+            }
+            else
+            {
+                if(I_Xlow<Xlow){ I_Xlow=Xlow; }
+                if(I_Xhigh>Xhigh){ I_Xhigh=Xhigh; }
+
+                double upper_integrand=(((K3*I_Xhigh/4.0 + K2/3.0)*I_Xhigh + K1/2.0)*I_Xhigh + K0)*I_Xhigh;
+                double lower_integrand=(((K3*I_Xlow/4.0 + K2/3.0)*I_Xlow + K1/2.0)*I_Xlow + K0)*I_Xlow;
+
+                compinsation=0;
+                return upper_integrand-lower_integrand;
+
+                /*
+                double XLow_2=I_Xlow*I_Xlow;
+                double XLow_3=I_Xlow*XLow_2;
+                double Xlow_4=XLow_2*XLow_2;
+
+                double Xhigh_2=I_Xhigh*I_Xhigh;
+                double Xhigh_3=I_Xhigh*Xhigh_2;
+                double Xhigh_4=Xhigh_2*Xhigh_2;
+
+                double low_term_1=K0*I_Xlow;
+                double low_term_2=K1*XLow_2*0.5;
+                double low_term_3=K2*XLow_3/3.0;
+                double low_term_4=K3*Xlow_4*0.25;
+
+                double high_term_1=K0*I_Xhigh;
+                double high_term_2=K1*Xhigh_2*0.5;
+                double high_term_3=K2*Xhigh_3/3.0;
+                double high_term_4=K3*Xhigh_4*0.25;
+
+                double temp=high_term_1 - low_term_1;
+                compinsation=(temp-high_term_1) + low_term_1;
+                double sum=temp;
+
+                double y=high_term_2 - compinsation;
+                temp= sum + y;
+                compinsation=(temp - sum) -y;
+                sum=temp;
+
+                y=-low_term_2 - compinsation;
+                temp= sum + y;
+                compinsation=(temp - sum) - y;
+                sum=temp;
+
+                y=high_term_3 - compinsation;
+                temp=sum + y;
+                compinsation=(temp - sum) -y;
+                sum=temp;
+
+                y=-low_term_3 - compinsation;
+                temp=sum + y;
+                compinsation=(temp-sum)-y;
+                sum=temp;
+
+                y=high_term_4 - compinsation;
+                temp=sum+y;
+                compinsation=(temp-sum)-y;
+                sum=temp;
+
+                y=-low_term_4 - compinsation;
+                temp=sum+y;
+                compinsation=(temp-sum)-y;
+                sum=temp;
+
+                return sum;*/
             }
         }
     };
@@ -489,6 +612,12 @@ public:
     ~AdaptiveSpline_Cheby_O3()
     {
         if(top_section){delete top_section;}
+    }
+
+    double integrate(double Xlow_, double Xhigh_)
+    {
+        double C=0;
+        return top_section->integrand(Xlow_, Xhigh_, C);
     }
 
     gsl::vector get_points()

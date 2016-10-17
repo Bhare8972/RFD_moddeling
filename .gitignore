@@ -46,3 +46,5 @@ documentation/docdfsafd.pdf
 algorithm_tests/python_viewing_scrips/brem_test_out
 
 algorithm_tests/python_viewing_scrips/read_binary.pyc
+
+algorithm_tests/python_viewing_scrips/__pycache__/read_binary.cpython-35.pyc

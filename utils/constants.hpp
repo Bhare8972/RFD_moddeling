@@ -5,6 +5,7 @@
 //some math constants
 const double PI=3.1415926535897932384626;
 const double euler_number=2.718281828459;
+const double RTD=180.0/(2*PI);
 
 //some units
 const double Giga=1.0e9;
