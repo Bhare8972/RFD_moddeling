@@ -19,21 +19,23 @@
 
 //#include "solve_polynomial.hpp"
 
+//#include "fprecision.hpp"
+
 //reuse code from spline.hpp and CDF_sampling!
 
 
 namespace cheby_tables
 {
-    double U3_i[4]={1.0, std::cos(PI/3.0), std::cos(2*PI/3.0), -1.0};
+    double U3_i[4]={     1.0,   std::cos(PI/3.0),   std::cos(2*PI/3.0), -1.0};
 
-    double F3_ij[4][4]={{0.5, 1, 1, 0.5},
-                      {0.5, std::cos(PI/3.0), std::cos(2*PI/3.0), -0.5},
-                      {0.5, std::cos(2*PI/3.0), std::cos(4*PI/3.0), 0.5},
-                      {0.5, -1.0, 1.0, -0.5 } };
+    double F3_ij[4][4]={{0.5,   1.0,                1.0,                0.5},
+                        {-0.5,  std::cos(PI/3.0),   std::cos(2*PI/3.0), 0.5},
+                        {0.5,   std::cos(2*PI/3.0), std::cos(4*PI/3.0), 0.5},
+                        {-0.5,  std::cos(3*PI/3.0), 1.0,                0.5} };
 
 
 
-    double U4_i[5]={1.0, std::cos(PI*0.25), std::cos(PI*0.5), std::cos(PI*0.75), -1.0};
+    double U4_i[5]={1.0, std::cos(PI*0.25), std::cos(PI*0.5), std::cos(PI*0.75), -1.0}; //THESE ARE WRONG
 
     double F4_ij[5][5]={{0.5, 1,                 1,                1,                    0.5},
                         {0.5, std::cos(PI*0.25), std::cos(PI*0.5), std::cos(PI*0.75),    -0.5},
@@ -69,6 +71,12 @@ public:
         double K2;
         double K3;
 
+/*
+        float_precision K0;
+        float_precision K1;
+        float_precision K2;
+        float_precision K3;
+*/
         sampler_helper* left_spline;
         sampler_helper* middle_spline;
         sampler_helper* right_spline;
@@ -114,25 +122,57 @@ public:
             Y2=func(X2);
 
             //find coefienents
-            double C0=(cheby_tables::F3_ij[0][0]*Yhigh + cheby_tables::F3_ij[0][1]*Y1 + cheby_tables::F3_ij[0][2]*Y2 + cheby_tables::F3_ij[0][3]*Ylow)*2.0/3.0;
-            double C1=(cheby_tables::F3_ij[1][0]*Yhigh + cheby_tables::F3_ij[1][1]*Y1 + cheby_tables::F3_ij[1][2]*Y2 + cheby_tables::F3_ij[1][3]*Ylow)*2.0/3.0;
-            double C2=(cheby_tables::F3_ij[2][0]*Yhigh + cheby_tables::F3_ij[2][1]*Y1 + cheby_tables::F3_ij[2][2]*Y2 + cheby_tables::F3_ij[2][3]*Ylow)*2.0/3.0;
-            double C3=(cheby_tables::F3_ij[3][0]*Yhigh + cheby_tables::F3_ij[3][1]*Y1 + cheby_tables::F3_ij[3][2]*Y2 + cheby_tables::F3_ij[3][3]*Ylow)*2.0/3.0;
+            double C0=(cheby_tables::F3_ij[0][0]*Yhigh + cheby_tables::F3_ij[0][1]*Y1 + cheby_tables::F3_ij[0][2]*Y2 + cheby_tables::F3_ij[0][3]*Ylow);
+            double C1=(cheby_tables::F3_ij[1][0]*Yhigh + cheby_tables::F3_ij[1][1]*Y1 + cheby_tables::F3_ij[1][2]*Y2 + cheby_tables::F3_ij[1][3]*Ylow);
+            double C2=(cheby_tables::F3_ij[2][0]*Yhigh + cheby_tables::F3_ij[2][1]*Y1 + cheby_tables::F3_ij[2][2]*Y2 + cheby_tables::F3_ij[2][3]*Ylow);
+            double C3=(cheby_tables::F3_ij[3][0]*Yhigh + cheby_tables::F3_ij[3][1]*Y1 + cheby_tables::F3_ij[3][2]*Y2 + cheby_tables::F3_ij[3][3]*Ylow);
+/*
+            //find cheby coefs
+            float_precision C0(0.0,100);
+            C0+=cheby_tables::F3_ij[0][0]*Yhigh;
+            C0+=cheby_tables::F3_ij[0][1]*Y1;
+            C0+=cheby_tables::F3_ij[0][2]*Y2;
+            C0+=cheby_tables::F3_ij[0][3]*Ylow;
+            C0*0.5;
 
+            float_precision C1(0.0,100);
+            C1+=cheby_tables::F3_ij[1][0]*Yhigh;
+            C1+=cheby_tables::F3_ij[1][1]*Y1;
+            C1+=cheby_tables::F3_ij[1][2]*Y2;
+            C1+=cheby_tables::F3_ij[1][3]*Ylow;
+            C1*0.5;
+
+            float_precision C2(0.0,100);
+            C2+=cheby_tables::F3_ij[2][0]*Yhigh;
+            C2+=cheby_tables::F3_ij[2][1]*Y1;
+            C2+=cheby_tables::F3_ij[2][2]*Y2;
+            C2+=cheby_tables::F3_ij[2][3]*Ylow;
+            C2*0.5;
+
+            float_precision C3(0.0,100);
+            C3+=cheby_tables::F3_ij[3][0]*Yhigh;
+            C3+=cheby_tables::F3_ij[3][1]*Y1;
+            C3+=cheby_tables::F3_ij[3][2]*Y2;
+            C3+=cheby_tables::F3_ij[3][3]*Ylow;
+            C3*0.5;
+*/
+
+            //transform
             double F=B/A;
             double F2=F*F;
             double F3=F2*F;
-            K0=C0*0.5 - C2 - F*(C1-3*C3) + 2*C2*F2 - 4*C3*F3;
+            K0=C0/3.0 -2.0*F*C1/3.0 + C2*(4.0*F2/3.0 - 2.0/3.0) + C3*(F -  4.0*F3/3.0);
 
             F2=F/A;
             F3=F2*F;
-            K1=2*(C1-3*C3)/A - 8*C2*F2 + 24*C3*F3;
+            K1=4.0*C1/(3.0*A) - 16*F2*C2/3.0 + C3*(8.0*F3 - 2.0/A);
 
             F2=1/(A*A);
             F3=F2*F;
-            K2=8*C2*F2 - 48*C3*F3;
+            K2=16.0*C2*F2/3.0 - 16.0*F2*C3;
 
-            K3=32*C3*F2/A;
+            K3=32*C3*F2/(A*3.0);
+
         }
 
         ~sampler_helper()
@@ -147,7 +187,7 @@ public:
             //double F2=X*X;
             //double F3=F2*X;
             //return K0 + K1*X + K2*F2 + K3*F3;
-            return ((K3*X + K2)*X + K1)*X + K0;
+            return double( ((K3*X + K2)*X + K1)*X + K0 );
         }
 
         template<typename functor_T>
@@ -224,6 +264,25 @@ public:
 
 
         }
+/*
+        void print_data()
+        {
+            if(stage!=0 and stage !=3)
+            {
+                left_spline->print_data();
+                middle_spline->print_data();
+                right_spline->print_data();
+            }
+            else
+            {
+                print("1:", Xlow, Ylow, sample(Xlow));
+                print("2:", X2, Y2, sample(X2));
+                print("3:", X1, Y1, sample(X1));
+                print("4:", Xhigh, Yhigh, sample(Xhigh));
+            }
+
+        }
+*/
 
         void get_points(std::list<double>& out_points)
         {
@@ -304,8 +363,8 @@ public:
                 if(I_Xlow<Xlow){ I_Xlow=Xlow; }
                 if(I_Xhigh>Xhigh){ I_Xhigh=Xhigh; }
 
-                double upper_integrand=(((K3*I_Xhigh/4.0 + K2/3.0)*I_Xhigh + K1/2.0)*I_Xhigh + K0)*I_Xhigh;
-                double lower_integrand=(((K3*I_Xlow/4.0 + K2/3.0)*I_Xlow + K1/2.0)*I_Xlow + K0)*I_Xlow;
+                double upper_integrand=double( (((K3*I_Xhigh/4.0 + K2/3.0)*I_Xhigh + K1/2.0)*I_Xhigh + K0)*I_Xhigh );
+                double lower_integrand=double( (((K3*I_Xlow/4.0 + K2/3.0)*I_Xlow + K1/2.0)*I_Xlow + K0)*I_Xlow );
 
                 compinsation=0;
                 return upper_integrand-lower_integrand;
@@ -619,7 +678,12 @@ public:
         double C=0;
         return top_section->integrand(Xlow_, Xhigh_, C);
     }
-
+/*
+    void print_data()
+    {
+        top_section->print_data();
+    }
+*/
     gsl::vector get_points()
     {
         std::list<double> points;
@@ -650,7 +714,7 @@ public:
         for(auto S : samplers)
         {
             x_vals[i]=S->Xlow;
-            gsl::vector W({S->K0, S->K1, S->K2, S->K3});
+            gsl::vector W({double(S->K0), double(S->K1), double(S->K2), double(S->K3)});
             splines.emplace_back(W);
             i++;
         }
@@ -683,10 +747,10 @@ public:
         {
             quartic_inversion_helper inverter;
 
-            inverter.W1=SH->K0;
-            inverter.W2=SH->K1*0.5;
-            inverter.W3=SH->K2/3.0;
-            inverter.W4=SH->K3*0.25;
+            inverter.W1=double(SH->K0);
+            inverter.W2=double(SH->K1*0.5);
+            inverter.W3=double(SH->K2/3.0);
+            inverter.W4=double(SH->K3*0.25);
 
             double spline_width = inverter.set(SH->Xlow, SH->Xhigh );
 
@@ -823,10 +887,10 @@ public:
         {
             quartic_inversion_helper inverter;
 
-            inverter.W1=SH->K0;
-            inverter.W2=SH->K1*0.5;
-            inverter.W3=SH->K2/3.0;
-            inverter.W4=SH->K3*0.25;
+            inverter.W1=double(SH->K0);
+            inverter.W2=double(SH->K1*0.5);
+            inverter.W3=double(SH->K2/3.0);
+            inverter.W4=double(SH->K3*0.25);
 
             spline_weights[i] = inverter.set(SH->Xlow, SH->Xhigh );
 
@@ -858,7 +922,7 @@ public:
             double P=std::abs( W4/(W0+W1+W2+W3) ); //fraction of answer due to W4.
             if( P> inverse_precision)
             {
-                print("Low inverse precision:", P, "Consider implmenting 8th order");
+                print("Low inverse precision:", P, "Consider implementing 8th order");
             }
 
             inverted_splines.emplace_back(W0, W1, W2, W3, W4);

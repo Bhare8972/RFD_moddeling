@@ -12,11 +12,13 @@
 #include "../physics/brems_pairPr.hpp"
 #include "../physics/bremsstrahlung_scattering.hpp"
 
+//REM: need to multiply CS by 2 pi, and by sin of each theta, and fix for Earth atmo
+
 //assume nitrogen atomosphere
 double Z=7;
 
 const double K_sq=std::pow(Z, 2.0/3.0)/(111*111.0);
-const double prefactor=Z*Z/(8*PI*PI*PI*average_air_atomic_number*137);
+const double prefactor=Z*Z/(4*PI*PI*average_air_atomic_number*137);
 
 //This is probably not correct in magnitude, due to atmosphere implementation issues
 double  bremsstrahlung_cross_section(double initial_energy, double photon_energy, double photon_theta, double final_electron_theta, double delta_electron_photon_phi)
@@ -60,7 +62,7 @@ double  bremsstrahlung_cross_section(double initial_energy, double photon_energy
     double D_numerator=2*photon_energy*photon_energy*(final_electron_momentum_squared*sin_theta_final*sin_theta_final + initial_electron_momentum_squared*sin_theta_initial*sin_theta_initial
     - 2.0*final_momentum*initial_momentum*sin_theta_final*sin_theta_initial*cos_phi);
 
-    double ret= prefactor * prefactor_2 * prefactor_3*( A_numerator/(A_denom_sqrt*A_denom_sqrt) + B_numerator/(B_denom_sqrt*B_denom_sqrt) + (D_numerator - C_numerator)/(A_denom_sqrt*B_denom_sqrt));
+    double ret= prefactor * prefactor_2 * prefactor_3*( A_numerator/(A_denom_sqrt*A_denom_sqrt) + B_numerator/(B_denom_sqrt*B_denom_sqrt) + (D_numerator - C_numerator)/(A_denom_sqrt*B_denom_sqrt))*sin_theta_initial*std::sin(final_electron_theta);
 
     if(ret!=ret)
     {
@@ -84,9 +86,16 @@ public:
         photon_energy=_PE;
         photon_theta=_PT;
         electron_theta=_ET;
-        precision=1.0E3;
+        //precision=1.0E3;
+        precision=1.0E100;
     }
-
+/*
+    void print_data()
+    {
+        AdaptiveSpline_Cheby_O3 cheby_integrator(*this, precision, 0, 2*PI);
+        cheby_integrator.print_data();
+    }
+*/
     double integrate()
     {
         AdaptiveSpline_Cheby_O3 cheby_integrator(*this, precision, 0, 2*PI);
@@ -212,7 +221,7 @@ public:
     {
         electron_energy=_EE;
         photon_energy=_PE;
-        precision=2.0E7;
+        precision=1.0E6;
     }
 
     double integrate()
@@ -274,7 +283,7 @@ public:
         electron_energy=_EE;
         min_photon_energy=min_PE;
         max_photon_energy=electron_energy-electron_energy/1000.0;
-        precision=3.0E7;
+        precision=5.0E7;
     }
 
     void setup()
@@ -310,7 +319,7 @@ public:
 };
 
 int counter=0;
-class brem_EEnergy //integrates cross section across photron energy
+class brem_EEnergy //samples cross section across electron energy
 {
 public:
     double min_electron_energy;
@@ -330,7 +339,7 @@ public:
         min_electron_energy=_min_electron_energy;
         max_electron_energy=_max_electron_energy;
         min_photon_energy=min_PE;
-        precision=3.0E7;
+        precision=5.0E6;
     }
 
     void setup()
@@ -499,30 +508,31 @@ double penelope_angular_distribution(double beta, double A, double B, double the
 
 int main()
 {
-    /*
     double electron_energy=6000.0/energy_units_kev;
-    double photon_energy= 2.0/energy_units_kev; //note that min_photon_energy must be high enough to avoid numerical issues
-    double photon_theta= 90.0/RTD;
-    double electron_theta=5.0/RTD;
-    int N_phi=10000;
+    double photon_energy= 50.0/energy_units_kev; //note that min_photon_energy must be high enough to avoid numerical issues
+    double photon_theta= 45.0/RTD;
+    double electron_theta=45.0/RTD;
+    int N_phi=1000;
 
-    brem_PE_phi brem_phi_sampler(electron_energy, photon_energy, photon_theta, electron_theta, 1.0E4);
+    brem_PE_phi brem_phi_sampler(electron_energy, photon_energy, photon_theta, electron_theta);
 
     auto phi_space=linspace(0, 2.0*3.1415926, N_phi);
 
     //gsl::vector CS_calc(N_phi);
     //for(int i=0; i<N_phi; i++)
     //{
-        //double phi=phi_space[i];
-        //double CS= brem_phi_sampler(phi);
-        //CS_calc[i]=CS;
+    //    double phi=phi_space[i];
+    //    double CS= brem_phi_sampler(phi);
+    //    CS_calc[i]=CS;
     //}
 
-    //gsl::vector phi_space;
-    //gsl::vector CS_calc;
-    //brem_phi_sampler.fancy_sample(phi_space, CS_calc);
-
     auto CS_calc = brem_phi_sampler.interpolate(phi_space);
+
+    gsl::vector phi_space_FS;
+    gsl::vector CS_calc_FS;
+    brem_phi_sampler.fancy_sample(phi_space_FS, CS_calc_FS);
+
+    //brem_phi_sampler.print_data();
 
     arrays_output out;
 
@@ -532,17 +542,23 @@ int main()
     auto CS_calc_out=std::make_shared<doubles_output>( CS_calc );
     out.add_array(CS_calc_out);
 
+    auto phi_space_out_FS=std::make_shared<doubles_output>( phi_space_FS);
+    out.add_array(phi_space_out_FS);
+
+    auto CS_calc_out_FS=std::make_shared<doubles_output>( CS_calc_FS );
+    out.add_array(CS_calc_out_FS);
+
     binary_output fout("./brem_test_out");
     out.write_out(&fout);
-*/
+
 
 /*
     double electron_energy=6000.0/energy_units_kev;
-    double photon_energy= 0.01/energy_units_kev; //note that min_photon_energy must be high enough to avoid numerical issues
+    double photon_energy= 1.0/energy_units_kev; //note that min_photon_energy must be high enough to avoid numerical issues
     double photon_theta= 30/RTD;
     int N_Etheta=100000;
 
-    brem_ETheta brem_Etheta_sampler(electron_energy, photon_energy, photon_theta, 1.0E4);
+    brem_ETheta brem_Etheta_sampler(electron_energy, photon_energy, photon_theta);
 
 
     auto Etheta_space=linspace(0, 3.1415926, N_Etheta);
@@ -577,9 +593,9 @@ int main()
 
 /*
     double electron_energy=6000.0/energy_units_kev;
-    //double photon_energy= 0.298244; //note that min_photon_energy must be high enough to avoid numerical issues
-    auto PE_space=linspace(2.0/energy_units_kev, electron_energy-electron_energy/500.0, 200);
-    double photon_energy=PE_space[54];
+    double photon_energy= 10.0/energy_units_kev; //note that min_photon_energy must be high enough to avoid numerical issues
+    //auto PE_space=linspace(2.0/energy_units_kev, electron_energy-electron_energy/500.0, 200);
+    //double photon_energy=PE_space[54];
 
     int N_Ptheta=10000;
 
@@ -632,7 +648,7 @@ int main()
 
 /*
     double electron_energy=6000.0/energy_units_kev;
-    double min_photon_energy= 2.0/energy_units_kev;
+    double min_photon_energy= 97.0/energy_units_kev;
     int N_PEnergy=10000;
 
     brem_PEnergy brem_Penergy_sampler(electron_energy, min_photon_energy);
@@ -684,9 +700,9 @@ int main()
 
 
 
-
+/*
     double min_electron_energy=5.0/energy_units_kev;
-    double max_electron_energy=10000.0/energy_units_kev;
+    double max_electron_energy=50000.0/energy_units_kev;
     double min_photon_energy= 2.0/energy_units_kev;
     int N_EEnergy=10000;
 
@@ -734,7 +750,7 @@ int main()
 
     binary_output fout("./brem_test_out");
     out.write_out(&fout);
-
+*/
 
 
     /*double min_electron_energy=2.0/energy_units_kev;
