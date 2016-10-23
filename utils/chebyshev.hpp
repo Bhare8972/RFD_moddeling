@@ -28,16 +28,16 @@ namespace cheby_tables
 {
     double U3_i[4]={     1.0,   std::cos(PI/3.0),   std::cos(2*PI/3.0), -1.0};
 
-    double F3_ij[4][4]={{0.5,   1.0,                1.0,                0.5},
-                        {-0.5,  std::cos(PI/3.0),   std::cos(2*PI/3.0), 0.5},
-                        {0.5,   std::cos(2*PI/3.0), std::cos(4*PI/3.0), 0.5},
-                        {-0.5,  std::cos(3*PI/3.0), 1.0,                0.5} };
+    double F3_ij[4][4]={{0.5,   1.0,               1.0,                0.5},
+                        {0.5,  std::cos(PI/3.0),   std::cos(2*PI/3.0), -0.5},
+                        {0.5,  std::cos(2*PI/3.0), std::cos(4*PI/3.0), 0.5},
+                        {0.5,  -1.0,               1.0,                -0.5} };
 
 
 
     double U4_i[5]={1.0, std::cos(PI*0.25), std::cos(PI*0.5), std::cos(PI*0.75), -1.0}; //THESE ARE WRONG
 
-    double F4_ij[5][5]={{0.5, 1,                 1,                1,                    0.5},
+    double F4_ij[5][5]={{0.5, 1,                 1,                1,                    0.5}, //SO ARE WRONG
                         {0.5, std::cos(PI*0.25), std::cos(PI*0.5), std::cos(PI*0.75),    -0.5},
                         {0.5, std::cos(PI*0.5),  std::cos(PI),     std::cos(PI*3.0/2.0), 0.5},
                         {0.5, std::cos(PI*0.75), std::cos(PI*1.5), std::cos(PI*9.0/4.0), -0.5},
@@ -126,36 +126,6 @@ public:
             double C1=(cheby_tables::F3_ij[1][0]*Yhigh + cheby_tables::F3_ij[1][1]*Y1 + cheby_tables::F3_ij[1][2]*Y2 + cheby_tables::F3_ij[1][3]*Ylow);
             double C2=(cheby_tables::F3_ij[2][0]*Yhigh + cheby_tables::F3_ij[2][1]*Y1 + cheby_tables::F3_ij[2][2]*Y2 + cheby_tables::F3_ij[2][3]*Ylow);
             double C3=(cheby_tables::F3_ij[3][0]*Yhigh + cheby_tables::F3_ij[3][1]*Y1 + cheby_tables::F3_ij[3][2]*Y2 + cheby_tables::F3_ij[3][3]*Ylow);
-/*
-            //find cheby coefs
-            float_precision C0(0.0,100);
-            C0+=cheby_tables::F3_ij[0][0]*Yhigh;
-            C0+=cheby_tables::F3_ij[0][1]*Y1;
-            C0+=cheby_tables::F3_ij[0][2]*Y2;
-            C0+=cheby_tables::F3_ij[0][3]*Ylow;
-            C0*0.5;
-
-            float_precision C1(0.0,100);
-            C1+=cheby_tables::F3_ij[1][0]*Yhigh;
-            C1+=cheby_tables::F3_ij[1][1]*Y1;
-            C1+=cheby_tables::F3_ij[1][2]*Y2;
-            C1+=cheby_tables::F3_ij[1][3]*Ylow;
-            C1*0.5;
-
-            float_precision C2(0.0,100);
-            C2+=cheby_tables::F3_ij[2][0]*Yhigh;
-            C2+=cheby_tables::F3_ij[2][1]*Y1;
-            C2+=cheby_tables::F3_ij[2][2]*Y2;
-            C2+=cheby_tables::F3_ij[2][3]*Ylow;
-            C2*0.5;
-
-            float_precision C3(0.0,100);
-            C3+=cheby_tables::F3_ij[3][0]*Yhigh;
-            C3+=cheby_tables::F3_ij[3][1]*Y1;
-            C3+=cheby_tables::F3_ij[3][2]*Y2;
-            C3+=cheby_tables::F3_ij[3][3]*Ylow;
-            C3*0.5;
-*/
 
             //transform
             double F=B/A;
@@ -169,10 +139,9 @@ public:
 
             F2=1/(A*A);
             F3=F2*F;
-            K2=16.0*C2*F2/3.0 - 16.0*F2*C3;
+            K2=16.0*C2*F2/3.0 - 16.0*F3*C3;
 
             K3=32*C3*F2/(A*3.0);
-
         }
 
         ~sampler_helper()
@@ -187,7 +156,7 @@ public:
             //double F2=X*X;
             //double F3=F2*X;
             //return K0 + K1*X + K2*F2 + K3*F3;
-            return double( ((K3*X + K2)*X + K1)*X + K0 );
+            return ((K3*X + K2)*X + K1)*X + K0 ;
         }
 
         template<typename functor_T>
@@ -363,8 +332,8 @@ public:
                 if(I_Xlow<Xlow){ I_Xlow=Xlow; }
                 if(I_Xhigh>Xhigh){ I_Xhigh=Xhigh; }
 
-                double upper_integrand=double( (((K3*I_Xhigh/4.0 + K2/3.0)*I_Xhigh + K1/2.0)*I_Xhigh + K0)*I_Xhigh );
-                double lower_integrand=double( (((K3*I_Xlow/4.0 + K2/3.0)*I_Xlow + K1/2.0)*I_Xlow + K0)*I_Xlow );
+                double upper_integrand=(((K3*I_Xhigh/4.0 + K2/3.0)*I_Xhigh + K1/2.0)*I_Xhigh + K0)*I_Xhigh ;
+                double lower_integrand= (((K3*I_Xlow/4.0 + K2/3.0)*I_Xlow + K1/2.0)*I_Xlow + K0)*I_Xlow ;
 
                 compinsation=0;
                 return upper_integrand-lower_integrand;
@@ -714,7 +683,7 @@ public:
         for(auto S : samplers)
         {
             x_vals[i]=S->Xlow;
-            gsl::vector W({double(S->K0), double(S->K1), double(S->K2), double(S->K3)});
+            gsl::vector W({S->K0, (S->K1), (S->K2), (S->K3)});
             splines.emplace_back(W);
             i++;
         }
@@ -747,10 +716,10 @@ public:
         {
             quartic_inversion_helper inverter;
 
-            inverter.W1=double(SH->K0);
-            inverter.W2=double(SH->K1*0.5);
-            inverter.W3=double(SH->K2/3.0);
-            inverter.W4=double(SH->K3*0.25);
+            inverter.W1=(SH->K0);
+            inverter.W2=(SH->K1*0.5);
+            inverter.W3=(SH->K2/3.0);
+            inverter.W4=(SH->K3*0.25);
 
             double spline_width = inverter.set(SH->Xlow, SH->Xhigh );
 
@@ -887,10 +856,10 @@ public:
         {
             quartic_inversion_helper inverter;
 
-            inverter.W1=double(SH->K0);
-            inverter.W2=double(SH->K1*0.5);
-            inverter.W3=double(SH->K2/3.0);
-            inverter.W4=double(SH->K3*0.25);
+            inverter.W1=(SH->K0);
+            inverter.W2=(SH->K1*0.5);
+            inverter.W3=(SH->K2/3.0);
+            inverter.W4=(SH->K3*0.25);
 
             spline_weights[i] = inverter.set(SH->Xlow, SH->Xhigh );
 

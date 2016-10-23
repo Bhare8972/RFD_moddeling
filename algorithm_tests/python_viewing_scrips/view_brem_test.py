@@ -15,17 +15,17 @@ if __name__=="__main__":
     cs_table=table_in.get_array()
     CS=cs_table.read_doubles()
     
-    X_space_table_FS=table_in.get_array()
-    X_space_FS=X_space_table_FS.read_doubles()
+    #X_space_table_FS=table_in.get_array()
+    #X_space_FS=X_space_table_FS.read_doubles()
     
-    cs_table_FS=table_in.get_array()
-    CS_FS=cs_table_FS.read_doubles()
+    #cs_table_FS=table_in.get_array()
+    #CS_FS=cs_table_FS.read_doubles()
     
     ##cumquad_table=table_in.get_array()
     ##cumquads=cumquad_table.read_doubles()
     
     plt.plot(X_space, CS, 'bo-')
-    plt.plot(X_space_FS, CS_FS, 'ro-')
+    #plt.plot(X_space_FS, CS_FS, 'ro-')
     plt.show()
     
     ##cumtrapz_calc=cumtrapz(CS, X_space, initial=0);

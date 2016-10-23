@@ -86,8 +86,7 @@ public:
         photon_energy=_PE;
         photon_theta=_PT;
         electron_theta=_ET;
-        //precision=1.0E3;
-        precision=1.0E100;
+        precision=1.0E2;
     }
 /*
     void print_data()
@@ -122,6 +121,7 @@ public:
     gsl::vector interpolate(gsl::vector phi_space)
     {
         AdaptiveSpline_Cheby_O3 cheby_integrator(*this, precision, 0, 2*PI);
+        print( cheby_integrator.integrate(0, 2*PI) );
         auto CS_spline=cheby_integrator.get_spline();
         return CS_spline->callv(phi_space);
     }
@@ -184,6 +184,7 @@ public:
     gsl::vector interpolate(gsl::vector ETheta_space)
     {
         AdaptiveSpline_Cheby_O3 cheby_integrator(*this, precision, 0, PI);
+        print( cheby_integrator.integrate(0, PI) );
         auto CS_spline=cheby_integrator.get_spline();
         return CS_spline->callv(ETheta_space);
     }
@@ -207,7 +208,6 @@ public:
         brem_PE_phi integrator(electron_energy, photon_energy, photon_theta, Etheta);
         return integrator.old_spline_integrate();
     }
-
 };
 
 class brem_PTheta //integrates cross section across photron theta
@@ -249,7 +249,7 @@ public:
     {
         brem_ETheta integrator(electron_energy, photon_energy, Ptheta);
         double I= integrator.integrate();
-        if(I<0) { print("ERROR!"); }
+        if(I<0) { print("ERROR!"); std::cout<<std::setprecision(30)<<Ptheta<<std::endl; }
         return I;
     }
 
@@ -257,7 +257,7 @@ public:
     {
         brem_ETheta integrator(electron_energy, photon_energy, Ptheta);
         double I= integrator.old_spline_integrate();
-        if(I<0) { print("ERROR!"); }
+        if(I<0) { print("ERROR!", Ptheta); }
         return I;
     }
 };
@@ -508,10 +508,11 @@ double penelope_angular_distribution(double beta, double A, double B, double the
 
 int main()
 {
+    /*
     double electron_energy=6000.0/energy_units_kev;
-    double photon_energy= 50.0/energy_units_kev; //note that min_photon_energy must be high enough to avoid numerical issues
+    double photon_energy= 10.0/energy_units_kev; //note that min_photon_energy must be high enough to avoid numerical issues
     double photon_theta= 45.0/RTD;
-    double electron_theta=45.0/RTD;
+    double electron_theta=6/RTD;
     int N_phi=1000;
 
     brem_PE_phi brem_phi_sampler(electron_energy, photon_energy, photon_theta, electron_theta);
@@ -550,19 +551,20 @@ int main()
 
     binary_output fout("./brem_test_out");
     out.write_out(&fout);
-
+*/
 
 /*
     double electron_energy=6000.0/energy_units_kev;
-    double photon_energy= 1.0/energy_units_kev; //note that min_photon_energy must be high enough to avoid numerical issues
-    double photon_theta= 30/RTD;
+    double photon_energy= 10.0/energy_units_kev; //note that min_photon_energy must be high enough to avoid numerical issues
+    //double photon_theta= 30/RTD;
+    double photon_theta= 1.52170894158255665118417709891;
     int N_Etheta=100000;
 
     brem_ETheta brem_Etheta_sampler(electron_energy, photon_energy, photon_theta);
 
 
     auto Etheta_space=linspace(0, 3.1415926, N_Etheta);
-    //auto Etheta_space=linspace(20.02/RTD, 20.05/RTD, N_Etheta);
+    //auto Etheta_space=linspace(0.090518, 0.092018, N_Etheta);
 
     //gsl::vector CS_calc(N_Etheta);
     //for(int i=0; i<N_Etheta; i++)
@@ -572,58 +574,63 @@ int main()
     //    CS_calc[i]=CS;
     //}
 
-    //gsl::vector Etheta_space;
-    //gsl::vector CS_calc;
-    //brem_Etheta_sampler.fancy_sample(Etheta_space, CS_calc);
+    gsl::vector Etheta_space_FS;
+    gsl::vector CS_calc_FS;
+    brem_Etheta_sampler.fancy_sample(Etheta_space_FS, CS_calc_FS);
 
     auto CS_calc = brem_Etheta_sampler.interpolate(Etheta_space);
 
     arrays_output out;
 
-    auto Etheta_space_out=std::make_shared<doubles_output>( Etheta_space*RTD );
+    auto Etheta_space_out=std::make_shared<doubles_output>( Etheta_space );
     out.add_array(Etheta_space_out);
 
     auto CS_calc_out=std::make_shared<doubles_output>( CS_calc );
     out.add_array(CS_calc_out);
+
+    auto Etheta_space_out_FS=std::make_shared<doubles_output>( Etheta_space_FS );
+    out.add_array(Etheta_space_out_FS);
+
+    auto CS_calc_out_FS=std::make_shared<doubles_output>( CS_calc_FS );
+    out.add_array(CS_calc_out_FS);
 
     binary_output fout("./brem_test_out");
     out.write_out(&fout);
 */
 
 
-/*
     double electron_energy=6000.0/energy_units_kev;
     double photon_energy= 10.0/energy_units_kev; //note that min_photon_energy must be high enough to avoid numerical issues
     //auto PE_space=linspace(2.0/energy_units_kev, electron_energy-electron_energy/500.0, 200);
     //double photon_energy=PE_space[54];
 
-    int N_Ptheta=10000;
+    int N_Ptheta=1000;
 
     brem_PTheta brem_Ptheta_sampler(electron_energy, photon_energy);
 
     auto Ptheta_space=linspace(0, PI, N_Ptheta);
 
-    //gsl::vector CS_calc(N_Ptheta);
-    //for(int i=0; i<N_Ptheta; i++)
-    //{
-    //    double Ptheta=Ptheta_space[i];
-    //    print(i, Ptheta);
+    gsl::vector CS_calc(N_Ptheta);
+    for(int i=0; i<N_Ptheta; i++)
+    {
+        double Ptheta=Ptheta_space[i];
+        print(i, Ptheta);
 
-    //    double CS= brem_Ptheta_sampler(Ptheta);
+        double CS= brem_Ptheta_sampler(Ptheta);
         //double CSB=brem_Ptheta_sampler.test(Ptheta);
 
-    //    print(" C", CS);//, CSB);
-    //    CS_calc[i]=CS;
+///    print(" C", CS);//, CSB);
+        CS_calc[i]=CS;
 
-    //}
+    }
 
-    gsl::vector Ptheta_space_FS;
-    gsl::vector CS_calc_FS;
-    brem_Ptheta_sampler.fancy_sample(Ptheta_space_FS, CS_calc_FS);
+    //gsl::vector Ptheta_space_FS;
+    //gsl::vector CS_calc_FS;
+    //brem_Ptheta_sampler.fancy_sample(Ptheta_space_FS, CS_calc_FS);
 
-    print(brem_Ptheta_sampler.integrate());
+    //print(brem_Ptheta_sampler.integrate());
 
-    auto CS_calc = brem_Ptheta_sampler.interpolate(Ptheta_space);
+    //auto CS_calc = brem_Ptheta_sampler.interpolate(Ptheta_space);
 
     print("saving");
     arrays_output out;
@@ -634,15 +641,15 @@ int main()
     auto CS_calc_out=std::make_shared<doubles_output>( CS_calc );
     out.add_array(CS_calc_out);
 
-    auto Ptheta_space_out_FS=std::make_shared<doubles_output>( Ptheta_space_FS );
-    out.add_array(Ptheta_space_out_FS);
+    //auto Ptheta_space_out_FS=std::make_shared<doubles_output>( Ptheta_space_FS );
+    //out.add_array(Ptheta_space_out_FS);
 
-    auto CS_calc_out_FS=std::make_shared<doubles_output>( CS_calc_FS );
-    out.add_array(CS_calc_out_FS);
+    //auto CS_calc_out_FS=std::make_shared<doubles_output>( CS_calc_FS );
+    //out.add_array(CS_calc_out_FS);
 
     binary_output fout("./brem_test_out");
     out.write_out(&fout);
-*/
+
 
 
 
