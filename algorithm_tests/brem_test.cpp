@@ -1,5 +1,6 @@
 
 #include <iomanip>
+#include <gsl/gsl_integration.h>
 
 #include "GSL_utils.hpp"
 #include "constants.hpp"
@@ -7,14 +8,16 @@
 #include "chebyshev.hpp"
 #include "arrays_IO.hpp"
 #include "span_tree.hpp"
+#include "functor.hpp"
+#include "rand.hpp"
 
 #include "../physics/relativistic_formulas.hpp"
 #include "../physics/brems_pairPr.hpp"
-#include "../physics/bremsstrahlung_scattering.hpp"
+//#include "../physics/bremsstrahlung_scattering.hpp"
 
 //REM: need to multiply CS by 2 pi, and by sin of each theta, and fix for Earth atmo
 
-//assume nitrogen atomosphere
+//assume nitrogen atmosphere
 double Z=7;
 
 const double K_sq=std::pow(Z, 2.0/3.0)/(111*111.0);
@@ -71,145 +74,97 @@ double  bremsstrahlung_cross_section(double initial_energy, double photon_energy
     return ret;
 }
 
-class brem_PE_phi //integrates cross section across photon-electron phi
+class brem_PE_phi : public functor_1D //integrates cross section across photon-electron phi
 {
 public:
     double electron_energy;
     double photon_energy;
     double photon_theta;
     double electron_theta;
-    double precision;
 
-    brem_PE_phi(double _EE, double _PE, double _PT, double _ET)
+    gsl_integration_workspace* workspace;
+    gsl_function func;
+
+    brem_PE_phi()
+    {
+        workspace=gsl_integration_workspace_alloc(1000);
+        func=get_gsl_func();
+    }
+
+    ~brem_PE_phi()
+    {
+        gsl_integration_workspace_free(workspace);
+    }
+
+    void set(double _EE, double _PE, double _PT, double _ET)
     {
         electron_energy=_EE;
         photon_energy=_PE;
         photon_theta=_PT;
         electron_theta=_ET;
-        precision=1.0E2;
     }
-/*
-    void print_data()
-    {
-        AdaptiveSpline_Cheby_O3 cheby_integrator(*this, precision, 0, 2*PI);
-        cheby_integrator.print_data();
-    }
-*/
+
     double integrate()
     {
-        AdaptiveSpline_Cheby_O3 cheby_integrator(*this, precision, 0, 2*PI);
-        return cheby_integrator.integrate(0, 2*PI);
-        //auto CS_spline=cheby_integrator.get_spline();
-        //return CS_spline->integrate(2*PI);
+        double result, error;
+
+        gsl_integration_qag(&func,0,2.0*PI,   0,1e-4,1000,    6,workspace,  &result,&error);
+
+        return result;
     }
 
-    double old_spline_integrate()
-    {
-        AdaptiveSpline_Cheby_O3 cheby_integrator(*this, precision, 0, 2*PI);
-        auto CS_spline=cheby_integrator.get_spline();
-        return CS_spline->integrate(2*PI);
-    }
-
-    void fancy_sample(gsl::vector& EP_phi_samples, gsl::vector& CS_samples)
-    {
-        AdaptiveSpline_Cheby_O3 cheby_integrator(*this, precision, 0, 2*PI);
-
-        EP_phi_samples=cheby_integrator.get_points();
-        CS_samples=cheby_integrator.get_values();
-    }
-
-    gsl::vector interpolate(gsl::vector phi_space)
-    {
-        AdaptiveSpline_Cheby_O3 cheby_integrator(*this, precision, 0, 2*PI);
-        print( cheby_integrator.integrate(0, 2*PI) );
-        auto CS_spline=cheby_integrator.get_spline();
-        return CS_spline->callv(phi_space);
-    }
-
-    double operator()(double PE_phi)
+    double call(double PE_phi)
     {
         return bremsstrahlung_cross_section(electron_energy, photon_energy, photon_theta, electron_theta, PE_phi);
     }
 
 };
 
-class brem_ETheta //integrates cross section across electron theta
+
+
+class brem_ETheta : public functor_1D //integrates cross section across electron theta
 {
 public:
-    double electron_energy;
-    double photon_energy;
-    double photon_theta;
-    double precision;
 
-    brem_ETheta(double _EE, double _PE, double _PT)
+    brem_PE_phi phi_workspace;
+
+    gsl_integration_workspace* workspace;
+    gsl_function func;
+
+    brem_ETheta()
     {
-        electron_energy=_EE;
-        photon_energy=_PE;
-        photon_theta=_PT;
-        precision=5.0E5;
+        workspace=gsl_integration_workspace_alloc(1000);
+        func=get_gsl_func();
+    }
+
+    ~brem_ETheta()
+    {
+        gsl_integration_workspace_free(workspace);
+    }
+
+    void set(double _EE, double _PE, double _PT)
+    {
+        phi_workspace.set(_EE, _PE, _PT, 0);
     }
 
     double integrate()
     {
-        AdaptiveSpline_Cheby_O3 cheby_integrator(*this, precision, 0, PI);
-        return cheby_integrator.integrate(0, PI);
-        //auto CS_spline=cheby_integrator.get_spline();
-        //return CS_spline->integrate(PI);
+        double result, error;
+
+        gsl_integration_qag(&func,0,PI,   0,1e-4,1000,    6,workspace,  &result,&error);
+
+        return result;
     }
 
-    double old_spline_integrate()
+    double call(double Etheta)
     {
-        AdaptiveSpline_Cheby_O3 cheby_integrator(*this, precision, 0, PI);
-        auto CS_spline=cheby_integrator.get_spline();
-        return CS_spline->integrate(PI);
-
-    }
-/*
-    double weird_integrate()
-    {
-        AdaptiveSpline_Cheby_O3 cheby_integrator(*this, precision, 0, PI);
-        double rate;
-        auto sampler=cheby_integrator.inverse_transform(0.1, rate);
-        return rate;
-    }*/
-
-    void fancy_sample(gsl::vector& ETheta_samples, gsl::vector& CS_samples)
-    {
-        AdaptiveSpline_Cheby_O3 cheby_integrator(*this, precision, 0, PI);
-
-        ETheta_samples=cheby_integrator.get_points();
-        CS_samples=cheby_integrator.get_values();
-    }
-
-    gsl::vector interpolate(gsl::vector ETheta_space)
-    {
-        AdaptiveSpline_Cheby_O3 cheby_integrator(*this, precision, 0, PI);
-        print( cheby_integrator.integrate(0, PI) );
-        auto CS_spline=cheby_integrator.get_spline();
-        return CS_spline->callv(ETheta_space);
-    }
-
-    gsl::vector cumquad_interpolate(gsl::vector Etheta_space)
-    {
-        AdaptiveSpline_Cheby_O3 cheby_integrator(*this, precision, 0, PI);
-        auto CS_spline=cheby_integrator.get_spline();
-        auto CS_cumquad=CS_spline->integrate();
-        return CS_cumquad->callv(Etheta_space);
-    }
-
-    double operator()(double Etheta)
-    {
-        brem_PE_phi integrator(electron_energy, photon_energy, photon_theta, Etheta);
-        return integrator.integrate();
-    }
-
-    double test(double Etheta)
-    {
-        brem_PE_phi integrator(electron_energy, photon_energy, photon_theta, Etheta);
-        return integrator.old_spline_integrate();
+        phi_workspace.electron_theta=Etheta;
+        return phi_workspace.integrate();
     }
 };
 
+
+int PTcounter=0;
 class brem_PTheta //integrates cross section across photron theta
 {
 public:
@@ -217,11 +172,41 @@ public:
     double photon_energy;
     double precision;
 
-    brem_PTheta(double _EE, double _PE)
+    brem_ETheta Etheta_workspace;
+
+    gsl::vector sample_space;
+    gsl::vector CS_samples;
+
+    double integrand;
+
+    std::shared_ptr<poly_spline>  CS_spline;
+    std::shared_ptr<poly_spline>  inverse_spline;
+
+    brem_PTheta()
+    {
+        electron_energy=0.0;
+        photon_energy=0.0;
+        precision=1.0E6;
+    }
+
+    void setup(double _EE, double _PE)
+    {
+        reset(_EE, _PE);
+        AdaptiveSpline_Cheby_O3 cheby_integrator(*this, precision, 0, PI);
+
+        integrand=cheby_integrator.integrate(0, PI);
+
+        sample_space=cheby_integrator.get_points();
+        CS_samples=cheby_integrator.get_values();
+
+        CS_spline=cheby_integrator.get_spline();
+        inverse_spline=cheby_integrator.get_inverse_spline();
+    }
+
+    void reset(double _EE, double _PE)
     {
         electron_energy=_EE;
         photon_energy=_PE;
-        precision=1.0E6;
     }
 
     double integrate()
@@ -230,39 +215,23 @@ public:
         return cheby_integrator.integrate(0, PI);
     }
 
-    void fancy_sample(gsl::vector& PTheta_samples, gsl::vector& CS_samples)
-    {
-        AdaptiveSpline_Cheby_O3 cheby_integrator(*this, precision, 0, PI);
-
-        PTheta_samples=cheby_integrator.get_points();
-        CS_samples=cheby_integrator.get_values();
-    }
-
     gsl::vector interpolate(gsl::vector PTheta_space)
     {
-        AdaptiveSpline_Cheby_O3 cheby_integrator(*this, precision, 0, PI);
-        auto CS_spline=cheby_integrator.get_spline();
         return CS_spline->callv(PTheta_space);
     }
 
     double operator()(double Ptheta)
     {
-        brem_ETheta integrator(electron_energy, photon_energy, Ptheta);
-        double I= integrator.integrate();
-        if(I<0) { print("ERROR!"); std::cout<<std::setprecision(30)<<Ptheta<<std::endl; }
-        return I;
-    }
+        //print("  ",PTcounter, Ptheta);
+        //PTcounter+=1;
 
-    double test(double Ptheta)
-    {
-        brem_ETheta integrator(electron_energy, photon_energy, Ptheta);
-        double I= integrator.old_spline_integrate();
-        if(I<0) { print("ERROR!", Ptheta); }
-        return I;
+        Etheta_workspace.set(electron_energy, photon_energy, Ptheta);
+        return Etheta_workspace.integrate();
     }
 };
 
 
+int PEcounter=0;
 class brem_PEnergy //integrates cross section across photron energy
 {
 public:
@@ -271,36 +240,52 @@ public:
     double max_photon_energy;
     double precision;
 
+    brem_PTheta Ptheta_workspace;
+
     gsl::vector sample_space;
     gsl::vector CS_samples;
 
     double integrand;
 
     std::shared_ptr<poly_spline>  CS_spline;
+    std::shared_ptr<poly_spline>  inverse_spline;
+    CDF_sampler sampler;
 
-    brem_PEnergy(double _EE, double min_PE)
+    brem_PEnergy()
     {
-        electron_energy=_EE;
-        min_photon_energy=min_PE;
-        max_photon_energy=electron_energy-electron_energy/1000.0;
-        precision=5.0E7;
+        electron_energy=0;
+        min_photon_energy=0;
+        max_photon_energy=0;
+        precision=1.0E7;
     }
 
-    void setup()
+    void setup(double _EE, double min_PE)
     {
+        reset(_EE, min_PE);
+
         AdaptiveSpline_Cheby_O3 cheby_integrator(*this, precision, min_photon_energy, max_photon_energy);
 
-        integrand=cheby_integrator.integrate(min_photon_energy, max_photon_energy);
+        //integrand=cheby_integrator.integrate(min_photon_energy, max_photon_energy);
 
         sample_space=cheby_integrator.get_points();
         CS_samples=cheby_integrator.get_values();
 
         CS_spline=cheby_integrator.get_spline();
+        inverse_spline=cheby_integrator.get_inverse_spline();
+        sampler=cheby_integrator.inverse_transform(1.0, integrand);
+    }
+
+    void reset(double _EE, double min_PE)
+    {
+        electron_energy=_EE;
+        min_photon_energy=min_PE;
+        max_photon_energy=electron_energy-electron_energy/1000.0;
     }
 
     double integrate()
     {
-        return integrand;
+        AdaptiveSpline_Cheby_O3 cheby_integrator(*this, precision, min_photon_energy, max_photon_energy);
+        return cheby_integrator.integrate(min_photon_energy, max_photon_energy);
     }
 
     gsl::vector interpolate(gsl::vector PEnergy_space)
@@ -308,17 +293,18 @@ public:
         return CS_spline->callv(PEnergy_space);
     }
 
+
     double operator()(double PEnergy)
     {
-        //print(counter, PEnergy);
-        //counter+=1;
+        print(" ",PEcounter, PEnergy);
+        PEcounter+=1;
 
-        brem_PTheta integrator(electron_energy, PEnergy);
-        return integrator.integrate();
+        Ptheta_workspace.reset(electron_energy, PEnergy);
+        return Ptheta_workspace.integrate();
     }
 };
 
-int counter=0;
+int EEcounter=0;
 class brem_EEnergy //samples cross section across electron energy
 {
 public:
@@ -327,10 +313,10 @@ public:
     double min_photon_energy;
     double precision;
 
+    brem_PEnergy Penergy_workspace;
+
     gsl::vector sample_space;
     gsl::vector CS_samples;
-
-    double integrand;
 
     std::shared_ptr<poly_spline>  CS_spline;
 
@@ -339,26 +325,18 @@ public:
         min_electron_energy=_min_electron_energy;
         max_electron_energy=_max_electron_energy;
         min_photon_energy=min_PE;
-        precision=5.0E6;
+        precision=0.5E7;
     }
 
     void setup()
     {
         AdaptiveSpline_Cheby_O3 cheby_integrator(*this, precision, min_electron_energy, max_electron_energy);
 
-        integrand=cheby_integrator.integrate(min_electron_energy, max_electron_energy);
-
         sample_space=cheby_integrator.get_points();
         CS_samples=cheby_integrator.get_values();
 
         CS_spline=cheby_integrator.get_spline();
     }
-
-    double integrate()
-    {
-        return integrand;
-    }
-
     gsl::vector interpolate(gsl::vector EEnergy_space)
     {
         return CS_spline->callv(EEnergy_space);
@@ -366,145 +344,13 @@ public:
 
     double operator()(double EEnergy)
     {
-        print(counter, EEnergy);
-        counter+=1;
+        print(EEcounter, EEnergy);
+        EEcounter+=1;
 
-        brem_PEnergy integrator(EEnergy, min_photon_energy);
-        integrator.setup();
-        return integrator.integrate();
+        Penergy_workspace.reset(EEnergy, min_photon_energy);
+        return Penergy_workspace.integrate();
     }
 };
-
-
-
-/*
-
-class bremsstrahlung_cross_section_across_theta //differential in photon energy. Integrates (and samples) the theta angle
-{
-public:
-    double electron_energy;
-    double photon_energy;
-    double precision;
-
-    std::shared_ptr<poly_spline> double_diff_CS;
-    //AdaptiveSpline_Cheby_O3::rand_sampler theta_sampler;
-    double integrated_CS;
-
-    gsl::vector theta_samples;
-    gsl::vector CS_samples;
-
-    bremsstrahlung_cross_section_across_theta(double _electron_energy, double _photon_energy, double _precision)
-    {
-        electron_energy=_electron_energy;
-        photon_energy=_photon_energy;
-        precision=_precision;
-
-        AdaptiveSpline_Cheby_O3 cheby_integrator(*this, precision, 0, PI);
-
-        double_diff_CS=cheby_integrator.get_spline();
-        //theta_sampler=cheby_integrator.inverse_transform(0.01, integrated_CS);
-        integrated_CS=double_diff_CS->integrate(PI);
-
-        theta_samples=cheby_integrator.get_points();
-        CS_samples=cheby_integrator.get_values();
-    }
-
-    double operator()(double theta)
-    {
-        //std::cout<<"sample:";
-        //std::cout << std::scientific << std::setprecision(15) << theta << std::endl;
-        //need to include atmosphere here
-        return KE_to_beta(electron_energy)*brems(electron_rest_energy*electron_energy, electron_rest_energy*photon_energy, theta)/(2*PI*average_air_atomic_number*electron_classical_radius*electron_classical_radius);
-    }
-};
-
-
-class bremsstrahlung_cross_section_across_PE
-{
-public:
-    double electron_energy;
-    double min_photon_energy;
-    double precision;
-
-    span_tree<bremsstrahlung_cross_section_across_theta> differential_cross_sections;
-
-    std::shared_ptr<poly_spline> diff_CS;
-    //AdaptiveSpline_Cheby_O3::rand_sampler PE_sampler;
-    double total_CS;
-
-    bremsstrahlung_cross_section_across_PE(double _electron_energy, double _min_photon_energy, double _precision, double upper_level_fraction=1000.0)
-    {
-        electron_energy=_electron_energy;
-        min_photon_energy=_min_photon_energy;
-        precision=_precision;
-
-        AdaptiveSpline_Cheby_O3 cheby_integrator(*this, precision, _min_photon_energy, (_electron_energy-_electron_energy/upper_level_fraction)); //note: our methods do not work if the photon energy gets too close to electron energy. CS goes to zero anyway
-
-        diff_CS=cheby_integrator.get_spline();
-        //PE_sampler=cheby_integrator.inverse_transform(0.01, total_CS);
-        total_CS=diff_CS->integrate(_electron_energy);
-    }
-
-    double operator()(double photon_energy)
-    {
-        std::cout<<"sample:";
-        std::cout << std::scientific << std::setprecision(15) << photon_energy*energy_units_kev << std::endl;
-        auto new_point= new bremsstrahlung_cross_section_across_theta(electron_energy, photon_energy, precision);
-        differential_cross_sections.insert(photon_energy, new_point);
-        return new_point->integrated_CS;
-    }
-};
-
-class bremsstrahlung_table
-{
-public:
-    double min_electron_energy;
-    double max_electron_energy;
-    double min_photon_energy;
-    double precision;
-
-
-    span_tree<bremsstrahlung_cross_section_across_PE> differential_cross_sections;
-    std::shared_ptr<poly_spline> total_CS;
-
-    bremsstrahlung_table(double _min_electron_energy, double _max_electron_energy, double _min_photon_energy, double _precision)
-    {
-        min_electron_energy=_min_electron_energy;
-        max_electron_energy=_max_electron_energy;
-        min_photon_energy=_min_photon_energy;
-        precision=_precision;
-
-        if( not (min_photon_energy<min_electron_energy))
-        {
-            throw gen_exception("minimum photon energy must be less than ");
-        }
-
-        AdaptiveSpline_Cheby_O3 cheby_integrator(*this, precision, min_electron_energy, max_electron_energy);
-
-        total_CS=cheby_integrator.get_spline();
-    }
-
-    double operator()(double electron_energy)
-    {
-        auto new_point= new bremsstrahlung_cross_section_across_PE(electron_energy, min_photon_energy, precision);
-        differential_cross_sections.insert(electron_energy, new_point);
-        return new_point->total_CS;
-    }
-};
-
-double penelope_angular_distribution(double beta, double A, double B, double theta)
-{
-    double beta_prime=beta*(1+B);
-    double cos_t=cos(theta);
-
-    double denom=(1-beta_prime*cos_t);
-    double factor_1=(cos_t-beta_prime)/denom;
-    factor_1*=factor_1;
-
-    double factor_2=(1.0-beta_prime*beta_prime)/(denom*denom);
-
-    return A*(3.0/8.0)*(1+factor_1)*factor_2 + (1.0-A)*(4.0/3.0)*(1.0-factor_1)*factor_2;
-}*/
 
 int main()
 {
@@ -556,9 +402,8 @@ int main()
 /*
     double electron_energy=6000.0/energy_units_kev;
     double photon_energy= 10.0/energy_units_kev; //note that min_photon_energy must be high enough to avoid numerical issues
-    //double photon_theta= 30/RTD;
-    double photon_theta= 1.52170894158255665118417709891;
-    int N_Etheta=100000;
+    double photon_theta= 30/RTD;
+    int N_Etheta=1000;
 
     brem_ETheta brem_Etheta_sampler(electron_energy, photon_energy, photon_theta);
 
@@ -566,19 +411,20 @@ int main()
     auto Etheta_space=linspace(0, 3.1415926, N_Etheta);
     //auto Etheta_space=linspace(0.090518, 0.092018, N_Etheta);
 
-    //gsl::vector CS_calc(N_Etheta);
-    //for(int i=0; i<N_Etheta; i++)
-    //{
-    //    double Etheta=Etheta_space[i];
-    //    double CS= brem_Etheta_sampler(Etheta);
-    //    CS_calc[i]=CS;
-    //}
+    gsl::vector CS_calc(N_Etheta);
+    for(int i=0; i<N_Etheta; i++)
+    {
+        print(i);
+        double Etheta=Etheta_space[i];
+        double CS= brem_Etheta_sampler.call(Etheta);
+        CS_calc[i]=CS;
+    }
 
-    gsl::vector Etheta_space_FS;
-    gsl::vector CS_calc_FS;
-    brem_Etheta_sampler.fancy_sample(Etheta_space_FS, CS_calc_FS);
+    //gsl::vector Etheta_space_FS;
+    //gsl::vector CS_calc_FS;
+    //brem_Etheta_sampler.fancy_sample(Etheta_space_FS, CS_calc_FS);
 
-    auto CS_calc = brem_Etheta_sampler.interpolate(Etheta_space);
+    //auto CS_calc = brem_Etheta_sampler.interpolate(Etheta_space);
 
     arrays_output out;
 
@@ -588,17 +434,17 @@ int main()
     auto CS_calc_out=std::make_shared<doubles_output>( CS_calc );
     out.add_array(CS_calc_out);
 
-    auto Etheta_space_out_FS=std::make_shared<doubles_output>( Etheta_space_FS );
-    out.add_array(Etheta_space_out_FS);
+    //auto Etheta_space_out_FS=std::make_shared<doubles_output>( Etheta_space_FS );
+    //out.add_array(Etheta_space_out_FS);
 
-    auto CS_calc_out_FS=std::make_shared<doubles_output>( CS_calc_FS );
-    out.add_array(CS_calc_out_FS);
+    //auto CS_calc_out_FS=std::make_shared<doubles_output>( CS_calc_FS );
+    //out.add_array(CS_calc_out_FS);
 
     binary_output fout("./brem_test_out");
     out.write_out(&fout);
 */
 
-
+/*
     double electron_energy=6000.0/energy_units_kev;
     double photon_energy= 10.0/energy_units_kev; //note that min_photon_energy must be high enough to avoid numerical issues
     //auto PE_space=linspace(2.0/energy_units_kev, electron_energy-electron_energy/500.0, 200);
@@ -607,30 +453,24 @@ int main()
     int N_Ptheta=1000;
 
     brem_PTheta brem_Ptheta_sampler(electron_energy, photon_energy);
+    brem_Ptheta_sampler.setup();
 
-    auto Ptheta_space=linspace(0, PI, N_Ptheta);
+    auto Ptheta_space=linspace(0, 3.1415, N_Ptheta);
+//
+//    gsl::vector CS_calc(N_Ptheta);
+//    for(int i=0; i<N_Ptheta; i++)
+//    {
+//        double Ptheta=Ptheta_space[i];
+//        print(i, Ptheta);
 
-    gsl::vector CS_calc(N_Ptheta);
-    for(int i=0; i<N_Ptheta; i++)
-    {
-        double Ptheta=Ptheta_space[i];
-        print(i, Ptheta);
+//        double CS= brem_Ptheta_sampler(Ptheta);
+//        CS_calc[i]=CS;
+//    }
 
-        double CS= brem_Ptheta_sampler(Ptheta);
-        //double CSB=brem_Ptheta_sampler.test(Ptheta);
+    gsl::vector Ptheta_space_FS=brem_Ptheta_sampler.sample_space;
+    gsl::vector CS_calc_FS=brem_Ptheta_sampler.CS_samples;
 
-///    print(" C", CS);//, CSB);
-        CS_calc[i]=CS;
-
-    }
-
-    //gsl::vector Ptheta_space_FS;
-    //gsl::vector CS_calc_FS;
-    //brem_Ptheta_sampler.fancy_sample(Ptheta_space_FS, CS_calc_FS);
-
-    //print(brem_Ptheta_sampler.integrate());
-
-    //auto CS_calc = brem_Ptheta_sampler.interpolate(Ptheta_space);
+    auto CS_calc = brem_Ptheta_sampler.interpolate(Ptheta_space);
 
     print("saving");
     arrays_output out;
@@ -641,25 +481,25 @@ int main()
     auto CS_calc_out=std::make_shared<doubles_output>( CS_calc );
     out.add_array(CS_calc_out);
 
-    //auto Ptheta_space_out_FS=std::make_shared<doubles_output>( Ptheta_space_FS );
-    //out.add_array(Ptheta_space_out_FS);
+    auto Ptheta_space_out_FS=std::make_shared<doubles_output>( Ptheta_space_FS );
+    out.add_array(Ptheta_space_out_FS);
 
-    //auto CS_calc_out_FS=std::make_shared<doubles_output>( CS_calc_FS );
-    //out.add_array(CS_calc_out_FS);
+    auto CS_calc_out_FS=std::make_shared<doubles_output>( CS_calc_FS );
+    out.add_array(CS_calc_out_FS);
 
     binary_output fout("./brem_test_out");
     out.write_out(&fout);
+*/
 
 
 
 
-/*
     double electron_energy=6000.0/energy_units_kev;
-    double min_photon_energy= 97.0/energy_units_kev;
-    int N_PEnergy=10000;
+    double min_photon_energy= 5.0/energy_units_kev;
+    int N_PEnergy=1000;
 
-    brem_PEnergy brem_Penergy_sampler(electron_energy, min_photon_energy);
-    brem_Penergy_sampler.setup();
+    brem_PEnergy brem_Penergy_sampler;
+    brem_Penergy_sampler.setup(electron_energy, min_photon_energy);
 
     auto PEnergy_space=linspace(min_photon_energy, electron_energy-electron_energy/500.0, N_PEnergy);
 
@@ -671,38 +511,98 @@ int main()
 
     //    double CS= brem_Penergy_sampler(Penergy);
 
-    //    print(" C", CS);
     //    CS_calc[i]=CS;
 
     //}
 
 
-    gsl::vector PEnergy_space_FS=brem_Penergy_sampler.sample_space;
-    gsl::vector CS_calc_FS=brem_Penergy_sampler.CS_samples;
 
-    //print(brem_Ptheta_sampler.integrate());
 
-    auto CS_calc = brem_Penergy_sampler.interpolate(PEnergy_space);
+
+
 
     print("saving");
     arrays_output out;
 
+    auto CS_calc = brem_Penergy_sampler.interpolate(PEnergy_space);
     auto PEnergy_space_out=std::make_shared<doubles_output>( PEnergy_space );
     out.add_array(PEnergy_space_out);
 
     auto CS_calc_out=std::make_shared<doubles_output>( CS_calc );
     out.add_array(CS_calc_out);
 
-    auto Ptheta_space_out_FS=std::make_shared<doubles_output>( PEnergy_space_FS );
-    out.add_array(Ptheta_space_out_FS);
 
-    auto CS_calc_out_FS=std::make_shared<doubles_output>( CS_calc_FS );
-    out.add_array(CS_calc_out_FS);
+
+    //gsl::vector PEnergy_space_FS=brem_Penergy_sampler.sample_space;
+    //gsl::vector CS_calc_FS=brem_Penergy_sampler.CS_samples;
+    //auto Ptheta_space_out_FS=std::make_shared<doubles_output>( PEnergy_space_FS );
+    //out.add_array(Ptheta_space_out_FS);
+
+    //auto CS_calc_out_FS=std::make_shared<doubles_output>( CS_calc_FS );
+    //out.add_array(CS_calc_out_FS);
+
+
+
+
+    //auto inverse_space=linspace(0.0, brem_Penergy_sampler.integrand-brem_Penergy_sampler.integrand/500.0, N_PEnergy);
+    //auto inverse_CS=brem_Penergy_sampler.inverse_spline->callv(inverse_space);
+    //auto Ptheta_space_out_FS=std::make_shared<doubles_output>( inverse_space );
+    //out.add_array(Ptheta_space_out_FS);
+
+    //auto CS_calc_out_FS=std::make_shared<doubles_output>( inverse_CS );
+    //out.add_array(CS_calc_out_FS);
+
+    CDF_sampler sampler;
+
+    sampler.splines=std::make_shared< std::vector<polynomial> >( brem_Penergy_sampler.inverse_spline->splines );
+
+    gsl::vector weights( sampler.splines->size() );
+    for(int i=0; i<sampler.splines->size(); i++)
+    {
+        weights[i]=brem_Penergy_sampler.inverse_spline->x_vals[i+1] - brem_Penergy_sampler.inverse_spline->x_vals[i];
+    }
+
+    //fix all splines to have ranges between 0 and 1
+    for(int i=0; i<sampler.splines->size(); i++)
+    {
+        double Xmin=brem_Penergy_sampler.inverse_spline->x_vals[i];
+        double Xrange=brem_Penergy_sampler.inverse_spline->x_vals[i+1] - brem_Penergy_sampler.inverse_spline->x_vals[i];
+
+        polynomial& poly= (*sampler.splines)[i];
+
+        double Xrange_factor=1;
+        for(int factor_j=0; factor_j<poly.weights.size(); factor_j++)
+        {
+            double new_factor=0;
+            double Xmin_factor=1;
+            for(int iter_i=factor_j; iter_i<poly.weights.size(); iter_i++)
+            {
+                new_factor+=poly.weights[iter_i]*Xmin_factor*Xrange_factor*gsl_sf_choose(iter_i, factor_j);
+
+                Xmin_factor*=Xmin;
+            }
+            Xrange_factor*=Xrange;
+
+            poly.weights[factor_j]=new_factor;
+        }
+    }
+    sampler.set(weights);
+
+
+    int Nsamples=10000000;
+    rand_gen rand;
+    gsl::vector samples(Nsamples);
+    for(int i=0; i<Nsamples; i++)
+    {
+        samples[i]=brem_Penergy_sampler.sampler.sample(  rand.uniform() );
+    }
+
+    auto samples_out=std::make_shared<doubles_output>( samples );
+    out.add_array(samples_out);
+
 
     binary_output fout("./brem_test_out");
     out.write_out(&fout);
-*/
-
 
 
 
@@ -736,8 +636,6 @@ int main()
     gsl::vector PEnergy_space_FS=brem_sampler.sample_space;
     gsl::vector CS_calc_FS=brem_sampler.CS_samples;
 
-    //print(brem_Ptheta_sampler.integrate());
-
     auto CS_calc = brem_sampler.interpolate(EEnergy_space);
 
     print("saving");
@@ -758,109 +656,6 @@ int main()
     binary_output fout("./brem_test_out");
     out.write_out(&fout);
 */
-
-
-    /*double min_electron_energy=2.0/energy_units_kev;
-    double minimum_photon_energy=1.1/energy_units_kev;
-    double max_electron_energy=1.00E7/energy_units_kev;
-    int num_electron_energies=10000;
-
-    auto electron_energies=logspace( std::log(min_electron_energy), std::log(max_electron_energy),  num_electron_energies);
-
-    bremsstrahlung_table brem_table(min_electron_energy, max_electron_energy, minimum_photon_energy, 10E20);
-    auto calculated_rates=brem_table.total_CS->callv(electron_energies);
-
-
-    bremsstrahlung_scattering seltzer_berger_rates(minimum_photon_energy);
-    gsl::vector tabled_rates(num_electron_energies);
-    LOOP(tabled_rates, R, electron_energies, seltzer_berger_rates.rate(R));
-
-
-    arrays_output out;
-
-    auto electron_energies_out=std::make_shared<doubles_output>( electron_energies );
-    out.add_array(electron_energies_out);
-
-    auto calc_rates_out=std::make_shared<doubles_output>( calculated_rates );
-    out.add_array(calc_rates_out);
-
-    auto tabled_rates_out=std::make_shared<doubles_output>( tabled_rates );
-    out.add_array(tabled_rates_out);
-
-    binary_output fout("brem_test");
-    out.write_out(&fout);*/
-
-
-
-/*
-    double electron_energy=6000.0/energy_units_kev;
-    double min_photon_energy=1.0/energy_units_kev; //note that min_photon_energy must be high enough to avoid numerical issues
-    int N_energies=10000;
-
-
-    auto energy_space=linspace(min_photon_energy, 20.0/energy_units_kev, N_energies); //electron_energy-electron_energy/500.0, N_energies);
-
-
-    //bremsstrahlung_cross_section_across_PE CS_PE_diff(electron_energy, min_photon_energy, 0.1);
-    //auto CS_calc=CS_PE_diff.diff_CS->callv(energy_space);
-
-    gsl::vector CS_calc(N_energies);
-    for(int i=0; i<N_energies; i++)
-    {
-        double PE=energy_space[i];
-        bremsstrahlung_cross_section_across_theta new_point(electron_energy, PE, 0.01);
-        CS_calc[i]=new_point.integrated_CS;
-    }
-
-
-
-    arrays_output out;
-
-    auto energy_space_out=std::make_shared<doubles_output>( energy_space*energy_units_kev );
-    out.add_array(energy_space_out);
-
-    auto CS_calc_out=std::make_shared<doubles_output>( CS_calc );
-    out.add_array(CS_calc_out);
-
-    binary_output fout("./brem_test_out");
-    out.write_out(&fout);*/
-
-
-
-/*
-    double electron_energy=6000.0/energy_units_kev;
-    //double photon_energy=59.35778763843703/energy_units_kev; //note that min_photon_energy must be high enough to avoid numerical issues
-    double photon_energy=  2.0/energy_units_kev; //note that min_photon_energy must be high enough to avoid numerical issues
-    int N_theta=10000;
-
-
-    //bremsstrahlung_cross_section_across_theta  CS_theta_diff(electron_energy, photon_energy, 0.1);
-    auto theta_space=linspace(0, 3.1415926, N_theta);
-    //auto CS_calc=CS_theta_diff.double_diff_CS->callv(theta_space);
-
-    gsl::vector CS_calc(N_theta);
-    for(int i=0; i<N_theta; i++)
-    {
-        double theta=theta_space[i];
-        double CS= KE_to_beta(electron_energy)*brems(electron_rest_energy*electron_energy, electron_rest_energy*photon_energy, theta)/(2*PI*average_air_atomic_number*electron_classical_radius*electron_classical_radius);
-        CS_calc[i]=CS;
-    }
-
-
-//CS_theta_diff.theta_samples
-//CS_theta_diff.CS_samples
-
-    arrays_output out;
-
-    auto energy_space_out=std::make_shared<doubles_output>( theta_space);
-    out.add_array(energy_space_out);
-
-    auto CS_calc_out=std::make_shared<doubles_output>( CS_calc );
-    out.add_array(CS_calc_out);
-
-    binary_output fout("./brem_test_out");
-    out.write_out(&fout);*/
-
 
 }
 

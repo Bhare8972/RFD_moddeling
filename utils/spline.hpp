@@ -90,7 +90,6 @@ public:
 };
 
 //need to add some polynomial solving functions here
-
 double bracketed_poly_solver(polynomial* input_poly, double Xlow, double Xhigh, int max_iter)
 {
     return root_finder_brent(input_poly, Xhigh, Xlow, (Xhigh-Xlow)/100000.0, (Xhigh-Xlow)/1000.0, max_iter);

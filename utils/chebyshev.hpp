@@ -16,6 +16,7 @@
 #include "gen_ex.hpp"
 #include "spline.hpp"
 #include "root_finding.hpp"
+#include "CDF_sampling.hpp"
 
 //#include "solve_polynomial.hpp"
 
@@ -35,12 +36,12 @@ namespace cheby_tables
 
 
 
-    double U4_i[5]={1.0, std::cos(PI*0.25), std::cos(PI*0.5), std::cos(PI*0.75), -1.0}; //THESE ARE WRONG
+    double U4_i[5]={1.0, std::cos(PI*0.25), std::cos(PI*0.5), std::cos(PI*0.75), -1.0};
 
-    double F4_ij[5][5]={{0.5, 1,                 1,                1,                    0.5}, //SO ARE WRONG
+    double F4_ij[5][5]={{0.5, 1,                 1,                1,                    0.5},
                         {0.5, std::cos(PI*0.25), std::cos(PI*0.5), std::cos(PI*0.75),    -0.5},
-                        {0.5, std::cos(PI*0.5),  std::cos(PI),     std::cos(PI*3.0/2.0), 0.5},
-                        {0.5, std::cos(PI*0.75), std::cos(PI*1.5), std::cos(PI*9.0/4.0), -0.5},
+                        {0.5, std::cos(PI*0.5),  std::cos(PI),     std::cos(PI*1.5),     0.5},
+                        {0.5, std::cos(PI*0.75), std::cos(PI*1.5), std::cos(PI*2.25),    -0.5},
                         {0.5, std::cos(PI),      std::cos(PI*2.0), std::cos(PI*3.0),     0.5} };
 };
 
@@ -313,7 +314,6 @@ public:
                 auto IR=right_spline->integrand(I_Xlow, I_Xhigh, IR_compinsation);
 
 
-                //return IL+IM+IR;
 
                 compinsation=IL_compinsation+IM_compinsation;
                 double y=IM - compinsation;
@@ -337,61 +337,6 @@ public:
 
                 compinsation=0;
                 return upper_integrand-lower_integrand;
-
-                /*
-                double XLow_2=I_Xlow*I_Xlow;
-                double XLow_3=I_Xlow*XLow_2;
-                double Xlow_4=XLow_2*XLow_2;
-
-                double Xhigh_2=I_Xhigh*I_Xhigh;
-                double Xhigh_3=I_Xhigh*Xhigh_2;
-                double Xhigh_4=Xhigh_2*Xhigh_2;
-
-                double low_term_1=K0*I_Xlow;
-                double low_term_2=K1*XLow_2*0.5;
-                double low_term_3=K2*XLow_3/3.0;
-                double low_term_4=K3*Xlow_4*0.25;
-
-                double high_term_1=K0*I_Xhigh;
-                double high_term_2=K1*Xhigh_2*0.5;
-                double high_term_3=K2*Xhigh_3/3.0;
-                double high_term_4=K3*Xhigh_4*0.25;
-
-                double temp=high_term_1 - low_term_1;
-                compinsation=(temp-high_term_1) + low_term_1;
-                double sum=temp;
-
-                double y=high_term_2 - compinsation;
-                temp= sum + y;
-                compinsation=(temp - sum) -y;
-                sum=temp;
-
-                y=-low_term_2 - compinsation;
-                temp= sum + y;
-                compinsation=(temp - sum) - y;
-                sum=temp;
-
-                y=high_term_3 - compinsation;
-                temp=sum + y;
-                compinsation=(temp - sum) -y;
-                sum=temp;
-
-                y=-low_term_3 - compinsation;
-                temp=sum + y;
-                compinsation=(temp-sum)-y;
-                sum=temp;
-
-                y=high_term_4 - compinsation;
-                temp=sum+y;
-                compinsation=(temp-sum)-y;
-                sum=temp;
-
-                y=-low_term_4 - compinsation;
-                temp=sum+y;
-                compinsation=(temp-sum)-y;
-                sum=temp;
-
-                return sum;*/
             }
         }
     };
@@ -441,6 +386,7 @@ public:
         }
     };
 
+/*
     class fourth_order_weights
     {
     public:
@@ -481,7 +427,7 @@ public:
         }
 
         public:
-        std::vector<fourth_order_weights>  splines;
+        std::vector<fourth_order_weights> splines;
         gsl::vector_long aliases;
         gsl::vector alias_probabilities;
 
@@ -495,12 +441,9 @@ public:
             return *this;
         }
 
-        rand_sampler(std::vector<fourth_order_weights>& _splines, gsl::vector weights, double& out_rate)
+        rand_sampler(std::vector<fourth_order_weights>& _splines, gsl::vector weights)
         {
             splines.swap(_splines);
-
-            out_rate=weights.sum();
-            weights/=out_rate;
 
             //setup walker aliasing
             aliases = gsl::vector_long(splines.size());
@@ -514,7 +457,7 @@ public:
                 //make alias_data, which is just needed for this algorithm
                 alias_data new_data;
                 new_data.index=spline_i;
-                new_data.size=(weights[spline_i])*splines.size();
+                new_data.size=weights[spline_i]*splines.size();
 
                 //initialize the alias data most of this will change
                 aliases[spline_i]=spline_i;
@@ -523,7 +466,7 @@ public:
 
                 if( std::abs(1.0-new_data.size) < 1.0E-10  )
                 {
-                    //then new_data.size is approxamently 1.0
+                    //then new_data.size is approximately 1.0
                     continue;
                 }
                 else if(new_data.size < 1.0)
@@ -594,36 +537,25 @@ public:
         {
             uniform_rand*=aliases.size();
             int index=int(uniform_rand);
-            double remainder=uniform_rand-index;
+            double R=uniform_rand-index; //remainder
 
-            /*
-            double ret=-1;
-            if(remainder<alias_probabilities[index])
-            {
-                //ret= spline_sampler.splines[index].y( spline_sampler.x_vals[index] + remainder/aliases.size() );
-                ret= spline_sampler.splines[index].y( spline_sampler.x_vals[index] + remainder*(spline_sampler.x_vals[index+1]-spline_sampler.x_vals[index]) );
-            }
-            else
-            {
-                int alias_index=aliases[index];
-                //ret=spline_sampler.splines[alias_index].y( alias_boundAdjust[index] + remainder/aliases.size() );
-                ret=spline_sampler.splines[alias_index].y( spline_sampler.x_vals[alias_index] + remainder*(spline_sampler.x_vals[alias_index+1]-spline_sampler.x_vals[alias_index]) );
-            }*/
 
-            if(remainder>=alias_probabilities[index])
+            if(R>=alias_probabilities[index])
             {
                 index=aliases[index];
             }
 
-            double R2=remainder*remainder;
-            double R3=R2*remainder;
-            double R4=R3*remainder;
+            return (((splines[index].W4*R + splines[index].W3)*R + splines[index].W2)*R +splines[index].W1)*R + splines[index].W0;
 
-            return splines[index].W0 + splines[index].W1*remainder + splines[index].W2*R2 + splines[index].W3*R3 + splines[index].W4*R4;
+            ////double R2=remainder*remainder;
+            //double R3=R2*remainder;
+            //double R4=R3*remainder;
+
+            //return splines[index].W0 + splines[index].W1*remainder + splines[index].W2*R2 + splines[index].W3*R3 + splines[index].W4*R4;
         }
 
 
-    };
+    };*/
 
     sampler_helper* top_section;
 
@@ -647,12 +579,7 @@ public:
         double C=0;
         return top_section->integrand(Xlow_, Xhigh_, C);
     }
-/*
-    void print_data()
-    {
-        top_section->print_data();
-    }
-*/
+
     gsl::vector get_points()
     {
         std::list<double> points;
@@ -697,8 +624,8 @@ public:
         return ret;
     }
 
-    std::shared_ptr<poly_spline> get_inverse_spline(double inverse_precision)//, gsl::vector& inverse_X_samples, gsl::vector& inverse_Y_samples)
-    //returns inverse of cumulative intregral
+    std::shared_ptr<poly_spline> get_inverse_spline(double inverse_precision=1.0)//, gsl::vector& inverse_X_samples, gsl::vector& inverse_Y_samples)
+    //returns inverse of cumulative integral
     {
         std::list<sampler_helper*> samplers;
         top_section->get_sorted(samplers);
@@ -729,75 +656,17 @@ public:
             double Y3=inverter.invert((cheby_tables::U4_i[3]+1)*0.5);
             double Y4=SH->Xlow;//inverter.invert((cheby_tables::U4_i[4]+1)*0.5);
 
-            /*
-            inverse_X_samples[i*5+4]= (cheby_tables::U4_i[0]+1)*0.5*spline_width + spline_low;
-            inverse_X_samples[i*5+3]= (cheby_tables::U4_i[1]+1)*0.5*spline_width + spline_low;
-            inverse_X_samples[i*5+2]= (cheby_tables::U4_i[2]+1)*0.5*spline_width + spline_low;
-            inverse_X_samples[i*5+1]= (cheby_tables::U4_i[3]+1)*0.5*spline_width + spline_low;
-            inverse_X_samples[i*5]= (cheby_tables::U4_i[4]+1)*0.5*spline_width + spline_low;
-
-
-            inverse_Y_samples[i*5+4]=Y0;
-            inverse_Y_samples[i*5+3]=Y1;
-            inverse_Y_samples[i*5+2]=Y2;
-            inverse_Y_samples[i*5+1]=Y3;
-            inverse_Y_samples[i*5]=Y4;
-            */
-
             double C0=Y0*cheby_tables::F4_ij[0][0] + Y1*cheby_tables::F4_ij[0][1]  + Y2*cheby_tables::F4_ij[0][2]  + Y3*cheby_tables::F4_ij[0][3]  + Y4*cheby_tables::F4_ij[0][4];
             double C1=Y0*cheby_tables::F4_ij[1][0] + Y1*cheby_tables::F4_ij[1][1]  + Y2*cheby_tables::F4_ij[1][2]  + Y3*cheby_tables::F4_ij[1][3]  + Y4*cheby_tables::F4_ij[1][4];
             double C2=Y0*cheby_tables::F4_ij[2][0] + Y1*cheby_tables::F4_ij[2][1]  + Y2*cheby_tables::F4_ij[2][2]  + Y3*cheby_tables::F4_ij[2][3]  + Y4*cheby_tables::F4_ij[2][4];
             double C3=Y0*cheby_tables::F4_ij[3][0] + Y1*cheby_tables::F4_ij[3][1]  + Y2*cheby_tables::F4_ij[3][2]  + Y3*cheby_tables::F4_ij[3][3]  + Y4*cheby_tables::F4_ij[3][4];
             double C4=Y0*cheby_tables::F4_ij[4][0] + Y1*cheby_tables::F4_ij[4][1]  + Y2*cheby_tables::F4_ij[4][2]  + Y3*cheby_tables::F4_ij[4][3]  + Y4*cheby_tables::F4_ij[4][4];
 
-            C0*=0.5;
-            C1*=0.5;
-            C2*=0.5;
-            C3*=0.5;
-            C4*=0.5;
-
-            double W0= C0*0.5 - C1 + C2 -C3 + C4;
-            double W1= 2*C1 -8*C2 + 18*C3 - 32*C4;
-            double W2= 8*C2 - 48*C3 + 160*C4;
-            double W3= 32*C3 - 256*C4;
-            double W4= 125*C4;
-
-            /*
-            double X=0.0/5.0;
-            double X_2=X*X;
-            double X_3=X_2*X;
-            double X_4=X_3*X;
-            inverse_Y_samples[i*5]=W0 + W1*X + W2*X_2 + W3*X_3 + W4*X_4;
-            inverse_X_samples[i*5]= X*spline_width + spline_low;
-
-            X=1.0/5.0;
-            X_2=X*X;
-            X_3=X_2*X;
-            X_4=X_3*X;
-            inverse_Y_samples[i*5+1]=W0 + W1*X + W2*X_2 + W3*X_3 + W4*X_4;
-            inverse_X_samples[i*5+1]= X*spline_width + spline_low;
-
-            X=2.0/5.0;
-            X_2=X*X;
-            X_3=X_2*X;
-            X_4=X_3*X;
-            inverse_Y_samples[i*5+2]=W0 + W1*X + W2*X_2 + W3*X_3 + W4*X_4;
-            inverse_X_samples[i*5+2]= X*spline_width + spline_low;
-
-            X=3.0/5.0;
-            X_2=X*X;
-            X_3=X_2*X;
-            X_4=X_3*X;
-            inverse_Y_samples[i*5+3]=W0 + W1*X + W2*X_2 + W3*X_3 + W4*X_4;
-            inverse_X_samples[i*5+3]= X*spline_width + spline_low;
-
-            X=4.0/5.0;
-            X_2=X*X;
-            X_3=X_2*X;
-            X_4=X_3*X;
-            inverse_Y_samples[i*5+4]=W0 + W1*X + W2*X_2 + W3*X_3 + W4*X_4;
-            inverse_X_samples[i*5+4]= X*spline_width + spline_low;
-            */
+            double W0= C0*0.25 - 0.5*C1 + 0.5*C2 - 0.5*C3 + 0.25*C4;
+            double W1= C1 - 4*C2 + 9*C3 - 8*C4;
+            double W2= 4*C2 - 24*C3 + 40*C4;
+            double W3= 16*C3 - 64*C4;
+            double W4= 32*C4;
 
             //CHECK PRECISION
             double P=std::abs( W4/(W0+W1+W2+W3) ); //fraction of answer due to W4.
@@ -822,6 +691,38 @@ public:
             double new_W3=W3*inv_width_3 - 4.0*W4*inv_width_4*spline_low;
             double new_W4=W4*inv_width_4;
 
+/*
+
+            double W0= C0*0.5 - C1 + C2 -C3 + C4;
+            double W1= 2*C1 -8*C2 + 18*C3 - 32*C4;
+            double W2= 8*C2 - 48*C3 + 160*C4;
+            double W3= 32*C3 - 256*C4;
+            double W4= 125*C4;
+
+            //CHECK PRECISION
+            double P=std::abs( W4/(W0+W1+W2+W3) ); //fraction of answer due to W4.
+            if( P> inverse_precision)
+            {
+                print("Low inverse precision:", P, "Consider implementing 8th order");
+            }
+
+            //weights are chosen for an x between 0 and 1
+            double SL_2=spline_low*spline_low;
+            double SL_3=SL_2*spline_low;
+            double SL_4=SL_3*spline_low;
+
+            double inv_width=1.0/spline_width;
+            double inv_width_2=inv_width*inv_width;
+            double inv_width_3=inv_width_2*inv_width;
+            double inv_width_4=inv_width_3*inv_width;
+
+            double new_W0=W0             - W1*spline_low*inv_width       + W2*SL_2*inv_width_2     - W3*SL_3*inv_width_3     + W4*inv_width_4*SL_4;
+            double new_W1=W1*inv_width   - 2.0*W2*spline_low*inv_width_2 + 3.0*W3*SL_2*inv_width_3 - 4.0*W4*inv_width_4*SL_3;
+            double new_W2=W2*inv_width_2 - 3.0*W3*spline_low*inv_width_3 + 6.0*W4*inv_width_4*SL_2;
+            double new_W3=W3*inv_width_3 - 4.0*W4*inv_width_4*spline_low;
+            double new_W4=W4*inv_width_4;
+*/
+
             x_vals[i]=spline_low;
             gsl::vector W({new_W0, new_W1, new_W2, new_W3,new_W4});
             splines.emplace_back(W);
@@ -840,14 +741,14 @@ public:
         return ret;
     }
 
-    rand_sampler inverse_transform(double inverse_precision, double& rate_out)
+    CDF_sampler inverse_transform(double inverse_precision, double& rate_out)
     //POWER!!! UNLIMITED POWER!!!
     {
 
         std::list<sampler_helper*> samplers;
         top_section->get_sorted(samplers);
 
-        std::vector<fourth_order_weights>  inverted_splines;
+        std::vector<polynomial>  inverted_splines;
         inverted_splines.reserve(samplers.size());
         gsl::vector spline_weights(samplers.size());
 
@@ -875,6 +776,19 @@ public:
             double C3=Y0*cheby_tables::F4_ij[3][0] + Y1*cheby_tables::F4_ij[3][1]  + Y2*cheby_tables::F4_ij[3][2]  + Y3*cheby_tables::F4_ij[3][3]  + Y4*cheby_tables::F4_ij[3][4];
             double C4=Y0*cheby_tables::F4_ij[4][0] + Y1*cheby_tables::F4_ij[4][1]  + Y2*cheby_tables::F4_ij[4][2]  + Y3*cheby_tables::F4_ij[4][3]  + Y4*cheby_tables::F4_ij[4][4];
 
+            double W0= C0*0.25 - 0.5*C1 + 0.5*C2 - 0.5*C3 + 0.25*C4;
+            double W1= C1 - 4*C2 + 9*C3 - 8*C4;
+            double W2= 4*C2 - 24*C3 + 40*C4;
+            double W3= 16*C3 - 64*C4;
+            double W4= 32*C4;
+
+/*
+            double C0=Y0*cheby_tables::F4_ij[0][0] + Y1*cheby_tables::F4_ij[0][1]  + Y2*cheby_tables::F4_ij[0][2]  + Y3*cheby_tables::F4_ij[0][3]  + Y4*cheby_tables::F4_ij[0][4];
+            double C1=Y0*cheby_tables::F4_ij[1][0] + Y1*cheby_tables::F4_ij[1][1]  + Y2*cheby_tables::F4_ij[1][2]  + Y3*cheby_tables::F4_ij[1][3]  + Y4*cheby_tables::F4_ij[1][4];
+            double C2=Y0*cheby_tables::F4_ij[2][0] + Y1*cheby_tables::F4_ij[2][1]  + Y2*cheby_tables::F4_ij[2][2]  + Y3*cheby_tables::F4_ij[2][3]  + Y4*cheby_tables::F4_ij[2][4];
+            double C3=Y0*cheby_tables::F4_ij[3][0] + Y1*cheby_tables::F4_ij[3][1]  + Y2*cheby_tables::F4_ij[3][2]  + Y3*cheby_tables::F4_ij[3][3]  + Y4*cheby_tables::F4_ij[3][4];
+            double C4=Y0*cheby_tables::F4_ij[4][0] + Y1*cheby_tables::F4_ij[4][1]  + Y2*cheby_tables::F4_ij[4][2]  + Y3*cheby_tables::F4_ij[4][3]  + Y4*cheby_tables::F4_ij[4][4];
+
             C0*=0.5;
             C1*=0.5;
             C2*=0.5;
@@ -886,6 +800,7 @@ public:
             double W2= 8*C2 - 48*C3 + 160*C4;
             double W3= 32*C3 - 256*C4;
             double W4= 125*C4;
+            */
 
             //CHECK PRECISION
             double P=std::abs( W4/(W0+W1+W2+W3) ); //fraction of answer due to W4.
@@ -894,12 +809,20 @@ public:
                 print("Low inverse precision:", P, "Consider implementing 8th order");
             }
 
-            inverted_splines.emplace_back(W0, W1, W2, W3, W4);
+            inverted_splines.emplace_back( polynomial({W0, W1, W2, W3, W4}) );
 
             i++;
         }
 
-        return rand_sampler(inverted_splines, spline_weights, rate_out);
+        rate_out=spline_weights.sum();
+        spline_weights/=rate_out;
+
+        CDF_sampler ret_sampler;
+        ret_sampler.splines=std::make_shared< std::vector<polynomial> >();
+        ret_sampler.splines->swap(inverted_splines); //YUP!
+        ret_sampler.set(spline_weights);
+
+        return ret_sampler;
     }
 };
 

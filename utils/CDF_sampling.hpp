@@ -5,6 +5,8 @@
 #include <cmath>
 #include <list>
 
+#include <gsl/gsl_sf_gamma.h>
+
 #include "vector.hpp"
 #include "vector_long.hpp"
 
@@ -41,7 +43,7 @@ class CDF_sampler
     }
 
 public:
-    std::shared_ptr<poly_spline>  spline_sampler;
+    std::shared_ptr< std::vector<polynomial> >  splines; //set of polynomials that each have x-ranges from 0 to 1, that return the sampled value
 
     gsl::vector_long aliases;
     gsl::vector alias_probabilities;
@@ -51,11 +53,6 @@ public:
 
     CDF_sampler(gsl::vector x_values, gsl::vector CDF_values)
     {
-        set(x_values, CDF_values);
-    }
-
-    void set(gsl::vector x_values, gsl::vector CDF_values)
-    {
         //invert
         gsl::vector sampler_X;
         gsl::vector sampler_Y;
@@ -63,23 +60,64 @@ public:
         sampler_X/=sampler_X[sampler_X.size() - 1]; //normalize
 
         //use spline interpolation
+        auto spline_sampler=natural_cubic_spline(sampler_X, sampler_Y);
 
-        spline_sampler=natural_cubic_spline(sampler_X, sampler_Y);
+        //get splines and weights
+        splines=std::make_shared< std::vector<polynomial> >( spline_sampler->splines );
 
+        gsl::vector weights( splines->size() );
+        for(int i=0; i<splines->size(); i++)
+        {
+            weights[i]=spline_sampler->x_vals[i+1] - spline_sampler->x_vals[i];
+        }
+
+        //fix all splines to have ranges between 0 and 1
+        for(int i=0; i<splines->size(); i++)
+        {
+            double Xmin=spline_sampler->x_vals[i];
+            double Xrange=spline_sampler->x_vals[i+1] - spline_sampler->x_vals[i];
+
+            polynomial& poly= (*splines)[i];
+
+            double Xrange_factor=1;
+            for(int factor_j=0; factor_j<poly.weights.size(); factor_j++)
+            {
+                double new_factor=0;
+                double Xmin_factor=1;
+                for(int iter_i=factor_j; iter_i<poly.weights.size(); iter_i++)
+                {
+                    new_factor+=poly.weights[iter_i]*Xmin_factor*Xrange_factor*gsl_sf_choose(iter_i, factor_j);
+
+                    Xmin_factor*=Xmin;
+                }
+                Xrange_factor*=Xrange;
+
+                poly.weights[factor_j]=new_factor;
+            }
+        }
+
+
+        //perform the walker algorithm
+        set(weights);
+    }
+
+    void set(gsl::vector weights)
+    //sets up the sampler for walker aliasing. Assumes that splines are set
+    {
         //setup walker aliasing
-        aliases = gsl::vector_long(spline_sampler->splines.size());
-        alias_probabilities = gsl::vector(spline_sampler->splines.size());
+        aliases = gsl::vector_long(splines->size());
+        alias_probabilities = gsl::vector(splines->size());
         //alias_boundAdjust = gsl::vector(spline_sampler.splines.size());
 
         std::list<alias_data> too_low;
         std::list<alias_data> too_high;
 
-        for(size_t spline_i=0; spline_i<spline_sampler->splines.size(); spline_i++)
+        for(size_t spline_i=0; spline_i<splines->size(); spline_i++)
         {
             //make alias_data, which is just needed for this algorithm
             alias_data new_data;
             new_data.index=spline_i;
-            new_data.size=(spline_sampler->x_vals[spline_i+1] - spline_sampler->x_vals[spline_i])*spline_sampler->splines.size();
+            new_data.size=weights[spline_i]*splines->size();
 
             //initialize the alias data most of this will change
             aliases[spline_i]=spline_i;
@@ -154,8 +192,6 @@ public:
         {
             print("WALKER ALIAS ALGORITHM ERROR 1");
         }
-
-print("2");
     }
 
     double sample(double uniform_rand)
@@ -164,19 +200,21 @@ print("2");
         int index=int(uniform_rand);
         double remainder=uniform_rand-index;
 
-        double ret=-1;
+        //double ret;
         if(remainder<alias_probabilities[index])
         {
             //ret= spline_sampler.splines[index].y( spline_sampler.x_vals[index] + remainder/aliases.size() );
-            ret= spline_sampler->splines[index].y( spline_sampler->x_vals[index] + remainder*(spline_sampler->x_vals[index+1]-spline_sampler->x_vals[index]) );
+            //ret= spline_sampler->splines[index].y( spline_sampler->x_vals[index] + remainder*(spline_sampler->x_vals[index+1]-spline_sampler->x_vals[index]) );
         }
         else
         {
-            int alias_index=aliases[index];
+            index=aliases[index];
             //ret=spline_sampler.splines[alias_index].y( alias_boundAdjust[index] + remainder/aliases.size() );
-            ret=spline_sampler->splines[alias_index].y( spline_sampler->x_vals[alias_index] + remainder*(spline_sampler->x_vals[alias_index+1]-spline_sampler->x_vals[alias_index]) );
+            //ret=spline_sampler->splines[alias_index].y( spline_sampler->x_vals[alias_index] + remainder*(spline_sampler->x_vals[alias_index+1]-spline_sampler->x_vals[alias_index]) );
         }
-        return ret;
+        //return ret;
+
+        return (*splines)[index].call(remainder);
     }
 
 };

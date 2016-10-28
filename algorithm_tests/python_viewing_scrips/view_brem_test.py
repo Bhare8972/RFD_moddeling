@@ -15,6 +15,10 @@ if __name__=="__main__":
     cs_table=table_in.get_array()
     CS=cs_table.read_doubles()
     
+    
+    samples_tables=table_in.get_array()
+    samples=samples_tables.read_doubles()
+    
     #X_space_table_FS=table_in.get_array()
     #X_space_FS=X_space_table_FS.read_doubles()
     
@@ -24,14 +28,21 @@ if __name__=="__main__":
     ##cumquad_table=table_in.get_array()
     ##cumquads=cumquad_table.read_doubles()
     
-    plt.plot(X_space, CS, 'bo-')
-    #plt.plot(X_space_FS, CS_FS, 'ro-')
-    plt.show()
     
-    ##cumtrapz_calc=cumtrapz(CS, X_space, initial=0);
-    ##plt.plot(X_space, cumtrapz_calc, 'ro-')
-    ##plt.plot(X_space, cumquads, 'go-')
+    
+    ##plt.plot(X_space, CS, 'bo-')
+    ##plt.plot(X_space_FS, CS_FS, 'ro-')
     ##plt.show()
     
-    ##print( simps(y=CS, x=X_space) )
-    #print( simps(y=CS_FS, x=X_space_FS) )
+    
+    
+    #cumtrapz_calc=cumtrapz(CS, X_space, initial=0);
+    #plt.plot(X_space, cumtrapz_calc, 'bo-')
+    #plt.plot(CS_FS, X_space_FS, 'ro-')
+    #plt.show()
+
+
+    
+    plt.plot(X_space, CS, 'b')
+    plt.hist(samples, bins=1000, normed=True)
+    plt.show()
