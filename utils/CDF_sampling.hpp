@@ -95,7 +95,7 @@ public:
                 poly.weights[factor_j]=new_factor;
             }
         }
-
+        weights/=weights.sum();
 
         //perform the walker algorithm
         set(weights);
@@ -124,7 +124,7 @@ public:
             alias_probabilities[spline_i]=new_data.size;
             //alias_boundAdjust[spline_i]=1.0;
 
-            if( std::abs(1.0-new_data.size) < 1.0E-10  )
+            if( std::abs(1.0-new_data.size) < 1.0E-10 )
             {
                 //then new_data.size is approxamently 1.0
                 continue;
@@ -138,6 +138,8 @@ public:
                 too_high.push_back(new_data);
             }
         }
+
+        //print('a', alias_probabilities.sum(), );
 
         //sort the new lists
         too_low.sort(alias_increasing_compare);
@@ -155,7 +157,7 @@ public:
                 aliases[low_iter->index]=high_iter->index;
                 alias_probabilities[low_iter->index]=low_iter->size;
 
-                //alias_boundAdjust[low_iter->index]=spline_sampler.x_vals[high_iter->index] + (high_iter->size-1.0)/double(aliases.size());//
+                //alias_boundAdjust[low_iter->index]=spline_sampler.x_vals[high_iter->index] + (high_iter->size-1.0)/double(aliases.size());//???? how to handel?
 
                 high_iter->size+=low_iter->size-1.0;
 
@@ -188,9 +190,13 @@ public:
             ++high_iter;
         }
 
-        if(high_iter != too_high.end() or low_iter!=too_low.end())
+        if(high_iter != too_high.end() )
         {
-            print("WALKER ALIAS ALGORITHM ERROR 1");
+            print("WALKER ALIAS ALGORITHM ERROR 1A");
+        }
+        if( low_iter!=too_low.end())
+        {
+            print("WALKER ALIAS ALGORITHM ERROR 1B");
         }
     }
 
@@ -203,12 +209,16 @@ public:
         //double ret;
         if(remainder<alias_probabilities[index])
         {
+            remainder/=alias_probabilities[index];
+
             //ret= spline_sampler.splines[index].y( spline_sampler.x_vals[index] + remainder/aliases.size() );
             //ret= spline_sampler->splines[index].y( spline_sampler->x_vals[index] + remainder*(spline_sampler->x_vals[index+1]-spline_sampler->x_vals[index]) );
         }
         else
         {
+            remainder=(remainder-alias_probabilities[index])/(1-alias_probabilities[index]);
             index=aliases[index];
+
             //ret=spline_sampler.splines[alias_index].y( alias_boundAdjust[index] + remainder/aliases.size() );
             //ret=spline_sampler->splines[alias_index].y( spline_sampler->x_vals[alias_index] + remainder*(spline_sampler->x_vals[alias_index+1]-spline_sampler->x_vals[alias_index]) );
         }

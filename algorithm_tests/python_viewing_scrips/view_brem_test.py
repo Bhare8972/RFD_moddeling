@@ -16,8 +16,12 @@ if __name__=="__main__":
     CS=cs_table.read_doubles()
     
     
-    samples_tables=table_in.get_array()
-    samples=samples_tables.read_doubles()
+    walker_samples_tables=table_in.get_array()
+    walker_samples=walker_samples_tables.read_doubles()
+    
+    #inverse_samples_tables=table_in.get_array()
+    #inverse_samples=inverse_samples_tables.read_doubles()
+    
     
     #X_space_table_FS=table_in.get_array()
     #X_space_FS=X_space_table_FS.read_doubles()
@@ -42,7 +46,7 @@ if __name__=="__main__":
     #plt.show()
 
 
-    
-    plt.plot(X_space, CS, 'b')
-    plt.hist(samples, bins=1000, normed=True)
+    plt.plot(X_space, CS/0.0313852)
+    plt.hist(walker_samples, bins=10000, normed=True, histtype="step")
+    #plt.hist(inverse_samples, bins=1000, normed=True, histtype="step")
     plt.show()

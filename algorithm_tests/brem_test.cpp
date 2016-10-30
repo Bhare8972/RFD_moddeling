@@ -181,6 +181,7 @@ public:
 
     std::shared_ptr<poly_spline>  CS_spline;
     std::shared_ptr<poly_spline>  inverse_spline;
+    CDF_sampler sampler;
 
     brem_PTheta()
     {
@@ -194,13 +195,14 @@ public:
         reset(_EE, _PE);
         AdaptiveSpline_Cheby_O3 cheby_integrator(*this, precision, 0, PI);
 
-        integrand=cheby_integrator.integrate(0, PI);
+        //integrand=cheby_integrator.integrate(0, PI);
 
         sample_space=cheby_integrator.get_points();
         CS_samples=cheby_integrator.get_values();
 
         CS_spline=cheby_integrator.get_spline();
         inverse_spline=cheby_integrator.get_inverse_spline();
+        sampler=cheby_integrator.inverse_transform(1.0, integrand);
     }
 
     void reset(double _EE, double _PE)
@@ -212,7 +214,10 @@ public:
     double integrate()
     {
         AdaptiveSpline_Cheby_O3 cheby_integrator(*this, precision, 0, PI);
-        return cheby_integrator.integrate(0, PI);
+
+        double ret;
+        sampler=cheby_integrator.inverse_transform(1.0, ret);
+        return ret;
     }
 
     gsl::vector interpolate(gsl::vector PTheta_space)
@@ -250,6 +255,8 @@ public:
     std::shared_ptr<poly_spline>  CS_spline;
     std::shared_ptr<poly_spline>  inverse_spline;
     CDF_sampler sampler;
+
+    span_tree<brem_PTheta> Ptheta_samplers;
 
     brem_PEnergy()
     {
@@ -299,8 +306,14 @@ public:
         print(" ",PEcounter, PEnergy);
         PEcounter+=1;
 
-        Ptheta_workspace.reset(electron_energy, PEnergy);
-        return Ptheta_workspace.integrate();
+        brem_PTheta* Ptheta_workspace=new brem_PTheta;
+        Ptheta_workspace->reset(electron_energy, PEnergy);
+        double ret=Ptheta_workspace->integrate();
+        Ptheta_samplers.insert(PEnergy, Ptheta_workspace);
+        return ret;
+
+        //Ptheta_workspace.reset(electron_energy, PEnergy);
+        //return Ptheta_workspace.integrate();
     }
 };
 
@@ -445,15 +458,17 @@ int main()
 */
 
 /*
-    double electron_energy=6000.0/energy_units_kev;
-    double photon_energy= 10.0/energy_units_kev; //note that min_photon_energy must be high enough to avoid numerical issues
+    double electron_energy=500.0/energy_units_kev;
+    double photon_energy= 400.0/energy_units_kev; //note that min_photon_energy must be high enough to avoid numerical issues
     //auto PE_space=linspace(2.0/energy_units_kev, electron_energy-electron_energy/500.0, 200);
     //double photon_energy=PE_space[54];
 
     int N_Ptheta=1000;
 
-    brem_PTheta brem_Ptheta_sampler(electron_energy, photon_energy);
-    brem_Ptheta_sampler.setup();
+    brem_PTheta brem_Ptheta_sampler;
+    brem_Ptheta_sampler.setup(electron_energy, photon_energy);
+
+    print(brem_Ptheta_sampler.integrand);
 
     auto Ptheta_space=linspace(0, 3.1415, N_Ptheta);
 //
@@ -467,8 +482,8 @@ int main()
 //        CS_calc[i]=CS;
 //    }
 
-    gsl::vector Ptheta_space_FS=brem_Ptheta_sampler.sample_space;
-    gsl::vector CS_calc_FS=brem_Ptheta_sampler.CS_samples;
+    //gsl::vector Ptheta_space_FS=brem_Ptheta_sampler.sample_space;
+    //gsl::vector CS_calc_FS=brem_Ptheta_sampler.CS_samples;
 
     auto CS_calc = brem_Ptheta_sampler.interpolate(Ptheta_space);
 
@@ -481,11 +496,29 @@ int main()
     auto CS_calc_out=std::make_shared<doubles_output>( CS_calc );
     out.add_array(CS_calc_out);
 
-    auto Ptheta_space_out_FS=std::make_shared<doubles_output>( Ptheta_space_FS );
-    out.add_array(Ptheta_space_out_FS);
+    //auto Ptheta_space_out_FS=std::make_shared<doubles_output>( Ptheta_space_FS );
+    //out.add_array(Ptheta_space_out_FS);
 
-    auto CS_calc_out_FS=std::make_shared<doubles_output>( CS_calc_FS );
-    out.add_array(CS_calc_out_FS);
+    //auto CS_calc_out_FS=std::make_shared<doubles_output>( CS_calc_FS );
+    //out.add_array(CS_calc_out_FS);
+
+    int Nsamples=1000000;
+    rand_gen rand;
+    gsl::vector walker_samples(Nsamples);
+    //gsl::vector inverse_samples(Nsamples);
+    for(int i=0; i<Nsamples; i++)
+    {
+        walker_samples[i]=brem_Ptheta_sampler.sampler.sample(  rand.uniform() );
+        //inverse_samples[i]=brem_Ptheta_sampler.inverse_spline->call( rand.uniform()*brem_Ptheta_sampler.integrand );
+    }
+
+    auto walker_samples_out=std::make_shared<doubles_output>( walker_samples );
+    out.add_array(walker_samples_out);
+
+    //auto inverse_samples_out=std::make_shared<doubles_output>( inverse_samples );
+    //out.add_array(inverse_samples_out);
+
+
 
     binary_output fout("./brem_test_out");
     out.write_out(&fout);
@@ -525,6 +558,7 @@ int main()
     arrays_output out;
 
     auto CS_calc = brem_Penergy_sampler.interpolate(PEnergy_space);
+
     auto PEnergy_space_out=std::make_shared<doubles_output>( PEnergy_space );
     out.add_array(PEnergy_space_out);
 
@@ -551,54 +585,6 @@ int main()
 
     //auto CS_calc_out_FS=std::make_shared<doubles_output>( inverse_CS );
     //out.add_array(CS_calc_out_FS);
-
-    CDF_sampler sampler;
-
-    sampler.splines=std::make_shared< std::vector<polynomial> >( brem_Penergy_sampler.inverse_spline->splines );
-
-    gsl::vector weights( sampler.splines->size() );
-    for(int i=0; i<sampler.splines->size(); i++)
-    {
-        weights[i]=brem_Penergy_sampler.inverse_spline->x_vals[i+1] - brem_Penergy_sampler.inverse_spline->x_vals[i];
-    }
-
-    //fix all splines to have ranges between 0 and 1
-    for(int i=0; i<sampler.splines->size(); i++)
-    {
-        double Xmin=brem_Penergy_sampler.inverse_spline->x_vals[i];
-        double Xrange=brem_Penergy_sampler.inverse_spline->x_vals[i+1] - brem_Penergy_sampler.inverse_spline->x_vals[i];
-
-        polynomial& poly= (*sampler.splines)[i];
-
-        double Xrange_factor=1;
-        for(int factor_j=0; factor_j<poly.weights.size(); factor_j++)
-        {
-            double new_factor=0;
-            double Xmin_factor=1;
-            for(int iter_i=factor_j; iter_i<poly.weights.size(); iter_i++)
-            {
-                new_factor+=poly.weights[iter_i]*Xmin_factor*Xrange_factor*gsl_sf_choose(iter_i, factor_j);
-
-                Xmin_factor*=Xmin;
-            }
-            Xrange_factor*=Xrange;
-
-            poly.weights[factor_j]=new_factor;
-        }
-    }
-    sampler.set(weights);
-
-
-    int Nsamples=10000000;
-    rand_gen rand;
-    gsl::vector samples(Nsamples);
-    for(int i=0; i<Nsamples; i++)
-    {
-        samples[i]=brem_Penergy_sampler.sampler.sample(  rand.uniform() );
-    }
-
-    auto samples_out=std::make_shared<doubles_output>( samples );
-    out.add_array(samples_out);
 
 
     binary_output fout("./brem_test_out");
