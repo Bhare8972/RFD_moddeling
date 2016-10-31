@@ -38,11 +38,12 @@ add   vector<T> get_data( T electron_data::getter*() ) where electron_data::gett
 
 add way to output data in an easy-to-read format that can be read by gnuplot
 
+fix reading and writing binary arrays to have simpler API
+
 
 other:
 improve utility documentation.  less important.
 figure out why interpolant is not thread safe
 make reading/writing binary files to correctly handel big-endian machines
 work GSL code into project itself instead of being external dependancy
-fix multiple implementation of polynomials (amoung other utilities)
 
