@@ -25,12 +25,6 @@ improve physics documentation (Desperatly needs to be done!)
 
 
 
-Fix production of the diffusion table, so that the convergence condition has a better statisitcal basis. (Maybe use pearson chi-square test)
-	Also need to add adaptive bin sizes.
-
-test diffusion tables
-
-
 make each electron have list<electron_data>
 define a structure electron_data before including particle data
 add   void add_data(....)  to electron, which calls electron-data constructor and pushes data to list (function is variadic template)
@@ -41,9 +35,25 @@ add way to output data in an easy-to-read format that can be read by gnuplot
 fix reading and writing binary arrays to have simpler API
 
 
+
+
+Implement dense-output, so that when timesteps are truncated , the pos and vel change are not assumed to be linear
+change runge-kutta scheme so that error in pos/vel is relative to change in pos/vel during step (error should be smaller than step)
+when checking change in interaction rate, instead of redoing timesteps, just shorten timestep. (perhaps half timestep untill condition is true)
+
+Since we would now have dense output, also sample intreaction rate in middle of timestep, and find quadratic term to interaction rate, and we can check the error of the linear term, instead of error of constant term.
+
+
+
+
+
 other:
 improve utility documentation.  less important.
-figure out why interpolant is not thread safe
+figure out why interpolant is not thread safe (check other utilities for thread saftey)
 make reading/writing binary files to correctly handel big-endian machines
 work GSL code into project itself instead of being external dependancy
+fix multiple implementation of polynomials (amoung other utilities) (this may be done)
+
+Fix production of the diffusion table, so that the convergence condition has a better statisitcal basis. (Maybe use pearson chi-square test)
+	Also need to add adaptive bin sizes.
 
