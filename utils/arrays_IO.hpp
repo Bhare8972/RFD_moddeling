@@ -8,10 +8,15 @@
 #include "vector.hpp"
 #include "vector_float.hpp"
 #include "vector_int.hpp"
+#include "vector_long.hpp"
 #include "gen_ex.hpp"
 
 
 //// this is a few utilities for inputing and output arrays of numerical data in binary format
+
+//note that, while rather functional, this API is a bit ugly and needs to be improved
+
+//need to fix wierdness that ints are actually longs
 
 
 ////output
@@ -24,35 +29,13 @@ public:
 
 typedef std::shared_ptr<array_output> AO_pntr;
 
-class arrays_output : public array_output
-{
-private:
-    std::list<AO_pntr> data;
-
-public:
-    void add_array(AO_pntr new_array)
-    {
-        data.push_back(new_array);
-    }
-
-    void write_out(binary_output* fout)
-    {
-        fout->out_short(0);
-        fout->out_int(data.size());
-        for( auto out_array : data)
-        {
-            out_array->write_out(fout);
-        }
-    }
-};
-
 class ints_output : public array_output
 {
 private:
-    gsl::vector_int data;
+    gsl::vector_long data;
 
 public:
-    ints_output(gsl::vector_int data_)
+    ints_output(gsl::vector_long data_)
     {
         data=data_;
     }
@@ -112,7 +95,52 @@ public:
     }
 };
 
+class arrays_output : public array_output
+{
+private:
+    std::list<AO_pntr> data;
+
+public:
+    void add_array(AO_pntr new_array)
+    {
+        data.push_back(new_array);
+    }
+
+    void add_doubles(gsl::vector double_data)
+    {
+        auto new_array=std::make_shared<doubles_output>(double_data);
+        data.push_back(new_array);
+    }
+
+    void add_ints(gsl::vector_long long_data)
+    {
+        auto new_array=std::make_shared<ints_output>(long_data);
+        data.push_back(new_array);
+    }
+
+
+    void write_out(binary_output* fout)
+    {
+        fout->out_short(0);
+        fout->out_int(data.size());
+        for( auto out_array : data)
+        {
+            out_array->write_out(fout);
+        }
+    }
+
+    void to_file(std::string fname)
+    {
+        binary_output fout(fname);
+        write_out(&fout);
+    }
+
+
+};
+
 ////input
+
+//this needs to be redesigned so that each array input has it's own file handle, and to have more sensiscal API.
 
 class array_input
 {
@@ -136,12 +164,12 @@ public:
         return size;
     }
 
-    gsl::vector_int read_ints()
+    gsl::vector_long read_ints()
     {
         if(type!=1){ throw gen_exception("cannot read integers from file"); }
         if(num_left==0){ throw gen_exception("no data left in this array"); }
 
-        gsl::vector_int out=gsl::vector_int(size_t(size));
+        gsl::vector_long out=gsl::vector_long (size_t(size));
         for(int i=0; i<size; i++)
         {
             out[i]=file_input.in_int();
@@ -176,6 +204,18 @@ public:
         }
         num_left=0;
         return out;
+    }
+
+    gsl::vector read_doublesArray()
+    {
+        auto inarray=get_array();
+        return inarray.read_doubles();
+    }
+
+    gsl::vector_long read_intsArray()
+    {
+        auto inarray=get_array();
+        return inarray.read_ints();
     }
 
     array_input get_array()

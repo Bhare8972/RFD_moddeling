@@ -10,7 +10,7 @@
 
 #include "arrays_IO.hpp"
 #include "GSL_utils.hpp"
-#include "histogram.hpp"
+//#include "histogram.hpp"
 #include "gen_ex.hpp"
 #include "integrate.hpp"
 #include "spline.hpp"
@@ -68,6 +68,11 @@ class diffusion_table
     std::vector<energy_level> energy_samplers;
     rand_threadsafe rand;
 
+    //stats:
+    int fast_steps;
+    int slow_steps_below_timestep;
+    int slow_steps_above_energy;
+
     diffusion_table()
     {
         binary_input fin("./tables/shielded_coulomb_diffusion");
@@ -84,6 +89,10 @@ class diffusion_table
         {
             energy_samplers.emplace_back(timesteps, table_in);
         }
+
+        fast_steps=0;
+        slow_steps_below_timestep=0;
+        slow_steps_above_energy=0;
     }
 
     inline double max_timestep()
@@ -97,11 +106,15 @@ class diffusion_table
 
         if(timestep<=timesteps[0] or energy>=energies[energies.size()-1])
         {
+            if(timestep<=timesteps[0]){slow_steps_below_timestep++;}
+            else {slow_steps_above_energy++;}
+
             return resample(energy, timestep);
         }
         else
         {
             //maybe speed this up by only sampling closest energy
+            fast_steps++;
 
             double uniform_rand=rand.uniform();
             size_t energy_i=search_sorted_d(energies, energy);
@@ -130,6 +143,13 @@ class diffusion_table
     {
         double inclination=sample(energy, particle->timestep);
         particle->scatter_angle(inclination, sample_azimuth() );
+    }
+
+    void print_stats()
+    {
+        print("num. fast diffusion steps:", fast_steps);
+        print("num. slow diffusion steps below timestep:", slow_steps_below_timestep);
+        print("num. slow diffusion steps above energy:", slow_steps_above_energy);
     }
 };
 

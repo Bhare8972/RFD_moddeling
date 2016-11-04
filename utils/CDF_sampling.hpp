@@ -51,6 +51,20 @@ public:
 
     CDF_sampler(){}
 
+    CDF_sampler( array_input& in )
+    {
+        alias_probabilities=in.read_doublesArray();
+        aliases=in.read_intsArray();
+
+        splines=std::make_shared< std::vector<polynomial> >();
+        splines->reserve(aliases.size());
+
+        for(int i=0; i<aliases.size(); i++)
+        {
+            splines->emplace_back(in.read_doublesArray());
+        }
+    }
+
     CDF_sampler(gsl::vector x_values, gsl::vector CDF_values)
     {
         //invert
@@ -119,9 +133,9 @@ public:
             new_data.index=spline_i;
             new_data.size=weights[spline_i]*splines->size();
 
-            //initialize the alias data most of this will change
+            //initialize the alias data most of this will change. Initialize so it is correct if the weight is one.
             aliases[spline_i]=spline_i;
-            alias_probabilities[spline_i]=new_data.size;
+            alias_probabilities[spline_i]=1.0;//new_data.size;
             //alias_boundAdjust[spline_i]=1.0;
 
             if( std::abs(1.0-new_data.size) < 1.0E-10 )
@@ -225,6 +239,18 @@ public:
         //return ret;
 
         return (*splines)[index].call(remainder);
+    }
+
+
+    void binary_save( arrays_output& out )
+    {
+        out.add_doubles(alias_probabilities);
+        out.add_ints(aliases);
+
+        for(polynomial& poly : *splines )
+        {
+            out.add_doubles(poly.weights);
+        }
     }
 
 };

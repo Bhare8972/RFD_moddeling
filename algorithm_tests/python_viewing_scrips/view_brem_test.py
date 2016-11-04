@@ -5,48 +5,30 @@ from read_binary import array_input, binary_input
 import matplotlib.pyplot as plt
 from scipy.integrate import simps, cumtrapz
 
-
 if __name__=="__main__":
-    table_in=array_input( binary_input("./brem_test_out") )
-    
-    X_space_table=table_in.get_array()
-    X_space=X_space_table.read_doubles()
-    
-    cs_table=table_in.get_array()
-    CS=cs_table.read_doubles()
+    matchings=[0,5,4,3,7,6,2,9,8,1]
+    table_in=array_input( binary_input("./brem_PE_test") )
     
     
-    walker_samples_tables=table_in.get_array()
-    walker_samples=walker_samples_tables.read_doubles()
+    PE_space=[]
+    PE_CS=[]
+    for i in xrange( (table_in.size-2)/2 ):
+        
+        PE_space.append( table_in.read_doublesArray() )
+        PE_CS.append( table_in.read_doublesArray() )
+        
+        plt.plot(PE_space[-1], PE_CS[-1])
     
-    #inverse_samples_tables=table_in.get_array()
-    #inverse_samples=inverse_samples_tables.read_doubles()
-    
-    
-    #X_space_table_FS=table_in.get_array()
-    #X_space_FS=X_space_table_FS.read_doubles()
-    
-    #cs_table_FS=table_in.get_array()
-    #CS_FS=cs_table_FS.read_doubles()
-    
-    ##cumquad_table=table_in.get_array()
-    ##cumquads=cumquad_table.read_doubles()
-    
-    
-    
-    ##plt.plot(X_space, CS, 'bo-')
-    ##plt.plot(X_space_FS, CS_FS, 'ro-')
-    ##plt.show()
-    
-    
-    
-    #cumtrapz_calc=cumtrapz(CS, X_space, initial=0);
-    #plt.plot(X_space, cumtrapz_calc, 'bo-')
-    #plt.plot(CS_FS, X_space_FS, 'ro-')
-    #plt.show()
-
-
-    plt.plot(X_space, CS/0.0313852)
-    plt.hist(walker_samples, bins=10000, normed=True, histtype="step")
-    #plt.hist(inverse_samples, bins=1000, normed=True, histtype="step")
     plt.show()
+    
+    CS_space=table_in.read_doublesArray() 
+    CS_samples=table_in.read_doublesArray() 
+
+        
+    for i in xrange(0,len(matchings)-1):
+        plt.plot(PE_space[matchings[i]], PE_CS[matchings[i]])
+        plt.plot(PE_space[matchings[i+1]], PE_CS[matchings[i+1]])
+        plt.show()
+        
+    
+    

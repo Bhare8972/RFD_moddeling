@@ -15,3 +15,5 @@ Find how long it takes an avalanche to reach equlibrium. (Find average energy vs
 model RF emissions from TGF (consider both models) and find if avanlanch component or "recoil pulse" is more significant.
 
 look at TGF beam angles
+
+look at detailed effect of RFD on thudnerstorm electric fields.  What will happen due to winds in thunderstorm?

@@ -11,6 +11,7 @@
 #include "time_tree.hpp"
 
 #include "read_tables/diffusion_table.hpp"
+#include "read_tables/bremsstrahlung_table.hpp"
 
 #include "physics/quasi_static_fields.hpp"
 #include "physics/relativistic_formulas.hpp"
@@ -18,12 +19,30 @@
 #include "physics/bethe_eq.hpp"
 #include "physics/apply_force.hpp"
 #include "physics/moller_scattering.hpp"
-#include "physics/bremsstrahlung_scattering.hpp"
 #include "physics/interaction_chooser.hpp"
+
+class electron_data
+{
+public:
+    double time;
+    gsl::vector pos;
+    gsl::vector mom;
+
+    int flag;
+
+    electron_data(electron_T* electron, int _flag)
+    {
+        pos=electron->position.clone();
+        mom=electron->momentum.clone();
+        flag=_flag;
+        time=electron->current_time;
+    }
+
+};
+#include "physics/particles_source.hpp"
 
 using namespace gsl;
 using namespace std;
-
 
 int main()
 {
@@ -31,9 +50,8 @@ int main()
     size_t nseeds=5;
 
 
-	int number_itterations=500;
-    double particle_removal_energy=2.0/energy_units_kev; //remove particles that have energy less than this
-    double minimum_photon_energy=5.1/energy_units_kev; // will not produce discrete brem photons with energy less than this
+	int number_itterations=20000*nseeds;
+    double particle_removal_energy=5.0/energy_units_kev; //remove particles that have energy less than this
 
     double pos_tol=0.0001;
     double mom_tol=0.0001;
@@ -64,10 +82,10 @@ int main()
     diffusion_table coulomb_scattering_engine;
 
     //bremsstrahlung
-    bremsstrahlung_scattering brem_engine( minimum_photon_energy );
+    //bremsstrahlung_scattering brem_engine( minimum_photon_energy );
 
     //interaction chooser
-    interaction_chooser_linear<2> interaction_engine(moller_engine, brem_engine);
+    interaction_chooser_linear<1> interaction_engine(moller_engine);
 
 	//force
 	apply_charged_force force_engine(particle_removal_energy, E_field.pntr(), B_field.pntr() );
@@ -86,7 +104,7 @@ int main()
     {
         new_electron= electrons.emplace(0);
         new_electron->set_position(0,0,0);
-        new_electron->set_momentum(0,0, KE_to_mom( 1000.0/energy_units_kev ) );
+        new_electron->set_momentum(0,0, KE_to_mom( 7500.0/energy_units_kev ) );
         new_electron->update_energy();
         save_data.new_electron(new_electron);
     }
@@ -151,7 +169,7 @@ int main()
             //place back in pool
             electrons.insert(current_electron->current_time, current_electron);
 
-            //carry on as if nothing ever happend
+            //carry on as if nothing ever happened
             continue; //probably wind up with same electron again
         }
 
@@ -178,29 +196,29 @@ int main()
                     electrons.insert(new_electron->current_time, new_electron);
                 }
             }
-            else if(interaction==1)
-            {
-                //set electron values to time of interaction
-                current_electron->current_time += time_to_scatter - current_electron->timestep;
-                current_electron->timestep=time_to_scatter;
-                current_electron->position = old_position + position_rate_of_change*time_to_scatter;
-                current_electron->momentum = old_momentum + momentum_rate_of_change*time_to_scatter;
-                current_electron->update_energy();
-                energy_before_scattering=current_electron->energy;
-
-                //do interaction
-                photon_T* new_photon=brem_engine.single_interaction(energy_before_scattering, current_electron);
-
-                if(new_photon)
-                {
-                    delete new_photon; //no soup for you!!
+            //else if(interaction==1)
+            //{
+            //    //set electron values to time of interaction
+            //    current_electron->current_time += time_to_scatter - current_electron->timestep;
+            //    current_electron->timestep=time_to_scatter;
+            //    current_electron->position = old_position + position_rate_of_change*time_to_scatter;
+            //    current_electron->momentum = old_momentum + momentum_rate_of_change*time_to_scatter;
+            //    current_electron->update_energy();
+            //    energy_before_scattering=current_electron->energy;
+//
+//                //do interaction
+//                photon_T* new_photon=brem_engine.single_interaction(energy_before_scattering, current_electron);
+//
+//                if(new_photon)
+ //               {
+//                    delete new_photon; //no soup for you!!
                     //save_data.new_electron(new_electron);
                     //electrons.insert(new_electron->current_time, new_electron);
-                }
-            }
+//                }
+//            }
         }
 
-        //remove particle if necisary
+        //remove particle if necessary
         if(current_electron->energy < particle_removal_energy)
         {
             save_data.remove_electron(0, current_electron); //need to fix removal reasons to be obvious
@@ -217,9 +235,11 @@ int main()
 
 	}
 
-	print(i, "iterations of:", number_itterations);
+	print(i-1, "iterations of:", number_itterations);
 	print(timestep_trims, "trims");
 	print(timestep_redone, "re-does");
+	print();
+	coulomb_scattering_engine.print_stats();
 }
 
 

@@ -14,6 +14,7 @@
 #include "functor.hpp"
 #include "gen_ex.hpp"
 #include "root_finding.hpp"
+#include "arrays_IO.hpp"
 
 //much of the algorithms here are out of date and need to be improved with chebyshev spline algorithms
 //re-work this file to focus on generic algorithms for polynomials
@@ -114,6 +115,20 @@ public:
 	{
 		reset(X, Y);
 	}
+
+	poly_spline( array_input& in )
+    {
+        x_vals=in.read_doublesArray();
+        int L=x_vals.size()-1;
+        splines.reserve(L);
+        for(int i=0; i<L; i++)
+        {
+            splines.emplace_back( in.read_doublesArray() );
+        }
+
+		lower_fill=std::nan("");
+        upper_fill=std::nan("");
+    }
 
 	void reset(gsl::vector X, gsl::vector Y)
 	{
@@ -327,6 +342,15 @@ public:
         }
 	}
 
+
+    void binary_save( arrays_output& out )
+    {
+        out.add_doubles(x_vals);
+        for(polynomial& poly : splines )
+        {
+            out.add_doubles(poly.weights);
+        }
+    }
 
 };
 

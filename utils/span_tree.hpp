@@ -178,6 +178,21 @@ public:
         double right_key;
         DATA_T* left_data;
         DATA_T* right_data;
+
+        DATA_T* closest(double point)
+        //returns the data with the key that is closes to point
+        {
+            double left_delta=std::abs(point-left_key);
+            double right_delta=std::abs(point-right_key);
+            if(right_delta<left_delta)
+            {
+                return right_data;
+            }
+            else
+            {
+                return left_data;
+            }
+        }
     };
 
     span_result lookup(double key)

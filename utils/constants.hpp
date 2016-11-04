@@ -24,7 +24,7 @@ const double electron_classical_radius=2.8179E-15; //m
 
 
 //const double minimum_energy=2*Kilo*elementary_charge/electron_rest_energy; //minimum energy is 2 keV.   This needs to be removed
-const double lowest_physical_energy=100.0*elementary_charge/electron_rest_energy; //lower energy the simulation is good for. 100 ev
+const double lowest_physical_energy= 100.0*elementary_charge/electron_rest_energy; //lower energy the simulation is good for. 100 ev (I think)
 const double inv_I_sq=electron_rest_energy*electron_rest_energy/(85.7*80.5*elementary_charge*elementary_charge); //parameter necisary for beth formula  Maybe this shouldn't bee here
 
 //find unit-less constant conversions

@@ -65,6 +65,11 @@ class array_input(object):
             out[i]=self.fin.in_double()
         self.num_left=0
         return out
+        
+    def read_doublesArray(self):
+        array=self.get_array()
+        return array.read_doubles()
+
 
     def get_array(self):
         if self.type!=0:

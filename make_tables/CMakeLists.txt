@@ -28,3 +28,8 @@ add_executable(combine_diffusion_tables
               ./combine_diffusion_tables.cpp)
 target_link_libraries(combine_diffusion_tables gsl gslcblas)
 
+add_executable(make_brem_tables
+              ./make_brem_tables.cpp)
+target_link_libraries(make_brem_tables gsl gslcblas)
+
+
