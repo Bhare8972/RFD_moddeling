@@ -29,9 +29,9 @@ class moller_cross_section(object):
     def integral_test(self, production_energy):
         term_2_F1=(2*self.gamma-1)/(self.energy*self.gamma*self.gamma);
         term_2_F2=np.log(production_energy/(self.energy-production_energy));
-        term_3=self.energy/(production_energy*(self.energy-production_energy));
+        term_3=(2*production_energy-self.energy)/(production_energy*(production_energy-self.energy));
 
-        return (1.0/self.gamma-term_2_F1*term_2_F2-term_3 )/self.beta;
+        return (production_energy/self.gamma-term_2_F1*term_2_F2-term_3 )/self.beta;
         
 
     def integrate(self, min_energy, upper_energy=None):
@@ -63,7 +63,7 @@ if __name__=="__main__":
 
     ##open data
     table_in=array_input( binary_input("./moller_tables_output") )
-    lowest_sim_energy=5.0/energy_units_kev
+    lowest_sim_energy=2.0/energy_units_kev
 
     energies_table=table_in.get_array()
     energies=energies_table.read_doubles()
@@ -96,16 +96,22 @@ if __name__=="__main__":
             
             MC=moller_cross_section(energies[i])
             tst_quads=[]
+            integral_tsts=[]
             quad_error=[]
             for p in points:
                 Q, E=MC.integrate(lowest_sim_energy, p)
                 tst_quads.append(Q)
                 quad_error.append(E)
+                integral_tsts.append(MC.integral_test(p)-MC.integral_test(lowest_sim_energy))
+                
             tst_quads=np.array(tst_quads)
             tst_quads/=tst_quads[-1]
             
-            plt.plot(quad_error, points*energy_units_kev, 'g-')
-            plt.plot(tst_quads, points*energy_units_kev, 'ro')
+            integral_tsts=np.array(integral_tsts)
+            integral_tsts/=integral_tsts[-1]
+            
+            plt.plot(integral_tsts, points*energy_units_kev, 'go')
+            plt.plot(tst_quads, points*energy_units_kev, 'r.')
             plt.plot(cumquads, points*energy_units_kev, 'b-')
             plt.show()
 

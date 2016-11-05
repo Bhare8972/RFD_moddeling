@@ -123,6 +123,18 @@ gsl::vector make_vector(const std::list<double> &data)
 	return out;
 }
 
+gsl::vector make_vector(const std::vector<double> &data)
+{
+	gsl::vector out(data.size());
+	size_t i=0;
+	for(double value : data)
+	{
+		out[i]=value;
+		i++;
+	}
+	return out;
+}
+
 gsl::vector cross(gsl::vector& A, gsl::vector& B)
 {
 	if((A.size() != 3) or (B.size() != 3))
@@ -135,6 +147,11 @@ gsl::vector cross(gsl::vector& A, gsl::vector& B)
 	out[1]=A[2]*B[0] - A[0]*B[2];
 	out[2]=A[0]*B[1] - A[1]*B[0];
 	return out;
+}
+
+inline void normalize(gsl::vector& IN)
+{
+    IN/=std::sqrt(IN.sum_of_squares());
 }
 
 size_t search_sorted_d(gsl::vector A, double v)
@@ -228,12 +245,19 @@ gsl::vector cumsum(gsl::vector IN, bool extra_zero_bin=false)
     return out;
 }
 
-double linear_interpolate(gsl::vector X, gsl::vector Y, double X_sample)
+inline double linear_interpolate(gsl::vector X, gsl::vector Y, double X_sample)
 //given a number of X and Y samples from a function, return the y-value corresponding to the X_sample using linear interpolation
 {
     size_t index=search_sorted_d(X, X_sample);
     double factor=(X_sample-X[index])/(X[index+1]-X[index]);
     double R=Y[index];
     return R + (Y[index+1]-R)*factor;
+}
+
+
+inline double linear_interpolate(double X0, double Y0, double X1, double Y1, double X_sample)
+//given a number of X and Y samples from a function, return the y-value corresponding to the X_sample using linear interpolation
+{
+    return Y0 + (Y1-Y0)*(X_sample-X0)/(X1-X0);
 }
 #endif

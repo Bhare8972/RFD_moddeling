@@ -6,80 +6,104 @@
 #include <list>
 #include <vector>
 //#include <gsl/gsl_spline.h>
+#include <gsl/gsl_poly.h>
 
 
 #include "GSL_utils.hpp"
 #include "vector.hpp"
 #include "functor.hpp"
 #include "gen_ex.hpp"
+#include "root_finding.hpp"
+#include "arrays_IO.hpp"
 
-class poly_spline : public functor_1D //we should exted this to work for first order as well
+//much of the algorithms here are out of date and need to be improved with chebyshev spline algorithms
+//re-work this file to focus on generic algorithms for polynomials
+
+
+//generic polynomials
+
+class polynomial: public functor_1D
 {
 public:
-	class spline_piece
-	{
-	public:
-		gsl::vector weights;
 
-		spline_piece(const poly_spline::spline_piece &SP)
-		{
-            weights=SP.weights.clone();
-		}
+    gsl::vector weights;
 
-        spline_piece(const gsl::vector &weights_)
-		{
-            weights=weights_;
-		}
+    polynomial(const polynomial &SP)
+    {
+        weights=SP.weights.clone();
+    }
 
-		spline_piece(double left_point, double middle_point, double right_point, double left_value, double middle_value, double right_value)
-		{
-            //second order spline
-            weights=gsl::vector(3);
+    polynomial(const std::initializer_list<double> L )
+    {
+        weights=gsl::vector(L);
+    }
 
-			double weight_three_num=(middle_point-left_point)*(right_value-left_value) - (right_point-left_point)*(middle_value-left_value);
-			double weight_three_denom=(middle_point-left_point)*(right_point*right_point - left_point*left_point) - (right_point-left_point)*(middle_point*middle_point-left_point*left_point);
-			weights[2]=weight_three_num/weight_three_denom;
-			weights[1]=(middle_value-left_value)/(middle_point-left_point) - weights[2]*(middle_point*middle_point-left_point*left_point)/(middle_point-left_point);
-			weights[0]=left_value - weights[2]*left_point*left_point - weights[1]*left_point;
+    polynomial(const gsl::vector &weights_) //note:: C++ may be smart enough to take an initializer list here
+    {
+        weights=weights_;
+    }
 
-			if(weights[2]!=weights[2] or weights[1]!=weights[1] or weights[0]!=weights[0] or std::isinf(weights[2]) or std::isinf(weights[1]) or std::isinf(weights[0]))
-			{
-                print("second order spline");
-                print(left_point, middle_point, right_point);
-			    throw gen_exception("function cannot be represented by a spline");
-			}
-		}
+    inline double call(double X)
+    {
+        return gsl_poly_eval(weights.data() , weights.size(), X);
+    }
 
-		spline_piece(double left_point, double right_point, double left_value, double right_value)
-		{
-            //first order spline
-            weights=gsl::vector(2);
+//need to be depreciated
+    polynomial(double left_point, double middle_point, double right_point, double left_value, double middle_value, double right_value)
+    {
+        //second order spline
+        weights=gsl::vector(3);
 
-			weights[1]=(right_value-left_value)/(right_point-left_point);
-			weights[0]=left_value - weights[1]*left_point;
+        double weight_three_num=(middle_point-left_point)*(right_value-left_value) - (right_point-left_point)*(middle_value-left_value);
+        double weight_three_denom=(middle_point-left_point)*(right_point*right_point - left_point*left_point) - (right_point-left_point)*(middle_point*middle_point-left_point*left_point);
+        weights[2]=weight_three_num/weight_three_denom;
+        weights[1]=(middle_value-left_value)/(middle_point-left_point) - weights[2]*(middle_point*middle_point-left_point*left_point)/(middle_point-left_point);
+        weights[0]=left_value - weights[2]*left_point*left_point - weights[1]*left_point;
 
-			if(weights[1]!=weights[1] or weights[0]!=weights[0] or std::isinf(weights[1]) or std::isinf(weights[0]))
-			{
-                print("first order spline");
-                print(left_point, right_point);
-			    throw gen_exception("function cannot be represented by a spline");
-			}
-		}
+        if(weights[2]!=weights[2] or weights[1]!=weights[1] or weights[0]!=weights[0] or std::isinf(weights[2]) or std::isinf(weights[1]) or std::isinf(weights[0]))
+        {
+            print("second order spline");
+            print(left_point, middle_point, right_point);
+            throw gen_exception("function cannot be represented by a spline");
+        }
+    }
 
-		double y(double x)
-		{
-            double ret=weights[0];
-            double F=x;
-            for(unsigned int i=1; i<weights.size(); i++)
-            {
-                ret+=weights[i]*F;
-                F*=x;
-            }
-            return ret;
-		}
-	};
+    polynomial(double left_point, double right_point, double left_value, double right_value)
+    {
+        //first order spline
+        weights=gsl::vector(2);
 
-	std::vector<spline_piece> splines;
+        weights[1]=(right_value-left_value)/(right_point-left_point);
+        weights[0]=left_value - weights[1]*left_point;
+
+        if(weights[1]!=weights[1] or weights[0]!=weights[0] or std::isinf(weights[1]) or std::isinf(weights[0]))
+        {
+            print("first order spline");
+            print(left_point, right_point);
+            throw gen_exception("function cannot be represented by a spline");
+        }
+    }
+
+    inline double y(double x)
+    {
+        return call(x);
+    }
+};
+
+//need to add some polynomial solving functions here
+double bracketed_poly_solver(polynomial* input_poly, double Xlow, double Xhigh, int max_iter)
+{
+    return root_finder_brent(input_poly, Xhigh, Xlow, (Xhigh-Xlow)/100000.0, (Xhigh-Xlow)/1000.0, max_iter);
+}
+
+
+
+//a spline from a collection of polynomials
+class poly_spline : public functor_1D
+{
+public:
+
+	std::vector<polynomial> splines;
 	gsl::vector x_vals; //length is one greater than splines
 
 	double lower_fill;
@@ -88,6 +112,25 @@ public:
     poly_spline(){}
 
 	poly_spline(gsl::vector X, gsl::vector Y)
+	{
+		reset(X, Y);
+	}
+
+	poly_spline( array_input& in )
+    {
+        x_vals=in.read_doublesArray();
+        int L=x_vals.size()-1;
+        splines.reserve(L);
+        for(int i=0; i<L; i++)
+        {
+            splines.emplace_back( in.read_doublesArray() );
+        }
+
+		lower_fill=std::nan("");
+        upper_fill=std::nan("");
+    }
+
+	void reset(gsl::vector X, gsl::vector Y)
 	{
 		size_t num_points=Y.size();
 		if( num_points != X.size())
@@ -103,6 +146,7 @@ public:
 		bool do_linear_spline=(num_points-1) % 2;
 
 		x_vals=gsl::vector(num_quad_splines+1+int(do_linear_spline));
+		splines.clear();
 		splines.reserve(num_quad_splines+int(do_linear_spline));
 
 		for(size_t pi=0, si=0; num_points>2 and pi<(num_points-2-int(do_linear_spline)); pi+=2)
@@ -229,6 +273,7 @@ public:
             for(unsigned int w_i=0; w_i<splines[sp_i].weights.size(); w_i++)
             {
                 new_weights[w_i+1]=splines[sp_i].weights[w_i]/(w_i+1);
+                new_weights[0]-=new_weights[w_i+1]*lower_X;
                 total_integral+=new_weights[w_i+1]*(upper_X - lower_X);
                 lower_X*=x_vals[sp_i];
                 upper_X*=x_vals[sp_i+1];
@@ -298,6 +343,15 @@ public:
 	}
 
 
+    void binary_save( arrays_output& out )
+    {
+        out.add_doubles(x_vals);
+        for(polynomial& poly : splines )
+        {
+            out.add_doubles(poly.weights);
+        }
+    }
+
 };
 
 void make_fix_spline(gsl::vector X, gsl::vector Y, gsl::vector &X_new, gsl::vector &Y_new)
@@ -337,7 +391,7 @@ void make_fix_spline(gsl::vector X, gsl::vector Y, gsl::vector &X_new, gsl::vect
     Y_new=make_vector(new_y);
 }
 
-
+//depereciate or fix rest of these algorithms
 class adaptive_sampler_data
 {
 private:
@@ -460,6 +514,84 @@ public:
         }
     }
 
+    void refine_AbsComp(double abs_compare)
+    {
+        // step one, make the next lower two simps rules
+        left_data=std::make_shared<adaptive_sampler_data>(function, left_point, middle_point, left_value, middle_value);
+        right_data=std::make_shared<adaptive_sampler_data>(function, middle_point, right_point, middle_value, right_value);
+
+        if(left_data->stage==2 or right_data->stage==2)
+        {
+            left_data.reset();
+            right_data.reset();
+            stage=3;
+
+            return;
+        }
+        stage=1;
+
+        //check if we need to refine the left
+        if( float( abs_compare + float( left_data->middle_value - this->rough_call(left_data->middle_point)))  != float(abs_compare) )
+        {
+            left_data->refine_AbsComp(abs_compare);
+
+            if(left_data->stage==3 or left_data->stage==4)
+            {
+                stage=4;
+            }
+        }
+
+        //check if we need to refine the right
+        if( float( abs_compare + float( right_data->middle_value - this->rough_call(right_data->middle_point)))  != float(abs_compare) )
+        {
+            right_data->refine_AbsComp(abs_compare);
+
+            if(right_data->stage==3 or right_data->stage==4)
+            {
+                stage=4;
+            }
+        }
+    }
+
+    void refine_RelComp(double rel_compare)
+    {
+        // step one, make the next lower two simps rules
+        left_data=std::make_shared<adaptive_sampler_data>(function, left_point, middle_point, left_value, middle_value);
+        right_data=std::make_shared<adaptive_sampler_data>(function, middle_point, right_point, middle_value, right_value);
+
+        if(left_data->stage==2 or right_data->stage==2)
+        {
+            left_data.reset();
+            right_data.reset();
+            stage=3;
+
+            return;
+        }
+        stage=1;
+
+        //check if we need to refine the left
+        if( float( left_data->middle_value*rel_compare + float( left_data->middle_value - this->rough_call(left_data->middle_point)))  != float(left_data->middle_value*rel_compare) )
+        {
+            left_data->refine_RelComp(rel_compare);
+
+            if(left_data->stage==3 or left_data->stage==4)
+            {
+                stage=4;
+            }
+        }
+
+        //check if we need to refine the right
+        if( float( right_data->middle_value*rel_compare + float( right_data->middle_value - this->rough_call(right_data->middle_point)))  != float(right_data->middle_value*rel_compare) )
+        {
+            right_data->refine_RelComp(rel_compare);
+
+            if(right_data->stage==3 or right_data->stage==4)
+            {
+                stage=4;
+            }
+        }
+    }
+
     size_t size()
     {
         if(left_data) //if this exists, then we have made the two sections
@@ -520,7 +652,7 @@ public:
         //don't do last point
     }
 
-    std::list<poly_spline::spline_piece> get_spline()
+    std::list<polynomial> get_spline()
     {
         if(left_data)//if we have left_data, we have right as well
         {
@@ -532,7 +664,7 @@ public:
         else
         {
             gsl::vector weights({weight_one, weight_two, weight_three});
-            std::list<poly_spline::spline_piece> ret;
+            std::list<polynomial> ret;
             ret.emplace_back(weights);
             return ret;
         }
@@ -556,13 +688,24 @@ public:
     }
 };
 
-gsl::vector adaptive_sample(functor_1D* F, double precision, double start, double stop, gsl::vector &points )
+gsl::vector adaptive_sample(functor_1D* F, double precision, double start, double stop, gsl::vector &points, int precision_type=0 )
 {
     double left_value=F->call(start);
     double right_value=F->call(stop);
 
     adaptive_sampler_data sampler(F, start, stop, left_value, right_value);
-    sampler.refine(precision);
+    if(precision_type==0)
+    {
+        sampler.refine(precision); //type 0 is where precision is just relative error. (default, but error prone)
+    }
+    else if(precision_type==1)
+    {
+        sampler.refine_AbsComp(precision); //type 1 is where the differnce is zero comparted to precision
+    }
+    else if(precision_type==2)
+    {
+        sampler.refine_RelComp(precision); //same method as adaptive integration
+    }
 
 
 
@@ -578,13 +721,24 @@ gsl::vector adaptive_sample(functor_1D* F, double precision, double start, doubl
     return values;
 }
 
-std::shared_ptr<poly_spline> adaptive_sample_retSpline(functor_1D* F, double precision, double start, double stop  )
+std::shared_ptr<poly_spline> adaptive_sample_retSpline(functor_1D* F, double precision, double start, double stop, int precision_type=0  )
 {
     double left_value=F->call(start);
     double right_value=F->call(stop);
 
     adaptive_sampler_data sampler(F, start, stop, left_value, right_value);
-    sampler.refine(precision);
+    if(precision_type==0)
+    {
+        sampler.refine(precision); //type 0 is where precision is just relative error. (default, but error prone)
+    }
+    else if(precision_type==1)
+    {
+        sampler.refine_AbsComp(precision); //type 1 is where the differnce is zero comparted to precision
+    }
+    else if(precision_type==2)
+    {
+        sampler.refine_RelComp(precision); //same method as adaptive integration
+    }
 
 
 
@@ -609,13 +763,24 @@ std::shared_ptr<poly_spline> adaptive_sample_retSpline(functor_1D* F, double pre
     return out_spline;
 }
 
-std::shared_ptr<poly_spline> adaptive_sample_all(functor_1D* F, double precision, double start, double stop, gsl::vector &points, gsl::vector &values  )
+std::shared_ptr<poly_spline> adaptive_sample_all(functor_1D* F, double precision, double start, double stop, gsl::vector &points, gsl::vector &values, int precision_type=0)
 {
     double left_value=F->call(start);
     double right_value=F->call(stop);
 
     adaptive_sampler_data sampler(F, start, stop, left_value, right_value);
-    sampler.refine(precision);
+    if(precision_type==0)
+    {
+        sampler.refine(precision); //type 0 is where precision is just relative error. (default, but error prone)
+    }
+    else if(precision_type==1)
+    {
+        sampler.refine_AbsComp(precision); //type 1 is where the differnce is zero comparted to precision
+    }
+    else if(precision_type==2)
+    {
+        sampler.refine_RelComp(precision); //same method as adaptive integration
+    }
 
 
 

@@ -51,6 +51,30 @@ namespace gsl {
   class vector {
   public:
   //my personal additions
+    double& back()
+    {
+        // Always try to return something
+        static double something = 0;
+        // First check that iterator is initialised.
+        if( ccgsl_pointer == 0 )
+        {
+            gsl_error( "vector is null", __FILE__, __LINE__, exception::GSL_EFAULT );
+            return something;
+        }
+
+        #ifndef GSL_RANGE_CHECK_OFF
+            // Check that position make sense
+            if( size() == 0)
+            {
+                gsl_error( "trying to read from empty vector", __FILE__, __LINE__, exception::GSL_EINVAL );
+                return something;
+            }
+            // n is a valid position
+        #endif
+
+        return *(ccgsl_pointer->data + (size()-1) * ccgsl_pointer->stride);
+    }
+
 
 	inline double sum() const
     {
@@ -101,7 +125,7 @@ namespace gsl {
 		return new_vector;
 	}
 
-    inline vector operator+(double const& v) const
+    inline vector operator+(double v) const
     {
 		// check if vectors are null
 		if( ccgsl_pointer == 0 ) throw vector_exception();
@@ -128,7 +152,7 @@ namespace gsl {
 		}
 	}
 
-    inline void operator+=(double const& v)
+    inline void operator+=(double v)
     {
 		// check if vectors are null
 		if( ccgsl_pointer == 0 ) throw vector_exception();
@@ -155,7 +179,7 @@ namespace gsl {
 		return new_vector;
 	}
 
-    inline vector operator-(double const& v) const
+    inline vector operator-(double v) const
     {
 		// check if vectors are null
 		if( ccgsl_pointer == 0 ) throw vector_exception();
@@ -182,7 +206,7 @@ namespace gsl {
 	}
 
 
-    inline void operator-=(double const& v)
+    inline void operator-=(double v)
     {
 		// check if vectors are null
 		if( ccgsl_pointer == 0 ) throw vector_exception();
@@ -209,7 +233,7 @@ namespace gsl {
 		return new_vector;
 	}
 
-    inline vector operator*(double const& v) const
+    inline vector operator*(double v) const
     {
 		// check if vectors are null
 		if( ccgsl_pointer == 0 ) throw vector_exception();
@@ -228,7 +252,7 @@ namespace gsl {
 		return rhs*lhs;
 	}
 
-    inline void operator*=(double const& v)
+    inline void operator*=(double v)
     {
 		// check if vectors are null
 		if( ccgsl_pointer == 0 ) throw vector_exception();
@@ -253,7 +277,7 @@ namespace gsl {
 		}
 	}
 
-    inline vector operator/(double const& v) const
+    inline vector operator/(double v) const
     {
 		// check if vectors are null
 		if( ccgsl_pointer == 0 ) throw vector_exception();
@@ -266,7 +290,7 @@ namespace gsl {
 		return new_vector;
 	}
 
-    inline void operator/=(double const& v)
+    inline void operator/=(double v)
     {
 		// check if vectors are null
 		if( ccgsl_pointer == 0 ) throw vector_exception();
@@ -366,7 +390,7 @@ namespace gsl {
         return new_vector;
     }
 
-    inline void mult_add(vector const& A, double const& B)
+    inline void mult_add(vector const& A, double B)
     //multiplies A by B and adds it to vector
     {
 		// check if vectors are null
@@ -443,11 +467,28 @@ namespace gsl {
         return out;
     }
 
+    inline void clone_from(vector const& v)
+    //version of clone that doesn't instantiate new memory
+    {
+        // check if vectors are null
+        if( ccgsl_pointer == 0 ) throw vector_exception();
+        if( v.ccgsl_pointer == 0 ) throw vector_exception();
+        //check sizes
+        if( ccgsl_pointer->size != v.ccgsl_pointer->size) throw vector_exception();
+
+        //copy
+        for( size_t i = 0; i<ccgsl_pointer->size; ++i )
+        {
+            (*this)[i]=v[i];
+        }
+    }
+
 
     /**
      * The default constructor is only really useful for assigning to.
      */
-    vector(){
+    vector()
+    {
       ccgsl_pointer = 0;
       count = 0; // initially nullptr will do
     }
@@ -457,7 +498,8 @@ namespace gsl {
      * The default constructor creates a new vector with n elements
      * @param n The number of elements in the vector
      */
-    explicit vector( size_t const n ){
+    explicit vector( size_t const n )
+    {
       if( n > 0 ) ccgsl_pointer = gsl_vector_alloc( n );
       else { ccgsl_pointer = new gsl_vector; ccgsl_pointer->size = 0; ccgsl_pointer->data = 0; }
       // just plausibly we could allocate vector but not count
@@ -474,7 +516,8 @@ namespace gsl {
      * we should not use gsl_vector_free() to deallocate the memory.
      * @param v The vector
      */
-    explicit vector( gsl_vector* v ){
+    explicit vector( gsl_vector* v )
+    {
       ccgsl_pointer = v;
       // just plausibly we could fail to allocate count: no further action needed.
       count = new size_t;
@@ -485,7 +528,8 @@ namespace gsl {
      * Could construct from a std::initializer_list in C++11
      * @param initializer_list The initializer_list.
      */
-    vector( std::initializer_list<double> initializer_list ){
+    vector( std::initializer_list<double> initializer_list )
+    {
       size_t const n = initializer_list.size();
       ccgsl_pointer = gsl_vector_alloc( n );
       // just plausibly we could allocate vector but not count
@@ -506,14 +550,16 @@ namespace gsl {
      * The copy constructor. This shares the vector. Use clone() if you want a full copy.
      * @param v The vector to copy.
      */
-    vector( vector const& v ) : ccgsl_pointer( v.ccgsl_pointer ), count( v.count ){
+    vector( vector const& v ) : ccgsl_pointer( v.ccgsl_pointer ), count( v.count )
+    {
       if( count != 0 ) ++*count; // vector is now shared.
     }
     /**
      * The copy constructor. This shares the vector. Use clone() if you want a full copy.
      * @param v The vector to copy.
      */
-    vector( vector& v ) : ccgsl_pointer( v.ccgsl_pointer ), count( v.count ){
+    vector( vector& v ) : ccgsl_pointer( v.ccgsl_pointer ), count( v.count )
+    {
       if( count != 0 ) ++*count; // vector is now shared.
     }
     // assignment operator
@@ -536,7 +582,6 @@ namespace gsl {
       return *this;
     }
 
-    //I hate the following function it always makes me unsure what will happen
 
     /**
      * Construct from an object that implements data() and size(). This is primarily intended
@@ -551,7 +596,9 @@ namespace gsl {
      * @param stride The stride.
      */
      /*
-    template<typename V> vector( V& v, size_t const stride = 1 ){
+    template<typename V>
+    vector( V& v, size_t const stride = 1 )
+    {
       size_t const n = v.size() / stride;
       ccgsl_pointer = static_cast<gsl_vector*>( malloc( sizeof( gsl_vector ) ) );
       ccgsl_pointer->size = n;
@@ -568,13 +615,16 @@ namespace gsl {
       }
       *count = 1; // initially there is just one reference to ccgsl_pointer
     }*/
+
+
     // clone()
     /**
      * The clone function. Use this if you want a copy of the block that does
      * not share the underlying data.
      * @return a new copy of @c this.
      */
-    vector clone() const {
+    vector clone() const
+    {
       vector copy( get()->size );
       // Now copy
       gsl_vector_memcpy( copy.get(), get() );
@@ -585,7 +635,8 @@ namespace gsl {
     /**
      * The destructor only deletes the pointers if count reaches zero.
      */
-    ~vector(){
+    ~vector()
+    {
       if( count != 0 and --*count == 0 ){
 	// could have allocated null pointer
 	if( ccgsl_pointer != 0 ){

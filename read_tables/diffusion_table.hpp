@@ -10,7 +10,7 @@
 
 #include "arrays_IO.hpp"
 #include "GSL_utils.hpp"
-#include "histogram.hpp"
+//#include "histogram.hpp"
 #include "gen_ex.hpp"
 #include "integrate.hpp"
 #include "spline.hpp"
@@ -48,12 +48,18 @@ class diffusion_table
 
         double sample(double TS, double uniform_rand)
         {
-            size_t TS_index=search_sorted_exponential(timesteps, TS);
-            //assume TS is below max(timesteps)
-            double lower_linear_factor=(timesteps[TS_index]-TS)/(timesteps[TS_index]-timesteps[TS_index+1]);//factor for linear interpolation
-            double lower_guess=samplers[TS_index].call(uniform_rand);
-            double upper_guess=samplers[TS_index+1].call(uniform_rand);
-            return lower_guess*lower_linear_factor + (1-lower_linear_factor)*upper_guess;
+            if(TS>=timesteps[timesteps.size()-1])
+            {
+                return samplers[timesteps.size()-1].call(uniform_rand);
+            }
+            else
+            {
+                size_t TS_index=search_sorted_exponential(timesteps, TS);
+                double lower_linear_factor=(timesteps[TS_index]-TS)/(timesteps[TS_index]-timesteps[TS_index+1]);//factor for linear interpolation
+                double lower_guess=samplers[TS_index].call(uniform_rand);
+                double upper_guess=samplers[TS_index+1].call(uniform_rand);
+                return lower_guess*lower_linear_factor + (1-lower_linear_factor)*upper_guess;
+            }
         }
     };
 
@@ -61,6 +67,11 @@ class diffusion_table
     gsl::vector timesteps;
     std::vector<energy_level> energy_samplers;
     rand_threadsafe rand;
+
+    //stats:
+    int fast_steps;
+    int slow_steps_below_timestep;
+    int slow_steps_above_energy;
 
     diffusion_table()
     {
@@ -78,6 +89,10 @@ class diffusion_table
         {
             energy_samplers.emplace_back(timesteps, table_in);
         }
+
+        fast_steps=0;
+        slow_steps_below_timestep=0;
+        slow_steps_above_energy=0;
     }
 
     inline double max_timestep()
@@ -91,11 +106,15 @@ class diffusion_table
 
         if(timestep<=timesteps[0] or energy>=energies[energies.size()-1])
         {
+            if(timestep<=timesteps[0]){slow_steps_below_timestep++;}
+            else {slow_steps_above_energy++;}
+
             return resample(energy, timestep);
         }
         else
         {
             //maybe speed this up by only sampling closest energy
+            fast_steps++;
 
             double uniform_rand=rand.uniform();
             size_t energy_i=search_sorted_d(energies, energy);
@@ -124,6 +143,13 @@ class diffusion_table
     {
         double inclination=sample(energy, particle->timestep);
         particle->scatter_angle(inclination, sample_azimuth() );
+    }
+
+    void print_stats()
+    {
+        print("num. fast diffusion steps:", fast_steps);
+        print("num. slow diffusion steps below timestep:", slow_steps_below_timestep);
+        print("num. slow diffusion steps above energy:", slow_steps_above_energy);
     }
 };
 

@@ -35,4 +35,23 @@ add_executable(test_2D_spline
               ./test_2D_spline.cpp)
 target_link_libraries(test_2D_spline gsl gslcblas)
 
+add_executable(test_aliasing
+              ./test_walker_alias.cpp)
+target_link_libraries(test_aliasing gsl gslcblas)
+
+add_executable(test_chebyshev
+              ./cheby_sampler_test.cpp)
+target_link_libraries(test_chebyshev gsl gslcblas)
+
+add_executable(random_seeding_test
+              ./random_seeding_test.cpp)
+target_link_libraries(random_seeding_test gsl gslcblas)
+
+add_executable(output_tester
+              ./output_tester.cpp)
+target_link_libraries(output_tester gsl gslcblas)
+
+add_executable(brem_test
+              ./brem_test.cpp)
+target_link_libraries(brem_test gsl gslcblas)
 

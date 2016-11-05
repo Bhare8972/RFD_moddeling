@@ -2,30 +2,58 @@ TODO:
 
 turn main loop into a class
 
-Test diffusion scattering against lehtinen method and molier scattering
+notice that the "Z" of air is molecular Z!! find errors that this has caused (namely in diffision scattering) and fix it! (I think this is mostly done)
 
 test results of simulation against lehtenin.
 
+add atmosphere density vs altitude
 
-improve moller scattering to use cumulative integral equation
-create a special utility that works for inserting and retrieving data related to doubles. (span_tree) probably implented as variant of AVL tree 
-		(better for lookups than inserts)
+BREMSTRALHUNG:
+	check cross section formula against seltzer n' berger tables to test cross section
+	compare angular distribution agains cross section formula at lower energies
+	compare ""                                         "" at higher energies to test linearity assumptions
+	find best way to calculate bremsstrahlung at energies higher than table
+	check energy loss due to low-energy photons is significant or not?
 
-BREMSTRALHUNG!!!!!
 
 Then test simulation against Dwyer and find slowdowns.
 
+add new walker aliasing and cheby polys
+
+improve physics documentation (Desperatly needs to be done!)
 
 
 
 
-Fix production of the diffusion table, so that the convergence condition has a better statisitcal basis. (Maybe use pearson chi-square test)
-	Also need to add adaptive bin sizes.
+make each electron have list<electron_data>
+define a structure electron_data before including particle data
+add   void add_data(....)  to electron, which calls electron-data constructor and pushes data to list (function is variadic template)
+add   vector<T> get_data( T electron_data::getter*() ) where electron_data::getter is a getter method of electron data. This method returns a vector<T> where T is return type of the getter.
 
-test diffusion tables!
+add way to output data in an easy-to-read format that can be read by gnuplot
+
+fix reading and writing binary arrays to have simpler API
+
+
+
+
+Implement dense-output, so that when timesteps are truncated , the pos and vel change are not assumed to be linear
+change runge-kutta scheme so that error in pos/vel is relative to change in pos/vel during step (error should be smaller than step)
+when checking change in interaction rate, instead of redoing timesteps, just shorten timestep. (perhaps half timestep untill condition is true)
+
+Since we would now have dense output, also sample intreaction rate in middle of timestep, and find quadratic term to interaction rate, and we can check the error of the linear term, instead of error of constant term.
+
+
+
+
 
 other:
 improve utility documentation.  less important.
-figure out why interpolant is not thread safe
+figure out why interpolant is not thread safe (check other utilities for thread saftey)
 make reading/writing binary files to correctly handel big-endian machines
+work GSL code into project itself instead of being external dependancy
+fix multiple implementation of polynomials (amoung other utilities) (this may be done)
+
+Fix production of the diffusion table, so that the convergence condition has a better statisitcal basis. (Maybe use pearson chi-square test)
+	Also need to add adaptive bin sizes.
 

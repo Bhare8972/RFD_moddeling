@@ -1,0 +1,19 @@
+interactions with cosmic rays
+
+cold runaway vs relativistic feedback
+
+realistic thunderstorm electric fields
+
+define a new feedback paramater as "number of positrons and photons that produce an electron with energy equal to or high then threshold energy diveded by seed electrons"
+	compare new parameter to Dwyer's old parameter
+	test how much feedback has to propagte to beginning of region by finding distribution of locations that positrons and photons produce new high-energy electrons
+
+	find how the "strength" of the resulting avalanche depends on feedback position. need to find a good way to define 		strength. Consider current moment
+
+Find how long it takes an avalanche to reach equlibrium. (Find average energy vs number of avalanche lengths, and fit to exponential curve)
+
+model RF emissions from TGF (consider both models) and find if avanlanch component or "recoil pulse" is more significant.
+
+look at TGF beam angles
+
+look at detailed effect of RFD on thudnerstorm electric fields.  What will happen due to winds in thunderstorm?

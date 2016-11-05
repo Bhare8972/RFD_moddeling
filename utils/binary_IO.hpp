@@ -29,7 +29,7 @@ class binary_output
         out_file->write((char*)&out,sizeof(int8_t));
     }
 
-    void out_int(int32_t out)
+    void out_int(int32_t out) //note that this is actully a long
     {
         writes++;
         out_file->write((char*)&out,sizeof(int32_t));
@@ -79,7 +79,7 @@ public:
         return to_read;
     }
 
-    int32_t in_int()
+    int32_t in_int() //note that this is actully a long
     {
         int32_t to_read;
         in_file->read((char*)&to_read,sizeof(int32_t));
@@ -98,6 +98,11 @@ public:
         double to_read;
         in_file->read((char*)&to_read,sizeof(double));
         return to_read;
+    }
+
+    bool at_end()
+    {
+        return in_file->eof();
     }
 };
 

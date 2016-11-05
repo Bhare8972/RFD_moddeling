@@ -16,6 +16,8 @@ class functor_1D
 	public:
 
 	virtual double call(double)=0;
+    
+    double operator()(double A){ return call(A); }
 
     gsl::vector callv(const gsl::vector& data)
 	{
@@ -43,7 +45,19 @@ class method_functor_1D : public functor_1D
     CLASS_T* object;
     double (CLASS_T::*member)(double);
 
+    method_functor_1D( )
+    {
+        object=NULL;
+        member=NULL;
+    }
+
     method_functor_1D(CLASS_T* object_, double (CLASS_T::*member_)(double) )
+    {
+        object=object_;
+        member=member_;
+    }
+
+    void reset(CLASS_T* object_, double (CLASS_T::*member_)(double) )
     {
         object=object_;
         member=member_;

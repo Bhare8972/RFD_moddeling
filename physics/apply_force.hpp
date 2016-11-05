@@ -16,7 +16,7 @@ class apply_charged_force
     public:
 
     electron_ionization_table electron_table;
-    field* E_field; //do not own these two vectors
+    field* E_field; //do not own these two fields
     field* B_field;
     unsigned int remove_moller; //0 for not remove moller, 1 for constant_min_energy , 2 for variable min energy
     double min_energy;
@@ -123,7 +123,6 @@ class apply_charged_force
     void charged_particle_RungeKuttaCK(electron_T *particle)
     //to make this depend of time, add argument double current_time
     //am using cash-karp parameters for fehlberg method
-    //returns a status. 0 means good. 1 means electron went below lowest energy
     {
         bool acceptable=false;
         //print("run:", particle.next_timestep);//(sqrt(particle.momentum.sum_of_squares()+1)-1)*510);

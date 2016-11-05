@@ -11,6 +11,7 @@
 #include "time_tree.hpp"
 
 #include "read_tables/diffusion_table.hpp"
+#include "read_tables/bremsstrahlung_table.hpp"
 
 #include "physics/quasi_static_fields.hpp"
 #include "physics/relativistic_formulas.hpp"
@@ -20,23 +21,48 @@
 #include "physics/moller_scattering.hpp"
 #include "physics/interaction_chooser.hpp"
 
+class electron_data
+{
+public:
+    double time;
+    gsl::vector pos;
+    gsl::vector mom;
+
+    int flag;
+
+    electron_data(electron_T* electron, int _flag)
+    {
+        pos=electron->position.clone();
+        mom=electron->momentum.clone();
+        flag=_flag;
+        time=electron->current_time;
+    }
+
+};
+#include "physics/particles_source.hpp"
+
 using namespace gsl;
 using namespace std;
 
-
 int main()
 {
-	int number_itterations=1000000;
-    double particle_removal_energy=10.0/energy_units_kev; //remove particles that have energy less than this
+    string output_fname="output";
+    size_t nseeds=5;
+
+
+	int number_itterations=20000*nseeds;
+    double particle_removal_energy=5.0/energy_units_kev; //remove particles that have energy less than this
 
     double pos_tol=0.0001;
     double mom_tol=0.0001;
 
+////// initialize fields //////
+
 	//initialize electric field
 	uniform_field E_field;
 	E_field.set_minimum(-Kilo/distance_units, -Kilo/distance_units, -Kilo/distance_units);
-	E_field.set_maximum(Kilo/distance_units, Kilo/distance_units, 400/distance_units);
-	E_field.set_value(0, 0, -600e3/E_field_units); //400
+	E_field.set_maximum(Kilo/distance_units, Kilo/distance_units, 300/distance_units);
+	E_field.set_value(0, 0, -3.75E5/E_field_units);
 	//E_field.set_value(0, 0, 0/E_field_units);
 
 	//magnetic field is zero
@@ -47,8 +73,7 @@ int main()
 	B_field.set_value(0, 0, 0);
 
 
-	////  initialize physics engines ////
-	rand_gen rand;
+///////  initialize physics engines ////////
 
     //moller scattering
     moller_table moller_engine(particle_removal_energy, 200000/energy_units_kev, 400, true);
@@ -56,8 +81,11 @@ int main()
     //shielded coulomb diffusion
     diffusion_table coulomb_scattering_engine;
 
+    //bremsstrahlung
+    //bremsstrahlung_scattering brem_engine( minimum_photon_energy );
+
     //interaction chooser
-    interaction_chooser_linear<1> interaction_engine(moller_engine); //only one interaction at the moment
+    interaction_chooser_linear<1> interaction_engine(moller_engine);
 
 	//force
 	apply_charged_force force_engine(particle_removal_energy, E_field.pntr(), B_field.pntr() );
@@ -66,42 +94,22 @@ int main()
 
 
 	////output file////
-    particle_history_out save_data;
+    particle_history_out save_data(output_fname);
 
 	////initial particle////
 	time_tree<electron_T> electrons;
 	electron_T* new_electron;
 
-	//list<electron_T*> electrons;
-    new_electron= electrons.emplace(0);
-	//electrons.emplace_back( new electron_T);
-	new_electron->set_position(0,0,0);
-	new_electron->set_momentum(0,0, KE_to_mom( 5000.0/energy_units_kev ) );
-	new_electron->update_energy();
-    save_data.new_electron(new_electron);
+    for(int i=0; i<nseeds; i++)
+    {
+        new_electron= electrons.emplace(0);
+        new_electron->set_position(0,0,0);
+        new_electron->set_momentum(0,0, KE_to_mom( 7500.0/energy_units_kev ) );
+        new_electron->update_energy();
+        save_data.new_electron(new_electron);
+    }
 
-    new_electron= electrons.emplace(0);
-	//electrons.emplace_back( new electron_T);
-	new_electron->set_position(0,0,0);
-	new_electron->set_momentum(0,0, KE_to_mom( 5000.0/energy_units_kev ) );
-	new_electron->update_energy();
-    save_data.new_electron(new_electron);
-
-    new_electron= electrons.emplace(0);
-	//electrons.emplace_back( new electron_T);
-	new_electron->set_position(0,0,0);
-	new_electron->set_momentum(0,0, KE_to_mom( 5000.0/energy_units_kev ) );
-	new_electron->update_energy();
-    save_data.new_electron(new_electron);
-
-    new_electron= electrons.emplace(0);
-	//electrons.emplace_back( new electron_T);
-	new_electron->set_position(0,0,0);
-	new_electron->set_momentum(0,0, KE_to_mom( 5000.0/energy_units_kev ) );
-	new_electron->update_energy();
-    save_data.new_electron(new_electron);
-
-	//simulate!
+///// BEGIN SIMULATION //////
     int timestep_trims=0;
     int timestep_redone=0;
     int i=0;
@@ -111,8 +119,7 @@ int main()
         auto current_electron=electrons.pop_first();
         if(not current_electron) {break; } //if current_electron is null, then tree is empty
 
-/////solve equations of motion////
-
+    /////solve equations of motion////
         double old_energy=current_electron->energy;
         auto old_position=current_electron->position;
         auto old_momentum=current_electron->momentum;
@@ -135,8 +142,7 @@ int main()
 
         double energy_before_scattering=current_electron->energy;
 
-//// scattering (moller only presently) ////
-
+    //// scattering (moller only presently) ////
         int interaction=-1;
         double time_to_scatter=interaction_engine.sample(old_energy, current_electron->energy, current_electron->timestep, interaction);
 
@@ -155,7 +161,7 @@ int main()
             i-=1; //this itteration doesn't count
             //reset electron
             current_electron->current_time-=current_electron->timestep;
-            current_electron->next_timestep=current_electron->timestep *=0.5;
+            current_electron->next_timestep=current_electron->timestep*0.5;
             current_electron->position=old_position;
             current_electron->momentum=old_momentum;
             current_electron->energy=old_energy;
@@ -163,14 +169,13 @@ int main()
             //place back in pool
             electrons.insert(current_electron->current_time, current_electron);
 
-            //carry on as if nothing ever happend
+            //carry on as if nothing ever happened
             continue; //probably wind up with same electron again
         }
 
         //do the scattering
-        if(time_to_scatter <= current_electron->timestep and interaction != -1)
+        if( (time_to_scatter <= current_electron->timestep) and interaction != -1)
         {
-
 
             if(interaction==0) //moller scattering
             {
@@ -182,6 +187,7 @@ int main()
                 current_electron->update_energy();
                 energy_before_scattering=current_electron->energy;
 
+                //do interaction
                 new_electron=moller_engine.single_interaction(energy_before_scattering, current_electron);
 
                 if(new_electron)
@@ -190,9 +196,29 @@ int main()
                     electrons.insert(new_electron->current_time, new_electron);
                 }
             }
+            //else if(interaction==1)
+            //{
+            //    //set electron values to time of interaction
+            //    current_electron->current_time += time_to_scatter - current_electron->timestep;
+            //    current_electron->timestep=time_to_scatter;
+            //    current_electron->position = old_position + position_rate_of_change*time_to_scatter;
+            //    current_electron->momentum = old_momentum + momentum_rate_of_change*time_to_scatter;
+            //    current_electron->update_energy();
+            //    energy_before_scattering=current_electron->energy;
+//
+//                //do interaction
+//                photon_T* new_photon=brem_engine.single_interaction(energy_before_scattering, current_electron);
+//
+//                if(new_photon)
+ //               {
+//                    delete new_photon; //no soup for you!!
+                    //save_data.new_electron(new_electron);
+                    //electrons.insert(new_electron->current_time, new_electron);
+//                }
+//            }
         }
 
-        //remove particle if necisary
+        //remove particle if necessary
         if(current_electron->energy < particle_removal_energy)
         {
             save_data.remove_electron(0, current_electron); //need to fix removal reasons to be obvious
@@ -209,9 +235,11 @@ int main()
 
 	}
 
-	print(i, "iterations of:", number_itterations);
+	print(i-1, "iterations of:", number_itterations);
 	print(timestep_trims, "trims");
 	print(timestep_redone, "re-does");
+	print();
+	coulomb_scattering_engine.print_stats();
 }
 
 
