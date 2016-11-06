@@ -5,12 +5,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or (at
  * your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
@@ -57,65 +57,76 @@ namespace gsl {
      * The default constructor creates a new vector_long with n elements
      * @param n The number of elements in the vector_long
      */
-    explicit vector_long( size_t const n ){
-      if( n > 0 ) ccgsl_pointer = gsl_vector_long_alloc( n );
-      else { ccgsl_pointer = new gsl_vector_long; ccgsl_pointer->size = 0; ccgsl_pointer->data = 0; }
-      // just plausibly we could allocate vector_long but not count
-      try { count = new size_t; } catch( std::bad_alloc& e ){
-	// try to tidy up before rethrowing
-	if( n > 0 ) gsl_vector_long_free( ccgsl_pointer );
-	else delete ccgsl_pointer;
-	throw e;
-      }
-      *count = 1; // initially there is just one reference to ccgsl_pointer
+    explicit vector_long( size_t const n )
+    {
+          if( n > 0 ) ccgsl_pointer = gsl_vector_long_alloc( n );
+          else { ccgsl_pointer = new gsl_vector_long; ccgsl_pointer->size = 0; ccgsl_pointer->data = 0; }
+          // just plausibly we could allocate vector_long but not count
+          try { count = new size_t; } catch( std::bad_alloc& e ){
+        // try to tidy up before rethrowing
+        if( n > 0 ) gsl_vector_long_free( ccgsl_pointer );
+        else delete ccgsl_pointer;
+        throw e;
+          }
+          *count = 1; // initially there is just one reference to ccgsl_pointer
     }
+
+
     /**
      * Could construct from a gsl_vector_long. This is not usually a good idea. In this case
      * we should not use gsl_vector_long_free() to deallocate the memory.
      * @param v The vector_long
      */
-    explicit vector_long( gsl_vector_long* v ){
-      ccgsl_pointer = v;
-      // just plausibly we could fail to allocate count: no further action needed.
-      count = new size_t;
-      *count = 1; // initially there is just one reference to ccgsl_pointer
+    explicit vector_long( gsl_vector_long* v )
+    {
+          ccgsl_pointer = v;
+          // just plausibly we could fail to allocate count: no further action needed.
+          count = new size_t;
+          *count = 1; // initially there is just one reference to ccgsl_pointer
     }
+
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
     /**
      * Could construct from a std::initializer_list in C++11
      * @param initializer_list The initializer_list.
      */
-    vector_long( std::initializer_list<long> initializer_list ){
-      size_t const n = initializer_list.size();
-      ccgsl_pointer = gsl_vector_long_alloc( n );
-      // just plausibly we could allocate vector_long but not count
-      try { count = new size_t; } catch( std::bad_alloc& e ){
-	// try to tidy up before rethrowing
-	if( n > 0 ) gsl_vector_long_free( ccgsl_pointer );
-	else delete ccgsl_pointer;
-	throw e;
-      }
-      *count = 1; // initially there is just one reference to ccgsl_pointer
-      // now copy
-      auto p = begin();
-      for( auto x : initializer_list ){ *p = x; ++p; }
+    vector_long( std::initializer_list<long> initializer_list )
+    {
+          size_t const n = initializer_list.size();
+          ccgsl_pointer = gsl_vector_long_alloc( n );
+          // just plausibly we could allocate vector_long but not count
+          try { count = new size_t; } catch( std::bad_alloc& e ){
+        // try to tidy up before rethrowing
+        if( n > 0 ) gsl_vector_long_free( ccgsl_pointer );
+        else delete ccgsl_pointer;
+        throw e;
+          }
+          *count = 1; // initially there is just one reference to ccgsl_pointer
+          // now copy
+          auto p = begin();
+          for( auto x : initializer_list ){ *p = x; ++p; }
     }
 #endif
+
     // copy constructor
     /**
      * The copy constructor. This shares the vector_long. Use clone() if you want a full copy.
      * @param v The vector_long to copy.
      */
-    vector_long( vector_long const& v ) : ccgsl_pointer( v.ccgsl_pointer ), count( v.count ){
+    vector_long( vector_long const& v ) : ccgsl_pointer( v.ccgsl_pointer ), count( v.count )
+    {
       if( count != 0 ) ++*count; // vector_long is now shared.
     }
+
     /**
      * The copy constructor. This shares the vector_long. Use clone() if you want a full copy.
      * @param v The vector_long to copy.
      */
-    vector_long( vector_long& v ) : ccgsl_pointer( v.ccgsl_pointer ), count( v.count ){
+    vector_long( vector_long& v ) : ccgsl_pointer( v.ccgsl_pointer ), count( v.count )
+    {
       if( count != 0 ) ++*count; // vector_long is now shared.
     }
+
     // assignment operator
     /**
      * The assignment operator. This makes a shared copy.
@@ -135,6 +146,8 @@ namespace gsl {
       if( count != 0 ) ++*count; // block_long is now shared.
       return *this;
     }
+
+
     /**
      * Construct from an object that implements data() and size(). This is primarily intended
      * to allow you to construct from a std::vector<long> or std::array<long,size_t> object.
@@ -147,6 +160,7 @@ namespace gsl {
      * @param v The object that you want this to share data with.
      * @param stride The stride.
      */
+/*
     template<typename V> vector_long( V& v, size_t const stride = 1 ){
       size_t const n = v.size() / stride;
       ccgsl_pointer = static_cast<gsl_vector_long*>( malloc( sizeof( gsl_vector_long ) ) );
@@ -164,6 +178,8 @@ namespace gsl {
       }
       *count = 1; // initially there is just one reference to ccgsl_pointer
     }
+*/
+
     // clone()
     /**
      * The clone function. Use this if you want a copy of the block_long that does
@@ -228,7 +244,7 @@ namespace gsl {
       if( ccgsl_pointer->size != v.ccgsl_pointer->size ) return false;
       // check elementwise for equality
       for( size_t i = 0; i < ccgsl_pointer->size; ++i )
-  	if( gsl_vector_long_get( ccgsl_pointer, i ) != gsl_vector_long_get( v.ccgsl_pointer, i ) ) return false; 
+  	if( gsl_vector_long_get( ccgsl_pointer, i ) != gsl_vector_long_get( v.ccgsl_pointer, i ) ) return false;
       return true;
     }
     /**
@@ -336,9 +352,9 @@ namespace gsl {
      * standard lexicographical ordering and so is not useful,
      * for example, for checking, that a vector_long is nonnegative.
      * @param v The vector_long to be compared with @c this
-     * @return @c false or @c true according as @c this is no 
+     * @return @c false or @c true according as @c this is no
      * less than @c v lexicographically
-     */ 
+     */
     bool operator>=( vector_long const& v ) const {
       return operator>( v ) or operator==( v );
     }
@@ -1103,7 +1119,7 @@ namespace gsl {
      * to have a stride of 1.
      * @return The data block_long.
      */
-    long* data() { 
+    long* data() {
       if( ccgsl_pointer == 0 ) gsl_error( "null vector_long", __FILE__, __LINE__, GSL_EFAULT );
 #ifndef GSL_RANGE_CHECK_OFF
       if( ccgsl_pointer->stride != 1 )
@@ -1250,7 +1266,7 @@ namespace gsl {
     gsl_vector_long const* get() const { return ccgsl_pointer; }
     /**
      * Find if @c this is the only object sharing the gsl_vector_long.
-     * @return @c true or @c falses according as 
+     * @return @c true or @c falses according as
      * this is the only vector_long object sharing the gsl_vector_long
      */
     bool unique() const { return count != 0 and *count == 1; }
@@ -1648,7 +1664,7 @@ namespace gsl {
    */
   inline vector_long::iterator operator+
   ( vector_long::iterator::difference_type const n, vector_long::iterator const& i ){ return i + n; }
-  
+
   /**
    * Allows constant to be added to iterator.
    * @param n The constant
@@ -1657,7 +1673,7 @@ namespace gsl {
    */
   inline vector_long::const_iterator operator+
   ( vector_long::const_iterator::difference_type const n, vector_long::const_iterator const& i ){ return i + n; }
-  
+
   /**
    * Allows constant to be added to iterator.
    * @param n The constant
@@ -1667,7 +1683,7 @@ namespace gsl {
   inline vector_long::reverse_iterator operator+
   ( vector_long::reverse_iterator::difference_type const n, vector_long::reverse_iterator const& i ){
     return i + n; }
-  
+
   /**
    * Allows constant to be added to iterator.
    * @param n The constant
@@ -1677,6 +1693,6 @@ namespace gsl {
   inline vector_long::const_reverse_iterator operator+
   ( vector_long::const_reverse_iterator::difference_type const n, vector_long::const_reverse_iterator const& i ){
     return i + n; }
-  
+
 }
 #endif

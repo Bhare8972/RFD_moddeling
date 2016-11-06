@@ -145,6 +145,16 @@ public:
 
     template<typename T>
     std::vector<T> get_history( T electron_data::*getter() );
+
+    std::list<electron_data>::iterator itter_history_begin()
+    {
+        return history.begin();
+    }
+
+    std::list<electron_data>::iterator itter_history_end()
+    {
+        return history.end();
+    }
 };
 
 class photon_T : public particle_ID_T

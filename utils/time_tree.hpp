@@ -530,8 +530,11 @@ public:
   // Clear out the data in the tree
   void clear()
   {
+    if(_root)
+    {
       _clear( _root );
       _root = nullptr;
+    }
   }
 
 //return data that is first in the tree, and remove it from the tree.
