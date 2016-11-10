@@ -34,22 +34,21 @@ public:
     double timestep; //timestep that the particle did have
     double current_time;
 
-    //history
-    std::list<electron_data> history;
-
     //data needed for solving for path
     double next_timestep; //timestep that particle will have
-    gsl::vector K_0_pos;
-    gsl::vector K_0_mom;
-    std::vector< gsl::vector > pos_interpolant;
-    std::vector< gsl::vector > mom_interpolant;
-    double timestep_reduction_factor; //if timestep and current time, above, need to be reduced, then this factor can be increased so that the interpolants still give pos and mom at current_time when T_bar=0
+//    gsl::vector K_0_pos;
+//    gsl::vector K_0_mom;
+//    std::vector< gsl::vector > pos_interpolant;
+//    std::vector< gsl::vector > mom_interpolant;
+//    double timestep_reduction_factor; //if timestep and current time, above, need to be reduced, then this factor can be increased so that the interpolants still give pos and mom at current_time when T_bar=0
 
     electron_T()
     //some default values
     {
         ID=next_ID;
         next_ID++;
+        if(next_ID<ID){throw gen_exception("Too many particles");}
+
         charge=-1;//electron
 		position=gsl::vector({0,0,0});
 		momentum=gsl::vector({0,0,0});
@@ -91,7 +90,7 @@ public:
 		//find vector Bv, perpinduclar to momentum
 		gsl::vector init({0,1,0});
 		gsl::vector Bv=cross(init, momentum);
-		if(Bv.sum_of_squares()<0.1) //init and momentum are close to parellel. Which would cause errors below
+		if(Bv.sum_of_squares()<0.1*momentum_squared) //init and momentum are close to parellel. Which would cause errors below
 		{
 			init=gsl::vector({0,0,1}); //so we try a different init. momentum cannot be parrellel to both inits
 			Bv=cross(init, momentum);
@@ -137,24 +136,6 @@ public:
         return imom;
 	}
 */
-
-
-    //functions for saving and getting historical data
-    template<typename ... extra_types>
-	void save_history(extra_types ... extra_info);
-
-    template<typename T>
-    std::vector<T> get_history( T electron_data::*getter() );
-
-    std::list<electron_data>::iterator itter_history_begin()
-    {
-        return history.begin();
-    }
-
-    std::list<electron_data>::iterator itter_history_end()
-    {
-        return history.end();
-    }
 };
 
 class photon_T : public particle_ID_T

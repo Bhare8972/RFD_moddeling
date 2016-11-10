@@ -110,6 +110,8 @@ class apply_charged_force
             //friction=ionization.positron_lookup(momentum_squared);
         }
 
+        friction*=0.2;
+
         if(friction>0) //don't want weird stuff
         {
             force[0]-=friction*momentum[0]/momentum_magnitude;
@@ -128,10 +130,15 @@ class apply_charged_force
         //print("run:", particle.next_timestep);//(sqrt(particle.momentum.sum_of_squares()+1)-1)*510);
         while(not acceptable)
         {
+
             particle->timestep=particle->next_timestep;
             if(particle->timestep>maximum_timestep)
             {
                 particle->timestep=maximum_timestep;
+            }
+            if(particle->timestep != particle->timestep)
+            {
+                throw gen_exception("timestep is Nan");
             }
 
             gsl::vector pos_step=particle->position;
@@ -238,8 +245,6 @@ class apply_charged_force
 
 
 
-
-
             gsl::vector pos_O4=K_1_pos*(2825.0/27648.0);
             gsl::vector mom_O4=K_1_mom*(2825.0/27648.0);
 
@@ -260,8 +265,6 @@ class apply_charged_force
 
             //pos_O4+=particle.position; //don't need to do this
             //mom_O4+=particle.momentum;
-
-
 
 
 
@@ -297,7 +300,7 @@ class apply_charged_force
 
             double err_f=std::min(pos_error_sq, mom_error_sq );//note the inverses
 
-            if(err_f>1 )//error is good, exit
+            if(err_f>1)//error is good, exit
             {
                 //set timestep
                 particle->next_timestep=particle->timestep*kappa*std::pow( std::sqrt(err_f), 0.25);
@@ -306,12 +309,11 @@ class apply_charged_force
                 particle->position=pos_O5;
                 particle->momentum=mom_O5;
 
-
                 acceptable=true;
             }
             else
             {//repeat with new timestep
-                particle->next_timestep=particle->timestep*kappa*std::pow( std::sqrt(err_f), 0.20);
+                particle->next_timestep=particle->timestep*kappa*std::pow( std::sqrt(err_f), 0.20);;
 
                 acceptable=false;
             }

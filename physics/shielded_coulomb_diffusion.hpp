@@ -44,12 +44,12 @@ public:
 	    {
 	        print("warning in shielded coulomb cross section: energy is below lowest physical energy");
 	    }
-		nitrogen_prefactor=0.784*7.0*7.0/(8*PI*average_air_atomic_number);
+		nitrogen_prefactor=0.784*7.0*7.0/(4.0*average_air_atomic_number);
 		nitrogen_p_factor=std::pow(7.0, 2.0/3.0)/(4*183.3*183.3);
-		oxygen_prefactor=0.211*8.0*8.0/(8*PI*average_air_atomic_number);
+		oxygen_prefactor=0.211*8.0*8.0/(4.0*average_air_atomic_number);
 		oxygen_p_factor=std::pow(8.0, 2.0/3.0)/(4*183.3*183.3);
-		argon_prefactor=0.005*18.0*28.0/(8*PI*average_air_atomic_number);
-		argon_p_factor=std::pow(28.0, 2.0/3.0)/(4*183.3*183.3);
+		argon_prefactor=0.005*18.0*18.0/(4.0*average_air_atomic_number);
+		argon_p_factor=std::pow(18.0, 2.0/3.0)/(4*183.3*183.3);
 
         energy=energy_;
 		momentum_sq=(energy+1.0)*(energy+1.0)-1;
@@ -64,7 +64,7 @@ public:
         cum_adap_simps integrator(this, 0, PI, 1E4);
 		gsl::vector points=integrator.points();
 		gsl::vector cum_quads=integrator.cum_quads();
-		num_interactions_per_tau=cum_quads[cum_quads.size()-1]*2*PI;//multiply by 2 PI to account for an integal over phi
+		num_interactions_per_tau=cum_quads[cum_quads.size()-1];
 		cum_quads/=cum_quads[cum_quads.size()-1]; //normalize to values from 0 to 1
 
 		//dp_dOmega_prefector=cross_section_prefactor/num_interactions_per_tau;
@@ -92,15 +92,15 @@ public:
 		return cross_section_prefactor*(1.0-beta_sq*S_2)*( nitrogen_prefactor/(nitrogen_denom*nitrogen_denom) + oxygen_prefactor/(oxygen_denom*oxygen_denom) + argon_prefactor/(argon_denom*argon_denom) );
 	}
 
-	double dp_dOmega(double angle)
+//	double dp_dOmega(double angle)
 	 //return differential probability per differential tau and solid angle, assuming that there is one interaction
-	{
+//	{
 //		double S_2=std::sin(angle/2.0);
 //		S_2*=S_2;
 //		double denom=S_2+p_factor;
 //		return dp_dOmega_prefector*(1.0-beta_sq*S_2)/(denom*denom);
-       return cross_section(angle)/num_interactions_per_tau;
-	}
+//       return cross_section(angle)/num_interactions_per_tau;
+//	}
 
 	double call(double angle)
 	//the intergrand to find thte total cross section

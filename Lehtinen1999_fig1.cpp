@@ -2,6 +2,7 @@
 #include <iostream>
 #include <cmath>
 #include <fstream>
+#include <map>
 
 #include "vector.hpp"
 
@@ -22,52 +23,103 @@
 #include "physics/moller_scattering.hpp"
 #include "physics/interaction_chooser.hpp"
 
-class electron_data
-{
-public:
-    double time;
-
-    electron_data(electron_T* electron)
-    {
-        time=electron->current_time;
-    }
-
-};
-#include "physics/particles_source.hpp"
-
 using namespace gsl;
 using namespace std;
 
+#define pass_planes
+//#define histogram
 
-class particle_time_histogram
+
+class analyzer
 {
 public:
+    int N_bins;
+    double max_t;
+
     gsl::vector_long n_particles;
     gsl::vector bin_edges;
+    map<size_t, double> particle_start_times;
 
-    particle_time_histogram(double max_t, int N_bins)
+
+    analyzer(double _max_t, int _N_bins)
     {
+        max_t=_max_t;
+        N_bins=_N_bins;
+#ifdef pass_planes
+        bin_edges=linspace(0, max_t, N_bins);
+#elif defined(histogram)
         bin_edges=linspace(0, max_t, N_bins+1);
+#endif // histogram vs pass_planes
+
         n_particles=gsl::vector_long(size_t(N_bins));
-        LOOP(n_particles, X, n_particles, 0); //fill n_particles with zero
+        LOOP(n_particles, X, n_particles, X*0); //fill n_particles with zero.
     }
 
-    void add_electron(electron_T* electron)
+    void reset()
     {
-        double end_time=electron->current_time;
-        double start_time=electron->itter_history_begin()->time;
+        particle_start_times.clear();
+        LOOP(n_particles, X, n_particles, X*0); //fill n_particles with zero
+    }
 
-        int start_time_index=search_sorted_d(bin_edges, start_time);
+    void add_electron(electron_T* new_electron)
+    {
+        particle_start_times[new_electron->ID]=new_electron->current_time;
+    }
 
-        int end_time_index;
-        if(end_time>=bin_edges[bin_edges.size()-1])
+    void remove_electron(electron_T* new_electron)
+    {
+        double end_time=new_electron->current_time;
+        double start_time=particle_start_times[new_electron->ID];
+
+        if(start_time>=max_t)
         {
-            end_time_index=bin_edges.size();
+            return;
+        }
+
+        int start_time_index;
+        int end_time_index;
+
+#ifdef pass_planes
+        if(start_time<bin_edges[0])
+        {
+            start_time_index=0;
         }
         else
         {
-            end_time_index=search_sorted_d(bin_edges, end_time);
+            start_time_index=search_sorted_d(bin_edges, start_time)+1;
         }
+        //print(start_time_index, new_electron->ID);
+
+        if(end_time>=bin_edges[N_bins-1])
+        {
+            end_time_index=N_bins;
+        }
+        else
+        {
+            end_time_index=search_sorted_d(bin_edges, end_time)+1;
+        }
+
+#elif defined(histogram)
+        if(start_time<bin_edges[1])
+        {
+            start_time_index=0;
+        }
+        else
+        {
+            start_time_index=search_sorted_d(bin_edges, start_time);
+        }
+
+        if(end_time>=bin_edges[N_bins-1])
+        {
+            end_time_index=N_bins;
+        }
+        else
+        {
+            end_time_index=search_sorted_d(bin_edges, end_time)+1;
+        }
+
+#endif // histogram vs pass_planes
+
 
         for(int i=start_time_index; i<end_time_index; i++)
         {
@@ -75,15 +127,13 @@ public:
         }
     }
 
-    gsl::vector norm_particles(double n_seeds)
+    gsl::vector normalize(double n_seeds)
     {
-        gsl::vector ret(n_particles.size());
-        for(int i=0; i<n_particles.size(); i++)
-        {
-            ret[i]=n_particles[i]/n_seeds;
-        }
+        gsl::vector ret(N_bins);
+        LOOP(ret, X, n_particles, X/n_seeds); //fill n_particles with zero
         return ret;
     }
+
 };
 
 class sim_cls
@@ -109,11 +159,15 @@ public:
 
     ////particles////
 	time_tree<electron_T> electrons;
+	//particle_history_out save_data;
+	analyzer histogramer;
 
 
     sim_cls(double _max_t, double E_delta, double B_tsi) :
 
+	//save_data("./output"),
     moller_engine(particle_removal_energy, 200000/energy_units_kev, 400, true),
+	histogramer(_max_t, 1000),
     interaction_engine(moller_engine),
     force_engine(particle_removal_energy, E_field.pntr(), B_field.pntr() )
 
@@ -128,7 +182,7 @@ public:
         B_field.set_maximum(INFINITY, INFINITY, INFINITY);
         //set magnitudes
         E_field.set_value(0, 0, -E_delta*21.7);
-        E_field.set_value(B_tsi*21.7, 0, 0);
+        B_field.set_value(B_tsi*21.7, 0, 0);
 
         ////force engine setup////
         force_engine.set_max_timestep( coulomb_scattering_engine.max_timestep() );
@@ -141,7 +195,8 @@ public:
     {
         max_t=_max_t;
         E_field.set_value(0, 0, -E_delta*21.7);
-        E_field.set_value(B_tsi*21.7, 0, 0);
+        B_field.set_value(B_tsi*21.7, 0, 0);
+        histogramer.reset();
     }
 
     void setup(int n_seeds)
@@ -154,12 +209,14 @@ public:
             new_electron->set_position(0,0,0);
             new_electron->set_momentum(0,0, KE_to_mom( initial_energy ) );
             new_electron->update_energy();
+            //save_data.new_electron(new_electron);
+            histogramer.add_electron(new_electron);
         }
     }
 
-    void run(particle_time_histogram& data_histogram)
+    void run()
     {
-        int i=-1;
+        int i=0;
         while(true)
         {
             i++;
@@ -176,17 +233,22 @@ public:
                 break;
             } //if no more electrons, or out of time
 
+            if((i%20000)==0){ print("  ",i, current_electron->current_time); }
+
+
         /////solve equations of motion////
             double old_energy=current_electron->energy;
             auto old_position=current_electron->position;
             auto old_momentum=current_electron->momentum;
+
             force_engine.charged_particle_RungeKuttaCK(current_electron);
             current_electron->update_energy();
 
             //remove particle if necisary
             if(current_electron->energy < particle_removal_energy)
             {
-                data_histogram.add_electron(current_electron);
+                //save_data.remove_electron(0, current_electron);
+                histogramer.remove_electron(current_electron);
                 delete current_electron;
                 continue;
             }
@@ -202,6 +264,7 @@ public:
         //// scattering (moller only presently) ////
             int interaction=-1;
             double time_to_scatter=interaction_engine.sample(old_energy, current_electron->energy, current_electron->timestep, interaction);
+
 
             //check error code
             auto error_code=interaction_engine.get_error_flag();
@@ -237,6 +300,7 @@ public:
                     current_electron->position = old_position + position_rate_of_change*time_to_scatter;
                     current_electron->momentum = old_momentum + momentum_rate_of_change*time_to_scatter;
                     current_electron->update_energy();
+
                     energy_before_scattering=current_electron->energy;
 
                     //do interaction
@@ -244,7 +308,8 @@ public:
 
                     if(new_electron)
                     {
-                        new_electron->save_history();
+                        //save_data.new_electron(new_electron);
+                        histogramer.add_electron(new_electron);
                         electrons.insert(new_electron->current_time, new_electron);
                     }
                 }
@@ -253,7 +318,8 @@ public:
             //remove particle if necessary
             if(current_electron->energy < particle_removal_energy)
             {
-                data_histogram.add_electron(current_electron);
+                //save_data.remove_electron(0, current_electron);
+                histogramer.remove_electron(current_electron);
                 delete current_electron;
                 continue;
             }
@@ -261,8 +327,8 @@ public:
     //// shielded coulomb scattering ////
             coulomb_scattering_engine.scatter(energy_before_scattering, current_electron);
 
-    //// update electron ////
-            current_electron->save_history();
+
+            //save_data.update_electron(current_electron);
             electrons.insert(current_electron->current_time, current_electron);
         }
 
@@ -270,28 +336,39 @@ public:
         auto current_electron=electrons.pop_first();
         while(current_electron)
         {
-            data_histogram.add_electron(current_electron);
+            histogramer.remove_electron(current_electron);
+            delete current_electron;
+            current_electron=electrons.pop_first();
         }
     }
 };
 
 int main()
 {
-    double max_t=5.5;
+    double max_t=0.5;
     int n_seeds=10;
+    double E_field=8.0;
+    double B_field=0.0;
+    int N_runs=10;
 
-    sim_cls simulation(max_t, 2.0, 0.0);
-    simulation.setup(n_seeds);
-
-    particle_time_histogram data_hist(max_t, 10);
-
-    simulation.run(data_hist);
-
-
+    sim_cls simulation(max_t, E_field, B_field);
     arrays_output out;
-    out.add_doubles( data_hist.bin_edges );
-    out.add_doubles( data_hist.norm_particles(n_seeds) );
+
+    for(int run_i=0; run_i<N_runs; run_i++)
+    {
+        print("Run:", run_i+1);
+        simulation.reset(max_t, E_field, B_field);
+        simulation.setup(n_seeds);
+        simulation.run();
+
+        if(run_i==0)
+        {
+            out.add_doubles(simulation.histogramer.bin_edges);
+        }
+        out.add_doubles(simulation.histogramer.normalize(n_seeds));
+    }
     out.to_file("./Lehtinen1999_out");
+
 }
 
 

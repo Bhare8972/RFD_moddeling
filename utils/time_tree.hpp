@@ -623,7 +623,7 @@ double get_first_time()
       where = _get_insert_link( time_value );
       if( ! where.first )
       {
-        throw gen_exception("could not insert new node");
+        throw gen_exception("could not insert new node ", time_value);
       }
 
       // Create the node

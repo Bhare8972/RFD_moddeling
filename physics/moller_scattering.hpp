@@ -298,7 +298,7 @@ class moller_table : public physical_interaction
         electron_T* new_electron=new electron_T;
 
         normalize(electron->momentum);
-        
+
         new_electron->position=electron->position.clone();
         new_electron->momentum=electron->momentum*production_mom;
         new_electron->timestep=electron->timestep;
