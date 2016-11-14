@@ -96,6 +96,14 @@ double bracketed_poly_solver(polynomial* input_poly, double Xlow, double Xhigh, 
     return root_finder_brent(input_poly, Xhigh, Xlow, (Xhigh-Xlow)/100000.0, (Xhigh-Xlow)/1000.0, max_iter);
 }
 
+double bracketed_poly_solver(polynomial* input_poly, double Y_solve, double Xlow, double Xhigh, int max_iter)
+{
+    input_poly->weights[0]-=Y_solve;
+    double ret=root_finder_brent(input_poly, Xhigh, Xlow, (Xhigh-Xlow)/100000.0, (Xhigh-Xlow)/1000.0, max_iter);
+    input_poly->weights[0]+=Y_solve;
+    return ret;
+}
+
 
 
 //a spline from a collection of polynomials

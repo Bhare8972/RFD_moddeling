@@ -18,13 +18,9 @@
 #include "root_finding.hpp"
 #include "CDF_sampling.hpp"
 
-//#include "solve_polynomial.hpp"
 
-//#include "fprecision.hpp"
-
-//reuse code from spline.hpp and CDF_sampling!
-
-
+//now defined in CDF_sampling
+/*
 namespace cheby_tables
 {
     double U3_i[4]={     1.0,   std::cos(PI/3.0),   std::cos(2*PI/3.0), -1.0};
@@ -43,7 +39,7 @@ namespace cheby_tables
                         {0.5, std::cos(PI*0.5),  std::cos(PI),     std::cos(PI*1.5),     0.5},
                         {0.5, std::cos(PI*0.75), std::cos(PI*1.5), std::cos(PI*2.25),    -0.5},
                         {0.5, std::cos(PI),      std::cos(PI*2.0), std::cos(PI*3.0),     0.5} };
-};
+};*/
 
 class AdaptiveSpline_Cheby_O3
 //adaptively sample a 1D function using chebyshev polys

@@ -110,7 +110,7 @@ class apply_charged_force
             //friction=ionization.positron_lookup(momentum_squared);
         }
 
-        friction*=0.2;
+        //friction*=0.2;
 
         if(friction>0) //don't want weird stuff
         {

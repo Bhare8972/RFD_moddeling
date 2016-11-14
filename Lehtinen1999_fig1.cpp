@@ -159,13 +159,13 @@ public:
 
     ////particles////
 	time_tree<electron_T> electrons;
-	//particle_history_out save_data;
+	particle_history_out save_data;
 	analyzer histogramer;
 
 
     sim_cls(double _max_t, double E_delta, double B_tsi) :
 
-	//save_data("./output"),
+	save_data("./output"),
     moller_engine(particle_removal_energy, 200000/energy_units_kev, 400, true),
 	histogramer(_max_t, 1000),
     interaction_engine(moller_engine),
@@ -209,7 +209,7 @@ public:
             new_electron->set_position(0,0,0);
             new_electron->set_momentum(0,0, KE_to_mom( initial_energy ) );
             new_electron->update_energy();
-            //save_data.new_electron(new_electron);
+            save_data.new_electron(new_electron);
             histogramer.add_electron(new_electron);
         }
     }
@@ -247,7 +247,7 @@ public:
             //remove particle if necisary
             if(current_electron->energy < particle_removal_energy)
             {
-                //save_data.remove_electron(0, current_electron);
+                save_data.remove_electron(0, current_electron);
                 histogramer.remove_electron(current_electron);
                 delete current_electron;
                 continue;
@@ -308,7 +308,7 @@ public:
 
                     if(new_electron)
                     {
-                        //save_data.new_electron(new_electron);
+                        save_data.new_electron(new_electron);
                         histogramer.add_electron(new_electron);
                         electrons.insert(new_electron->current_time, new_electron);
                     }
@@ -318,7 +318,7 @@ public:
             //remove particle if necessary
             if(current_electron->energy < particle_removal_energy)
             {
-                //save_data.remove_electron(0, current_electron);
+                save_data.remove_electron(0, current_electron);
                 histogramer.remove_electron(current_electron);
                 delete current_electron;
                 continue;
@@ -328,7 +328,7 @@ public:
             coulomb_scattering_engine.scatter(energy_before_scattering, current_electron);
 
 
-            //save_data.update_electron(current_electron);
+            save_data.update_electron(current_electron);
             electrons.insert(current_electron->current_time, current_electron);
         }
 
@@ -349,7 +349,7 @@ int main()
     int n_seeds=10;
     double E_field=8.0;
     double B_field=0.0;
-    int N_runs=10;
+    int N_runs=1;
 
     sim_cls simulation(max_t, E_field, B_field);
     arrays_output out;

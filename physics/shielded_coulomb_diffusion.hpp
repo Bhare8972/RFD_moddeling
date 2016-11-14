@@ -10,9 +10,10 @@
 #include "constants.hpp"
 #include "GSL_utils.hpp"
 #include "functor.hpp"
-#include "integrate.hpp"
+//#include "integrate.hpp"
 #include "gen_ex.hpp"
-#include "rand.hpp"
+//#include "rand.hpp"
+#include "chebyshev.hpp"
 
 class diff_cross_section : public functor_1D
 {
@@ -29,14 +30,11 @@ public:
 	double argon_prefactor;
 	double argon_p_factor;
 
+	double CDF_offset;
+
 	double num_interactions_per_tau;
-	std::mutex spline_sampler_mutex; //why do we need this??
-	std::shared_ptr<poly_spline> spline_sampler;
-	rand_threadsafe rand;
-
-
-	double cross_section_prefactor;
-	//double dp_dOmega_prefector;
+	std::mutex sampler_mutex; //do we really need this?
+	CDF_sampler theta_sampler;
 
 	diff_cross_section(double energy_=lowest_physical_energy)
 	{
@@ -44,11 +42,11 @@ public:
 	    {
 	        print("warning in shielded coulomb cross section: energy is below lowest physical energy");
 	    }
-		nitrogen_prefactor=0.784*7.0*7.0/(4.0*average_air_atomic_number);
+		nitrogen_prefactor=0.784*7.0*7.0/(2.0*average_air_atomic_number);
 		nitrogen_p_factor=std::pow(7.0, 2.0/3.0)/(4*183.3*183.3);
-		oxygen_prefactor=0.211*8.0*8.0/(4.0*average_air_atomic_number);
+		oxygen_prefactor=0.211*8.0*8.0/(2.0*average_air_atomic_number);
 		oxygen_p_factor=std::pow(8.0, 2.0/3.0)/(4*183.3*183.3);
-		argon_prefactor=0.005*18.0*18.0/(4.0*average_air_atomic_number);
+		argon_prefactor=0.005*18.0*18.0/(2.0*average_air_atomic_number);
 		argon_p_factor=std::pow(18.0, 2.0/3.0)/(4*183.3*183.3);
 
         energy=energy_;
@@ -59,27 +57,47 @@ public:
 		nitrogen_p_factor/=momentum_sq;
 		oxygen_p_factor/=momentum_sq;
 		argon_p_factor/=momentum_sq;
-        cross_section_prefactor=1.0/(beta*momentum_sq);
 
-        cum_adap_simps integrator(this, 0, PI, 1E4);
-		gsl::vector points=integrator.points();
-		gsl::vector cum_quads=integrator.cum_quads();
-		num_interactions_per_tau=cum_quads[cum_quads.size()-1];
-		cum_quads/=cum_quads[cum_quads.size()-1]; //normalize to values from 0 to 1
+        nitrogen_prefactor/=(beta*momentum_sq);
+        oxygen_prefactor/=(beta*momentum_sq);
+        argon_prefactor/=(beta*momentum_sq);
 
-		//dp_dOmega_prefector=cross_section_prefactor/num_interactions_per_tau;
+        CDF_offset=0.0;
+        CDF_offset=call(0.0);
 
-
-		gsl::vector quad_X;
-		gsl::vector quad_Y;
-        make_fix_spline(cum_quads, points, quad_X, quad_Y);// hope this function will fix the function if the points are singular!
-
-		spline_sampler=std::make_shared<poly_spline>(quad_X, quad_Y);
-
-		spline_sampler->set_lower_fill(quad_X[0]);
-		spline_sampler->set_upper_fill(quad_Y[quad_X.size()-1]);
+        AdaptiveSpline_Cheby_O3 cheby_sampler(*this, 10E3, 0, PI);
+        auto CDF_spline=cheby_sampler.get_spline();
+        num_interactions_per_tau=CDF_spline->call(3.1415926);
+        theta_sampler=CDF_sampler(CDF_spline);
 	}
 
+	double call(double angle)
+	//return the cross section, in terms of a rate, integrated from 0 to angle
+	{
+        double S_2=std::sin(angle*0.5);
+		S_2*=S_2;
+
+		double nitrogen_denom=nitrogen_p_factor + S_2;
+		double oxygen_denom=oxygen_p_factor + S_2;
+		double argon_denom=argon_p_factor + S_2;
+
+		double nitrogen_num=1.0+beta_sq*nitrogen_p_factor;
+		double oxygen_num=1.0+beta_sq*oxygen_p_factor;
+		double argon_num=1.0+beta_sq*argon_p_factor;
+
+		return nitrogen_prefactor*(std::log(nitrogen_denom) - nitrogen_num/nitrogen_denom) + oxygen_prefactor*(std::log(oxygen_denom) - oxygen_num/oxygen_denom) + argon_prefactor*(std::log(argon_denom)-argon_num/argon_denom) - CDF_offset;
+	}
+
+	double sample(double U)
+	{
+	    std::lock_guard<std::mutex> lock(sampler_mutex);
+        return theta_sampler.sample(U);
+	}
+};
+
+
+
+/*
 	inline double cross_section(double angle)
 	// return differential number of interactions per differential tau and solid angle
 	{
@@ -153,6 +171,6 @@ public:
         }
         return acos(T[2]);
 	}
-};
+	*/
 
 #endif

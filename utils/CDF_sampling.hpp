@@ -18,9 +18,28 @@
 // fits the CDF to an akima spline, then finds the correct spline using walker alias sampling
 // algorithm is expensive to initialize and takes significant space, but is very fast (constant time) sampling
 
-//TODO:
-  //add saving and recalling from text
-  //consider removing dependance on spline_sampler
+
+//one part uses chebyshev fits. Which need to define here, since chebyshev uses this file
+namespace cheby_tables
+{
+    double U3_i[4]={     1.0,   std::cos(PI/3.0),   std::cos(2*PI/3.0), -1.0};
+
+    double F3_ij[4][4]={{0.5,   1.0,               1.0,                0.5},
+                        {0.5,  std::cos(PI/3.0),   std::cos(2*PI/3.0), -0.5},
+                        {0.5,  std::cos(2*PI/3.0), std::cos(4*PI/3.0), 0.5},
+                        {0.5,  -1.0,               1.0,                -0.5} };
+
+
+
+    double U4_i[5]={1.0, std::cos(PI*0.25), std::cos(PI*0.5), std::cos(PI*0.75), -1.0};
+
+    double F4_ij[5][5]={{0.5, 1,                 1,                1,                    0.5},
+                        {0.5, std::cos(PI*0.25), std::cos(PI*0.5), std::cos(PI*0.75),    -0.5},
+                        {0.5, std::cos(PI*0.5),  std::cos(PI),     std::cos(PI*1.5),     0.5},
+                        {0.5, std::cos(PI*0.75), std::cos(PI*1.5), std::cos(PI*2.25),    -0.5},
+                        {0.5, std::cos(PI),      std::cos(PI*2.0), std::cos(PI*3.0),     0.5} };
+};
+
 
 
 class CDF_sampler
@@ -113,6 +132,56 @@ public:
 
         //perform the walker algorithm
         set(weights);
+    }
+
+    CDF_sampler(std::shared_ptr<poly_spline> unNormed_CDF_spline)
+    {
+        ////need to invert the CDF, use chebyshev polys////
+        size_t N=unNormed_CDF_spline->splines.size();
+
+        splines=std::make_shared< std::vector<polynomial> >();
+        splines->reserve(N);
+        gsl::vector spline_weights(N);
+
+        auto& CDF_splines=unNormed_CDF_spline->splines;
+        auto& CDF_theta_vals=unNormed_CDF_spline->x_vals;
+
+        for(int spline_i=0; spline_i<N; spline_i++)
+        {
+            double high_call=CDF_splines[spline_i].call(CDF_theta_vals[spline_i+1]);
+            double low_call=CDF_splines[spline_i].call(CDF_theta_vals[spline_i]);
+
+            spline_weights[spline_i]=high_call - low_call;
+
+            double A=(high_call - low_call)*0.5;
+            double B=(high_call + low_call)*0.5;
+
+            //sample the inverse function at 5 points
+            double Y0=CDF_theta_vals[spline_i+1];
+            double Y1=bracketed_poly_solver(&CDF_splines[spline_i],  cheby_tables::U4_i[1]*A+B,   CDF_theta_vals[spline_i],CDF_theta_vals[spline_i+1],  10000);
+            double Y2=bracketed_poly_solver(&CDF_splines[spline_i],  cheby_tables::U4_i[2]*A+B,   CDF_theta_vals[spline_i],CDF_theta_vals[spline_i+1],  10000);
+            double Y3=bracketed_poly_solver(&CDF_splines[spline_i],  cheby_tables::U4_i[3]*A+B,   CDF_theta_vals[spline_i],CDF_theta_vals[spline_i+1],  10000);
+            double Y4=CDF_theta_vals[spline_i];
+
+            //get chebyshev coefiencents
+            double C0=Y0*cheby_tables::F4_ij[0][0] + Y1*cheby_tables::F4_ij[0][1]  + Y2*cheby_tables::F4_ij[0][2]  + Y3*cheby_tables::F4_ij[0][3]  + Y4*cheby_tables::F4_ij[0][4];
+            double C1=Y0*cheby_tables::F4_ij[1][0] + Y1*cheby_tables::F4_ij[1][1]  + Y2*cheby_tables::F4_ij[1][2]  + Y3*cheby_tables::F4_ij[1][3]  + Y4*cheby_tables::F4_ij[1][4];
+            double C2=Y0*cheby_tables::F4_ij[2][0] + Y1*cheby_tables::F4_ij[2][1]  + Y2*cheby_tables::F4_ij[2][2]  + Y3*cheby_tables::F4_ij[2][3]  + Y4*cheby_tables::F4_ij[2][4];
+            double C3=Y0*cheby_tables::F4_ij[3][0] + Y1*cheby_tables::F4_ij[3][1]  + Y2*cheby_tables::F4_ij[3][2]  + Y3*cheby_tables::F4_ij[3][3]  + Y4*cheby_tables::F4_ij[3][4];
+            double C4=Y0*cheby_tables::F4_ij[4][0] + Y1*cheby_tables::F4_ij[4][1]  + Y2*cheby_tables::F4_ij[4][2]  + Y3*cheby_tables::F4_ij[4][3]  + Y4*cheby_tables::F4_ij[4][4];
+
+            //re-weight so that x value goes from 0 to 1
+            double W0= C0*0.25 - 0.5*C1 + 0.5*C2 - 0.5*C3 + 0.25*C4;
+            double W1= C1 - 4*C2 + 9*C3 - 8*C4;
+            double W2= 4*C2 - 24*C3 + 40*C4;
+            double W3= 16*C3 - 64*C4;
+            double W4= 32*C4;
+
+            splines->emplace_back( polynomial({W0, W1, W2, W3, W4}) );
+        }
+
+        spline_weights/=spline_weights.sum();//normalize
+        set(spline_weights);
     }
 
     void set(gsl::vector weights)

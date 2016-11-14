@@ -184,8 +184,9 @@ class CS_table(object):
 
 if __name__=='__main__':
     
-    energy_indeces=[199, 199, 199, 199, 199, 199]
-    time_indeces=[0, 4, 8, 12, 16, 19]
+    energy_indeces=[92, 94, 96, 98, 100, 102, 104, 106]
+    t=10
+    time_indeces=[t, t, t, t, t, t, t, t]
     
     if len(energy_indeces)!=len(time_indeces):
         print( "ERROR" )
