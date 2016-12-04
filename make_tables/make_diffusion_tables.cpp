@@ -62,6 +62,38 @@ private:
             //print(" lower:", splice_from.lower_range, splice_from.upper_range);
             //print(" upper:", lower_range, upper_range);
 
+        //    //CHECK VALIDITY
+        //    double min_this=upper_range;
+        //    double max_this=lower_range;
+        //    for( double V : values )
+        //    {
+        //        if(V<min_this)
+        //        {
+        //            min_this=V;
+        //        }
+        //        if(V>max_this);
+        //        {
+        //            max_this=V;
+        //        }
+        //    }
+
+        //    double min_old=splice_from.upper_range;
+        //    double max_old=splice_from.lower_range;
+        //    for( double V : splice_from.values )
+        //    {
+        //        if(V<min_old)
+        //        {
+        //            min_old=V;
+        //        }
+        //        if(V>max_old);
+        //        {
+        //            max_old=V;
+        //        }
+        //    }
+
+        //    print("NEW BIN: from", lower_range, "to", upper_range,". has", num_counts, "counts from", min_this, "to", max_this);
+        //    print("OLD BIN: from", splice_from.lower_range, "to", splice_from.upper_range,". has", splice_from.num_counts, "counts from", min_old, "to", max_old);
+
             double V=(lower_range+upper_range)/2.0;
             if(V!=lower_range and V!=upper_range)
             {
@@ -95,11 +127,31 @@ private:
                     {
                         if(value<(*iter))
                         {
-                            --iter;
                             values.insert(iter, value);
                             break;
                         }
                     }
+
+                    //CHECK SORT
+                    //if(values.size()>1)
+                    //{
+                    //    double last_value=values.front();
+
+                    //    for(auto iter=(++values.begin()); iter!=values.end(); ++iter)
+                    //    {
+                    //        if( not ((*iter)>=last_value) )
+                    //        {
+                    //            print("no insert value", value );
+                    //            for(double V: values)
+                    //            {
+                    //                print(V);
+                    //            }
+                    //            throw gen_exception("YO MY WOOGIE!!");
+                    //        }
+                    //        last_value=(*iter);
+                    //    }
+                    //}
+
                 }
 
                 num_counts++;
@@ -329,6 +381,8 @@ public:
 	void start_thread(size_t samples_perThread_perRun, size_t N_threads, long min_size_of_max_bin)
 	{
     //// run for some initial number of runs
+        long N_samples=0;
+
         std::list<std::thread> threads;
         for(size_t i=0; i<N_threads; i++)
         {
@@ -340,6 +394,7 @@ public:
             T.join();
         }
         threads.clear();
+        N_samples+=samples_perThread_perRun*N_threads;
 
 
     ////run until all conditions are met////
@@ -403,11 +458,14 @@ public:
                 {
                     T.join();
                 }
+
+                N_samples+=samples_perThread_perRun*N_threads;
                 threads.clear();
                 print("  sample complete:", 100.0*double(smallest_of_largest_bin)/min_size_of_max_bin);
             }
 
             print("  run",run_i, ". Sampling approx.", 100.0*double(smallest_of_largest_bin)/min_size_of_max_bin, "% complete. Energy:", energy*energy_units_kev);
+            print(" ",N_samples,"samples");
 
 
         ////now we test to see if all bins that are inbetween two bins are approxemetly linear
@@ -441,6 +499,7 @@ public:
                         histogram.split(middle_bin_iter);
                         histogram.split(high_bin_iter);
                         print("   new:", low_bin_iter->num_counts, middle_bin_iter->num_counts, high_bin_iter->num_counts);
+                        //print("   bounds: (",low_bin_iter->lower_range, low_bin_iter->upper_range,") (",middle_bin_iter->lower_range, middle_bin_iter->upper_range,") (",high_bin_iter->lower_range, high_bin_iter->upper_range,")");
                         break; //do not continue spliting bins from this hist.
                     }
 
@@ -502,6 +561,7 @@ long find_bin_size(double one_std_error)
         K++;
     }
 }
+
 
 int main()
 {

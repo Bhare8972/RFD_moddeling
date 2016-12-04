@@ -28,6 +28,7 @@ public:
     rand_gen(bool do_seed=true)
     {
         rand_=gsl_rng_alloc(gsl_rng_mt19937);
+        //rand_=gsl_rng_alloc(gsl_rng_ranlxs2);
         if(do_seed)
 		{
 		    //unsigned int seed_val( time(NULL) );
@@ -48,6 +49,7 @@ public:
     rand_gen(double seed_val)
     {
         rand_=gsl_rng_alloc(gsl_rng_mt19937);
+        //rand_=gsl_rng_alloc(gsl_rng_ranlxs2);
         gsl_rng_set(rand_, seed_val);
     }
 
@@ -88,6 +90,7 @@ public:
     rand_threadsafe(bool do_seed=true)
     {
         rand=gsl_rng_alloc(gsl_rng_mt19937);
+        //rand=gsl_rng_alloc(gsl_rng_ranlxs2);
         if(do_seed)
 		{
             //unsigned int seed_val( time(NULL) );
@@ -109,6 +112,7 @@ public:
     rand_threadsafe(double seed_val)
     {
         rand=gsl_rng_alloc(gsl_rng_mt19937);
+        //rand=gsl_rng_alloc(gsl_rng_ranlxs2);
         gsl_rng_set(rand, seed_val);
     }
 
