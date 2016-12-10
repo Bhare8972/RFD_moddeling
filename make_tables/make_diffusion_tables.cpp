@@ -62,47 +62,84 @@ private:
             //print(" lower:", splice_from.lower_range, splice_from.upper_range);
             //print(" upper:", lower_range, upper_range);
 
-        //    //CHECK VALIDITY
-        //    double min_this=upper_range;
-        //    double max_this=lower_range;
-        //    for( double V : values )
-        //    {
-        //        if(V<min_this)
-        //        {
-        //            min_this=V;
-        //        }
-        //        if(V>max_this);
-        //        {
-        //            max_this=V;
-        //        }
-        //    }
-
-        //    double min_old=splice_from.upper_range;
-        //    double max_old=splice_from.lower_range;
-        //    for( double V : splice_from.values )
-        //    {
-        //        if(V<min_old)
-        //        {
-        //            min_old=V;
-        //        }
-        //        if(V>max_old);
-        //        {
-        //            max_old=V;
-        //        }
-        //    }
-
-        //    print("NEW BIN: from", lower_range, "to", upper_range,". has", num_counts, "counts from", min_this, "to", max_this);
-        //    print("OLD BIN: from", splice_from.lower_range, "to", splice_from.upper_range,". has", splice_from.num_counts, "counts from", min_old, "to", max_old);
-
-            double V=(lower_range+upper_range)/2.0;
-            if(V!=lower_range and V!=upper_range)
+            //CHECK VALIDITY
+            if(num_counts>10 and splice_from.num_counts==0)
             {
+                print("from:", lower_range, "to", upper_range);
+                for(double V: values)
+                { print(V); }
+                print("none from", splice_from.lower_range, "to", splice_from.upper_range);
+                for(double V: splice_from.values)
+                { print(V); }
+                //throw gen_exception("YOa");
                 splittable=false;
+                splice_from.splittable=false;
             }
-            else
+            else if(splice_from.num_counts>10 and num_counts==0)
             {
-                splittable=true;
+                print("from:", splice_from.lower_range, "to", splice_from.upper_range);
+                for(double V: splice_from.values)
+                { print(V); }
+                print("none from", lower_range, "to", upper_range);
+                for(double V: values)
+                { print(V); }
+                //throw gen_exception("YOb");
+                splittable=false;
+                splice_from.splittable=false;
             }
+
+           /*
+            double min_this=upper_range;
+            double max_this=lower_range;
+            for( double V : values )
+            {
+                if(V<min_this)
+                {
+                    min_this=V;
+                }
+                if(V>max_this);
+                {
+                    max_this=V;
+                }
+            }
+
+            double min_old=splice_from.upper_range;
+            double max_old=splice_from.lower_range;
+            for( double V : splice_from.values )
+            {
+                if(V<min_old)
+                {
+                    min_old=V;
+                }
+                if(V>max_old);
+                {
+                    max_old=V;
+                }
+            }
+
+            if(min_this<lower_range or (max_this>upper_range) or (min_old<splice_from.lower_range) or (max_old>splice_from.upper_range))
+            {
+                print("Range error:");
+                print("NEW BIN: from", lower_range, "to", upper_range,". has", num_counts, "counts from", min_this, "to", max_this);
+                print("OLD BIN: from", splice_from.lower_range, "to", splice_from.upper_range,". has", splice_from.num_counts, "counts from", min_old, "to", max_old);
+                throw gen_exception("RE");
+            }
+            */
+
+
+
+
+            //double V=(lower_range+upper_range)/2.0;
+            //if( (upper_range-lower_range)<0.022)
+            //{
+             //   splittable=false;
+             //   splice_from.splittable=false;
+            //}
+            //else
+            //{
+                //splittable=true;
+                //splice_from.splittable=true;
+            //}
         }
 
         bool increment(double value)
@@ -247,6 +284,23 @@ public:
     {
         return hist_bins.size();
     }
+
+    void dump_data()
+    {
+        arrays_output output;
+
+        std::list<double> all_values;
+        for(bin &B : hist_bins)
+        {
+            for(double V: B.values)
+            {
+                all_values.push_back(V);
+            }
+        }
+
+        output.add_doubles( make_vector(all_values) );
+        output.to_file("./error_dump");
+    }
 };
 
 
@@ -332,7 +386,11 @@ public:
         {
             while( current_num_interactions== num_samples[ num_samples_sorter[current_num_sample_index] ] ) //do this fist, becouse there could be a timestep with 0 interactions
             {
-                distributions[ num_samples_sorter[current_num_sample_index] ].increment(acos(T[2]));
+                double Z=acos(T[2]);
+                if(Z!=0)
+                {
+                    distributions[ num_samples_sorter[current_num_sample_index] ].increment(Z);
+                }
                 current_num_sample_index++;
                 if(current_num_sample_index==num_samples.size()) { break; }
             }
@@ -483,6 +541,17 @@ public:
                 int hist_bin_i=1;
                 while(high_bin_iter!=histogram.end())
                 {
+
+                    if((not low_bin_iter->splittable) or (not middle_bin_iter->splittable) or (not high_bin_iter->splittable))
+                    {
+                        ++low_bin_iter;
+                        ++middle_bin_iter;
+                        ++high_bin_iter;
+
+                        hist_bin_i++;
+                        continue;
+                    }
+
                     auto L_var=one_std_errors[ low_bin_iter->num_counts ];
                     auto M_var=one_std_errors[ middle_bin_iter->num_counts ];
                     auto H_var=one_std_errors[ high_bin_iter->num_counts ];
@@ -500,6 +569,13 @@ public:
                         histogram.split(high_bin_iter);
                         print("   new:", low_bin_iter->num_counts, middle_bin_iter->num_counts, high_bin_iter->num_counts);
                         //print("   bounds: (",low_bin_iter->lower_range, low_bin_iter->upper_range,") (",middle_bin_iter->lower_range, middle_bin_iter->upper_range,") (",high_bin_iter->lower_range, high_bin_iter->upper_range,")");
+
+                        if( (not low_bin_iter->splittable) or (not middle_bin_iter->splittable) or (not high_bin_iter->splittable))
+                        {
+                            histogram.dump_data();
+                            throw gen_exception("data dumped");
+                        }
+
                         break; //do not continue spliting bins from this hist.
                     }
 
