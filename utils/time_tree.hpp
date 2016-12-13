@@ -25,6 +25,8 @@ used red-black tree based on:
 //// this time-tree may be slow for small number of objects. N<100??  Maybe should make a sorted-linked list for that case
 // add two classes:  sorted_time_list and unsorted_time_list
 
+//perhaps improve by adding itteratiors
+
 
 template< typename DATA_T>
 class time_tree

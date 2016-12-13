@@ -4,6 +4,7 @@
 
 
 #include "gen_ex.hpp"
+#include "vector.hpp"
 
 /* span_tree is a binary search tree (implemented as AVL tree here) that sorts data that is associated with some value (where the value is a double)
 
@@ -131,6 +132,17 @@ public:
         return size_;
     }
 
+    void clear()
+    {
+        size_=0;
+        if(root)
+        {
+            clear_node(root);
+            delete root;
+            root=NULL;
+        }
+    }
+
     void insert(double key, DATA_T* data)
     // tree will take control of data, and delete it when tree goes out of scope
     {
@@ -158,17 +170,25 @@ public:
 
         node* p=new node;
         p->key=key;
-        p->data=data(args...);
+        p->data=new DATA_T(args...);
         auto ret=p->data;
+
+
 
         if(not root)
         {
+        //print("A");
             root=p;
         }
         else
         {
+
+        //print("B");
             root=insert(root, p);
         }
+
+
+        //print("C");
         return ret;
     }
 
@@ -303,6 +323,11 @@ public:
             out.root=root;
             out.current=current;
 
+            if( out.current==NULL )
+            {
+                return out;
+            }
+
             //current node has right child
             if (current->right )
             {
@@ -352,6 +377,20 @@ public:
     {
         return iterator(NULL);
     }
+
+    gsl::vector get_keys()
+    //return keys as sorted GSL vector
+    {
+        gsl::vector ret(size_);
+        int index=0;
+        for( auto I = begin(), E=end(); I!=E; ++I)
+        {
+            ret[index]=I.get_key();
+        }
+        return ret;
+    }
+
+    //make repeat of above with data and std::vector<...>
 
 };
 

@@ -82,6 +82,25 @@ class CS_table(object):
         return self.dist_Y[timestep]
 
 if __name__=='__main__':
+
+    table_in=array_input( binary_input("./error_dump") )
+    samples=table_in.read_doublesArray()
+    
+    X=[0.0]
+    Y=[0.0]
+    for i in range(len(samples)):
+        Y.append(Y[-1])
+        Y.append(Y[-1]+1.0)
+        X.append(samples[i])
+        X.append(samples[i])
+    Y=np.array(Y)
+    Y/=len(samples)
+    plt.plot(X,Y)
+    plt.show()
+    
+    print(len(samples))
+    
+    quit()
     
     energy=100.0/energy_units_kev
     max_theta=0.5
