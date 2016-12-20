@@ -86,7 +86,11 @@ private:
 
     node* insert(node* p, node* n) // insert node n in a tree with p root
     {
-        if( !p ) return n;
+        if( !p )
+        {
+            size_++;
+            return n;
+        }
         if( n->key < p->key )
             p->left = insert(p->left, n);
         else
@@ -146,8 +150,6 @@ public:
     void insert(double key, DATA_T* data)
     // tree will take control of data, and delete it when tree goes out of scope
     {
-        size_++;
-
         node* p=new node;
         p->key=key;
         p->data=data;
@@ -155,6 +157,7 @@ public:
         if(not root)
         {
             root=p;
+            size_++;
         }
         else
         {
@@ -166,7 +169,7 @@ public:
     DATA_T* emplace(double key, args_t...args)
     // construct the data from arguments
     {
-        size_++;
+        //size_++;
 
         node* p=new node;
         p->key=key;
@@ -179,6 +182,7 @@ public:
         {
         //print("A");
             root=p;
+            size_++;
         }
         else
         {
@@ -272,9 +276,13 @@ public:
         //Find current's parent, where parent.left == current.
         node* findParent()
         {
+
+            if(current==root){return NULL;}
+
             node* cur = root;
             node* parent = NULL;
             double key = current->key;
+
 
             while (cur)
             {
@@ -339,8 +347,13 @@ public:
             }
             else
             {//Current node does not have right child.
+                double cur_key=current->key;
 
                 current = findParent();
+                while(current!=NULL and current->key < cur_key)
+                {
+                    current = findParent();
+                }
             }
 
             return out;
@@ -386,7 +399,9 @@ public:
         for( auto I = begin(), E=end(); I!=E; ++I)
         {
             ret[index]=I.get_key();
+            index++;
         }
+        //print("ARG", index, size_);
         return ret;
     }
 

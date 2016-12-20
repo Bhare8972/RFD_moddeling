@@ -198,7 +198,7 @@ class particle_history_out
 {
 public:
     binary_output out;
-    //update so that only works on one particle at a time. Not on lists
+    bool record; //if this is false, then this doesn't do anything. Used to turn off recording when it isn't wanted
 
     /*
     commands:
@@ -234,20 +234,29 @@ public:
     static const int OUT_OF_BOUNDS=1;
     static const int EVOLVED_INTO_HIGHER_LIFEFORM=2;  //don't use this one
 
-    particle_history_out() : out("output")
-    {}
+    particle_history_out(bool record_=true) : out("./particle_history_output")
+    {
+        record=record_;
+    }
 
-    particle_history_out(std::string fname) : out(fname)
-    {}
+    particle_history_out(std::string fname, bool record_=true) : out(fname)
+    {
+        record=record_;
+    }
 
     ~particle_history_out()
     {
-        out.out_short(4); //command, end file
-        out.flush();
+        if(record)
+        {
+            out.out_short(4); //command, end file
+            out.flush();
+        }
     }
 
     void new_electron(electron_T *particle)
     {
+        if(not record) {return;}
+
         out.out_short(1); //command, update electron
 
         out.out_int(particle->ID);
@@ -266,6 +275,8 @@ public:
 
     void update_electron(electron_T *particle)
     {
+        if(not record) {return;}
+
         out.out_short(2); //command, update electron
 
         out.out_int(particle->ID);
@@ -282,6 +293,8 @@ public:
 
     void remove_electron(int reason, electron_T *particle)
     {
+        if(not record) {return;}
+
         out.out_short(3); //command, remove_electron
 
         out.out_int(particle->ID);

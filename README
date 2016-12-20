@@ -18,3 +18,9 @@ tables
 
 
 note that, as of writing this, the premade tables were made on a little-endian machine, but the reading/writing code does not check for correct endianness
+
+
+
+Name IDEAS:
+
+Temcert (Thunderstorm electron monte carlo energetic radiation toolkit)

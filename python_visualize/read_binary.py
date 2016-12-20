@@ -1,4 +1,6 @@
-﻿from struct import unpack
+﻿#!/usr/bin/python3
+
+from struct import unpack
 import numpy as np
 
 class binary_input(object):

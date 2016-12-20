@@ -1,13 +1,8 @@
 TODO:
 
-turn main loop into a class
+organize code
 
-
-make each electron have list<electron_data>
-define a structure electron_data before including particle data
-add   void add_data(....)  to electron, which calls electron-data constructor and pushes data to list (function is variadic template)
-add   vector<T> get_data( T electron_data::getter*() ) where electron_data::getter is a getter method of electron data. This method returns a vector<T> where T is return type of the getter.
-
+add ability to turn off traced_output (rename? reorganize)
 
 test results of simulation against lehtenin.
 
@@ -43,7 +38,4 @@ improve utility documentation.  less important.
 figure out why interpolant is not thread safe (check other utilities for thread saftey)
 
 work GSL code into project itself instead of being external dependancy\
-
-Fix production of the diffusion table, so that the convergence condition has a better statisitcal basis. (Maybe use pearson chi-square test)
-	Also need to add adaptive bin sizes.
 

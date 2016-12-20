@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
-##constants used in the C++
+##constants used in the simulation
 ## this need to be the same from the simulation to insure accurate displaying
 
 RTD=180.0/(3.1415926);

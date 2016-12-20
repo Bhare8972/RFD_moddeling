@@ -19,10 +19,6 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}  -Wall -Wno-sign-compare -Og
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
 
-add_executable(simulation
-              ./simulation.cpp)
-target_link_libraries(simulation gsl gslcblas)
-
-add_executable(Lehtinen_tst
-              ./Lehtinen1999_fig1.cpp)
+add_executable(Lehtinen1999_tst
+              ./Lehtinen1999.cpp)
 target_link_libraries(Lehtinen_tst gsl gslcblas)

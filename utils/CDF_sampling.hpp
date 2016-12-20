@@ -70,6 +70,20 @@ public:
 
     CDF_sampler(){}
 
+    //CDF_sampler(CDF_sampler& cpy)
+    //{
+    //    splines=cpy.splines;
+    //    aliases=cpy.aliases;
+    //    alias_probabilities=cpy.alias_probabilities;
+    //}
+
+    //CDF_sampler(CDF_sampler cpy)
+    //{
+    //    splines=cpy.splines;
+    //    aliases=cpy.aliases;
+    //    alias_probabilities=cpy.alias_probabilities;
+    //}
+
     CDF_sampler( array_input& in )
     {
         alias_probabilities=in.read_doublesArray();
@@ -158,9 +172,13 @@ public:
 
             //sample the inverse function at 5 points
             double Y0=CDF_theta_vals[spline_i+1];
+            //print("A");
             double Y1=bracketed_poly_solver(&CDF_splines[spline_i],  cheby_tables::U4_i[1]*A+B,   CDF_theta_vals[spline_i],CDF_theta_vals[spline_i+1],  10000);
+            //print(1);
             double Y2=bracketed_poly_solver(&CDF_splines[spline_i],  cheby_tables::U4_i[2]*A+B,   CDF_theta_vals[spline_i],CDF_theta_vals[spline_i+1],  10000);
+            //print(2);
             double Y3=bracketed_poly_solver(&CDF_splines[spline_i],  cheby_tables::U4_i[3]*A+B,   CDF_theta_vals[spline_i],CDF_theta_vals[spline_i+1],  10000);
+            //print("B");
             double Y4=CDF_theta_vals[spline_i];
 
             //get chebyshev coefiencents

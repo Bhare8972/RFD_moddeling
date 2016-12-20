@@ -15,6 +15,8 @@
 #include "integrate.hpp"
 #include "spline.hpp"
 #include "rand.hpp"
+#include "GSL_spline.hpp"
+#include "chebyshev.hpp"
 
 #include "../physics/shielded_coulomb_diffusion.hpp"
 #include "../physics/particles.hpp"
@@ -28,37 +30,119 @@ class diffusion_table
         public:
 
         gsl::vector timesteps;
-        std::vector< poly_spline > samplers;//not sure if these are thread-safe
+        std::vector< CDF_sampler > samplers;//not sure if these are thread-safe
+        gsl::vector zero_theta_probabilities;
 
         energy_level(gsl::vector timesteps_, array_input& table_in)
         {
             timesteps=timesteps_;
             samplers.reserve(timesteps.size());
+            zero_theta_probabilities=gsl::vector(timesteps.size());
+
             for(int i=0; i<timesteps.size(); i++)
             {
                 array_input dist_X_table=table_in.get_array();
-                auto X=dist_X_table.read_doubles();
+                auto samples=dist_X_table.read_doubles();
 
-                array_input dist_Y_table=table_in.get_array();
-                auto Y=dist_Y_table.read_doubles();
+                //find number of zeros in samples
+                int N_zeros=0;
+                for( auto s : samples)
+                {
+                    if(s>0)
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        N_zeros+=1;
+                    }
+                }
+                zero_theta_probabilities[i]=double(N_zeros)/double(samples.size());
 
-                samplers.emplace_back(X,Y);
+
+                //create the CDF, and decimate the data
+                std::list<double> CDFx_list;
+                std::list<double> CDFy_list;
+                CDFx_list.push_back(0);
+                CDFy_list.push_back(0);
+
+                int decimation_factor=10;
+                bool added_last=true;
+                for(int cdfi=0; cdfi<(samples.size()-N_zeros); cdfi++)
+                {
+                    if( (cdfi+1)%decimation_factor ==0 )
+                    {
+                        CDFy_list.push_back( (cdfi+1.0)/(samples.size()-N_zeros) );
+                        CDFx_list.push_back( samples[cdfi+N_zeros] );
+                        added_last=true;
+                    }
+                    else
+                    {
+                        added_last=false;
+                    }
+                }
+                if(not added_last)
+                {
+                    CDFy_list.push_back( 1.0 );
+                    CDFx_list.push_back( samples.back() );
+                }
+
+                //create the walker aliased sampler.
+                auto CDF_x=make_vector(CDFx_list);
+                auto CDF_y=make_vector(CDFy_list);
+
+                auto CDF_spline=linear_spline(CDF_x, CDF_y);
+                samplers.emplace_back( CDF_spline );
+
+                //test sampler
+                /*
+                if( i==10 )
+                {
+                    int N_samples=1000;
+                    auto& sampler=samplers.back();
+                    gsl::vector samples(N_samples);
+                    rand_threadsafe rand;
+                    for(int si=0; si<N_samples; si++)
+                    {
+                        samples[si]=sampler.sample( rand.uniform() );
+                    }
+
+                    arrays_output tables_out;
+                    tables_out.add_doubles(samples);
+                    tables_out.to_file("./tst_out");
+
+                }*/
+
             }
         }
 
-        double sample(double TS, double uniform_rand)
+        double sample(double TS, double uniform_randA, double uniform_randB)
         {
             if(TS>=timesteps[timesteps.size()-1])
             {
-                return samplers[timesteps.size()-1].call(uniform_rand);
+                if( uniform_randA <  zero_theta_probabilities.back())
+                {
+                    return 0.0;
+                }
+                else
+                {
+                    return samplers.back().sample(uniform_randB);
+                }
+
             }
             else
             {
                 size_t TS_index=search_sorted_exponential(timesteps, TS);
-                double lower_linear_factor=(timesteps[TS_index]-TS)/(timesteps[TS_index]-timesteps[TS_index+1]);//factor for linear interpolation
-                double lower_guess=samplers[TS_index].call(uniform_rand);
-                double upper_guess=samplers[TS_index+1].call(uniform_rand);
-                return lower_guess*lower_linear_factor + (1-lower_linear_factor)*upper_guess;
+                TS_index=closest_interpolate(timesteps[TS_index],TS_index,  timesteps[TS_index+1],TS_index+1,  TS);
+
+                if( uniform_randA <  zero_theta_probabilities[TS_index])
+                {
+                    return 0.0;
+                }
+                else
+                {
+                    return samplers[TS_index].sample(uniform_randB);
+                }
             }
         }
     };
@@ -97,7 +181,7 @@ class diffusion_table
 
     inline double max_timestep()
     {
-        return timesteps[timesteps.size()-1];
+        return timesteps.back();
     }
 
     double sample(double energy, double timestep)
@@ -113,17 +197,14 @@ class diffusion_table
         }
         else
         {
-            //maybe speed this up by only sampling closest energy
             fast_steps++;
 
-            double uniform_rand=rand.uniform();
             size_t energy_i=search_sorted_d(energies, energy);
+            energy_i=closest_interpolate(energies[energy_i],energy_i,  energies[energy_i+1],energy_i+1,  energy); //get closest energy
 
-            double lower_linear_factor=(energies[energy_i]-energy)/(energies[energy_i]-energies[energy_i+1]);
-            double lower_sample=energy_samplers[energy_i].sample(timestep, uniform_rand);
-            double upper_sample=energy_samplers[energy_i+1].sample(timestep, uniform_rand);
+            double sample=energy_samplers[energy_i].sample(timestep, rand.uniform(),rand.uniform());
 
-            return lower_linear_factor*lower_sample + (1-lower_linear_factor)*upper_sample;
+            return sample;
         }
     }
 
@@ -131,7 +212,51 @@ class diffusion_table
     //find scattering angle by monte-carlo simulation. Note that this is slow, especilaly for low energy and large timesteps
     {
         diff_cross_section cross_section(energy);
-        return cross_section.sample_timestep(timestep);
+        double expected_num_samples=cross_section.num_interactions_per_tau;
+
+        long actual_num_samples=rand.poisson(expected_num_samples);
+        if(actual_num_samples==0)
+        {
+            return 0.0;
+        }
+
+
+        gsl::vector T({0,0,1});
+        for(size_t current_num_interactions=0; current_num_interactions<expected_num_samples; current_num_interactions++)
+        {
+
+            double inclination_scattering;
+            double azimuth_scattering;
+            {
+                inclination_scattering=cross_section.sample( rand.uniform() ); //transform the sample
+            }
+            azimuth_scattering=rand.uniform()*2*PI;
+
+            //calculate the three vector magnitudes
+            double A=cos(inclination_scattering); //basis vector is original vector
+            double B=sin(inclination_scattering)*cos(azimuth_scattering); //basis vector will be vector Bv below
+            double C=-sin(inclination_scattering)*sin(azimuth_scattering); //basis vector will be vector Cv below
+
+            //find vector Bv, perpinduclar to momentum
+            gsl::vector init({1,0,0});
+            gsl::vector Bv=cross(init, T);
+            if(Bv.sum_of_squares()<0.1) //init and momentum are close to parellel. Which would cause errors below
+            {
+                init=gsl::vector({0,1,0}); //so we try a different init. momentum cannot be parrellel to both inits
+                Bv=cross(init, T);
+            }
+
+            //normalize Bv
+            Bv/=sqrt(Bv.sum_of_squares());
+
+            //now we find Cv
+            gsl::vector Cv=cross(Bv, T); //Bv and momentum are garenteed to be perpindicular,therefor Cv should have unit magnitude
+
+            //find new vector
+            T=A*T + B*Bv + C*Cv;
+        }
+
+        return acos(T[2]);
     }
 
     inline double sample_azimuth()

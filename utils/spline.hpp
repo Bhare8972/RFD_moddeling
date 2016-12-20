@@ -43,6 +43,22 @@ public:
         weights=weights_;
     }
 
+    polynomial(double left_point, double right_point, double left_value, double right_value)
+    {
+        //first order spline
+        weights=gsl::vector(2);
+
+        weights[1]=(right_value-left_value)/(right_point-left_point);
+        weights[0]=left_value - weights[1]*left_point;
+
+        if(weights[1]!=weights[1] or weights[0]!=weights[0] or std::isinf(weights[1]) or std::isinf(weights[0]))
+        {
+            print("first order spline");
+            print(left_point, right_point);
+            throw gen_exception("function cannot be represented by a spline");
+        }
+    }
+
     inline double call(double X)
     {
         return gsl_poly_eval(weights.data() , weights.size(), X);
@@ -68,22 +84,6 @@ public:
         }
     }
 
-    polynomial(double left_point, double right_point, double left_value, double right_value)
-    {
-        //first order spline
-        weights=gsl::vector(2);
-
-        weights[1]=(right_value-left_value)/(right_point-left_point);
-        weights[0]=left_value - weights[1]*left_point;
-
-        if(weights[1]!=weights[1] or weights[0]!=weights[0] or std::isinf(weights[1]) or std::isinf(weights[0]))
-        {
-            print("first order spline");
-            print(left_point, right_point);
-            throw gen_exception("function cannot be represented by a spline");
-        }
-    }
-
     inline double y(double x)
     {
         return call(x);
@@ -98,6 +98,7 @@ double bracketed_poly_solver(polynomial* input_poly, double Xlow, double Xhigh, 
 
 double bracketed_poly_solver(polynomial* input_poly, double Y_solve, double Xlow, double Xhigh, int max_iter)
 {
+    //print(input_poly->call(Xlow), input_poly->call(Xhigh), Y_solve);
     input_poly->weights[0]-=Y_solve;
     double ret=root_finder_brent(input_poly, Xhigh, Xlow, (Xhigh-Xlow)/100000.0, (Xhigh-Xlow)/1000.0, max_iter);
     input_poly->weights[0]+=Y_solve;
@@ -140,6 +141,8 @@ public:
 
 	void reset(gsl::vector X, gsl::vector Y)
 	{
+	    //needs to be phased out. THis is out of date
+
 		size_t num_points=Y.size();
 		if( num_points != X.size())
 		{
@@ -361,6 +364,32 @@ public:
     }
 
 };
+
+std::shared_ptr<poly_spline> linear_spline(gsl::vector X, gsl::vector Y)
+{
+    size_t num_points=Y.size();
+    if( num_points != X.size())
+    {
+        throw gen_exception("X array and Y array must have the same size");
+    }
+    if( num_points < 2)
+    {
+        throw gen_exception("array sizes must be greater than 2");
+    }
+
+    auto ret=std::make_shared<poly_spline>();
+
+    ret->splines.reserve(num_points-1);
+    ret->x_vals=X;
+    ret->lower_fill=std::nan("");
+    ret->upper_fill=std::nan("");
+
+    for(int si=0; si<(num_points-1); si++)
+    {
+        ret->splines.emplace_back(X[si],X[si+1], Y[si],Y[si+1]);
+    }
+    return ret;
+}
 
 void make_fix_spline(gsl::vector X, gsl::vector Y, gsl::vector &X_new, gsl::vector &Y_new)
 //takes two vectors, X and Y, and removes points where the X values are equal, and stores results in X_new and Y_new

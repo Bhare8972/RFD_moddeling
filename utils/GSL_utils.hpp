@@ -260,4 +260,19 @@ inline double linear_interpolate(double X0, double Y0, double X1, double Y1, dou
 {
     return Y0 + (Y1-Y0)*(X_sample-X0)/(X1-X0);
 }
+
+template< typename T>
+inline T closest_interpolate(double X0,T Y0,  double X1,T Y1,  double X_sample)
+{
+    double d0=fabs(X_sample-X0);
+    double d1=fabs(X_sample-X0);
+    if(d0<d1)
+    {
+        return Y0;
+    }
+    else
+    {
+        return Y1;
+    }
+}
 #endif
