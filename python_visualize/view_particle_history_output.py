@@ -127,7 +127,7 @@ def plot_particles_XYZ(particles):
     ax.set_xlabel('X axis')
     ax.set_ylabel('Y axis')
     ax.set_zlabel('Z axis')
-    for p in particle_data.values():
+    for p in particles.values():
         ax.plot(p.get_X()*distance_units, p.get_Y()*distance_units, p.get_Z()*distance_units)
     plt.show()
 
@@ -137,7 +137,7 @@ def plot_particles_XZ(particles):
     ax = fig.add_subplot(1,1,1)
     ax.set_xlabel('X axis')
     ax.set_ylabel('Z axis')
-    for p in particle_data.values():
+    for p in particles.values():
         ax.plot(p.get_X()*distance_units, p.get_Z()*distance_units)
     plt.show()
 
@@ -149,7 +149,7 @@ def plot_particles_ZvsTIME(particles):
     ax.set_ylabel('Z axis (m)')
     creation_Z=[]
     creation_T=[]
-    for p in particle_data.values():
+    for p in particles.values():
         T=p.get_T()*time_units*10**9
         Z=p.get_Z()*distance_units
         ax.plot(T, Z, '.-')
@@ -297,8 +297,8 @@ def ave_kev_per_T(time_checks, num_electrons, electrons):
     plt.show()
     
 if __name__=='__main__':
-	fname="./particle_history_output"
-	
+    fname="./particle_history_output"
+    
     print( "reading data" )
     electron_data=read_particle_history(fname)
     print( "data read" )

@@ -21,4 +21,4 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
 add_executable(Lehtinen1999_tst
               ./Lehtinen1999.cpp)
-target_link_libraries(Lehtinen_tst gsl gslcblas)
+target_link_libraries(Lehtinen1999_tst gsl gslcblas)

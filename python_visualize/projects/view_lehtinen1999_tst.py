@@ -28,7 +28,12 @@ if __name__=="__main__":
         plt.plot(hist_edges, values, 'o')
         
     print()
-    print(np.average(R_values), np.std(R_values))
+    print(np.average(R_values), np.std(R_values)/np.sqrt(len(R_values)))
     plt.show()
+    
+    
+    table_in=array_input( binary_input("./timestep_halving_00000") )
+    print( table_in.read_doublesArray() )
+    
         
     

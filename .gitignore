@@ -58,3 +58,9 @@ python_visualize/output
 python_visualize/Lehtinen1999_out
 
 python_visualize/projects/Lehtinen1999_out
+
+potential_inconsistancies.txt~
+
+python_visualize/particle_history_output
+
+python_visualize/view_tables/moller_tables_output

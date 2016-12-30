@@ -44,6 +44,7 @@ double root_finder_brent(gsl_function& func, double upper_bound, double lower_bo
 
 double root_finder_brent(functor_1D* func, double upper_bound, double lower_bound, double epsabs=0.001, double epsrel=0.001, int max_iter=100)
 {
+
     const gsl_root_fsolver_type *T= gsl_root_fsolver_brent;
     gsl_root_fsolver *solver = gsl_root_fsolver_alloc(T);
 

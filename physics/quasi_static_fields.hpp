@@ -63,9 +63,9 @@ public:
 	}
 
 
-	gsl::vector get(gsl::vector &position, double time)//just to satisify compiler
+	gsl::vector get(gsl::vector &position, double time)
 	{
-		return get(position, 0);
+		return get(position);
 	}
 };
 

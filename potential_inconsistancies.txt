@@ -1,0 +1,6 @@
+1)  coulomb scattering assumes that energy is constant (without any error control), when rest of program assumes higher-order change of energy
+
+2) FSAL in Dormand-Prince Runge-Kutta isn't correct becouse scattering changes the momentum vector in between time steps.
+	-have removed use of FSAL
+
+3) the interaction_chooser assumes that the relative probability between different kinds of interactions is constant across a timestep 

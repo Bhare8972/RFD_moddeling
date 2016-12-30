@@ -203,7 +203,7 @@ public:
 
 	void set_upper_fill()
 	{
-        upper_fill=call( x_vals[ x_vals.size()-1]);
+        upper_fill=call( x_vals.back());
 	}
 
 	double call(double X)

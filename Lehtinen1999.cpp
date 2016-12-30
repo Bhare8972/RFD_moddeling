@@ -109,12 +109,43 @@ public:
 
 };
 
+
+class timestep_halving_histogramer
+{
+public:
+    gsl::vector histogram;
+
+    timestep_halving_histogramer(int max_points)
+    {
+        histogram=make_vector(max_points+1, 0.0);
+    }
+
+    void add_data(int num_halved)
+    {
+        histogram[num_halved]++;
+    }
+
+    void save_data()
+    {
+        arrays_output out;
+        out.add_doubles(histogram);
+        out.to_file("./timestep_halving");
+    }
+
+};
+
+
+
+
+
+
+
 class sim_cls
 {
 public:
     ////constants////  (What will happen to results if we vary these?)
-    const double pos_tol=0.0001;
-    const double mom_tol=0.0001;
+    const double pos_tol=0.0000001;
+    const double mom_tol=0.0000001;
     const double initial_energy=1000.0/energy_units_kev; //lehtininin is 1 Gev. How does this affect results?
     double max_t;
 
@@ -127,7 +158,8 @@ public:
 	////physics engines////
     moller_table moller_engine; //moller scattering
     diffusion_table coulomb_scattering_engine;  //elastic scattering off air mollecules
-    interaction_chooser_linear<1> interaction_engine; //interaction chooser (only one potential interaction at the moment
+    //interaction_chooser_quadratic<1> interaction_engine; //interaction chooser (only one potential interaction at the moment
+    interaction_chooser_quadratic<1> interaction_engine; //interaction chooser (only one potential interaction at the moment
     apply_charged_force force_engine; //apply classical forces
 
     ////particles////
@@ -135,13 +167,16 @@ public:
 	particle_history_out save_data;
 	analyzer histogramer;
 
+	timestep_halving_histogramer timestep_hist;
+
 
     sim_cls(double _max_t, double E_delta, double B_tsi) :
 
 	save_data(false), //set this to true to save particle histories
-    moller_engine(particle_removal_energy, 200000/energy_units_kev, 400, false),
+    moller_engine(particle_removal_energy, 200000/energy_units_kev, 500, false),
 	histogramer(_max_t, 1000),
     interaction_engine(moller_engine),
+    timestep_hist(10),
     force_engine(particle_removal_energy, E_field.pntr(), B_field.pntr() )
 
     {
@@ -159,6 +194,7 @@ public:
 
         ////force engine setup////
         force_engine.set_max_timestep( coulomb_scattering_engine.max_timestep() );
+        //force_engine.set_max_timestep( 0.001 );
         force_engine.set_errorTol(pos_tol, mom_tol);
 
 
@@ -189,6 +225,7 @@ public:
 
     void run()
     {
+
         int i=0;
         while(true)
         {
@@ -206,15 +243,15 @@ public:
                 break;
             } //if no more electrons, or out of time
 
-            if((i%20000)==0){ print("  ",i, current_electron->current_time); }
+            if((i%5000)==0){ print("  ",i, current_electron->current_time); }
 
 
         /////solve equations of motion////
             double old_energy=current_electron->energy;
-            auto old_position=current_electron->position;
-            auto old_momentum=current_electron->momentum;
+            //auto old_position=current_electron->position;
+            //auto old_momentum=current_electron->momentum;
 
-            force_engine.charged_particle_RungeKuttaCK(current_electron);
+            force_engine.charged_particle_RungeKuttaDP(current_electron);
             current_electron->update_energy();
 
             //remove particle if necisary
@@ -227,57 +264,66 @@ public:
             }
 
             //for linear interpolation of position and momentum
-            auto position_rate_of_change=current_electron->position-old_position;
-            auto momentum_rate_of_change=current_electron->momentum-old_momentum;
-            position_rate_of_change/=current_electron->timestep;
-            momentum_rate_of_change/=current_electron->timestep;
+            //auto position_rate_of_change=current_electron->position-old_position;
+            //auto momentum_rate_of_change=current_electron->momentum-old_momentum;
+            //position_rate_of_change/=current_electron->timestep;
+            //momentum_rate_of_change/=current_electron->timestep;
 
-            double energy_before_scattering=current_electron->energy;
+            //double energy_before_scattering=current_electron->energy;
 
         //// scattering (moller only presently) ////
             int interaction=-1;
-            double time_to_scatter=interaction_engine.sample(old_energy, current_electron->energy, current_electron->timestep, interaction);
-
-
-            //check error code
-            auto error_code=interaction_engine.get_error_flag();
-            if(error_code==1) //need to reduce the timestep size
+            double time_to_scatter=current_electron->timestep*2.0;
+            //print("Si:", current_electron->ID, old_energy*energy_units_kev, current_electron->energy*energy_units_kev);
+            int TS_halves=0;
+            while(true) //loop untill error is small enough
             {
-                current_electron->next_timestep*=0.5;
-            }
-            else if(error_code==2) //this timestep was too large
-            {
-                //reset electron
-                current_electron->current_time-=current_electron->timestep;
-                current_electron->next_timestep=current_electron->timestep*0.5;
-                current_electron->position=old_position;
-                current_electron->momentum=old_momentum;
-                current_electron->energy=old_energy;
+                //sample interaction rates
+                time_to_scatter=interaction_engine.sample(old_energy,  mom_to_KE(current_electron->interpolate_mom(0.5)),    current_electron->energy,     current_electron->timestep, interaction);
+                //time_to_scatter=interaction_engine.sample(old_energy, current_electron->energy,     current_electron->timestep, interaction);
 
-                //place back in pool
-                electrons.insert(current_electron->current_time, current_electron);
+                //check error code
+                auto error_code=interaction_engine.get_error_flag();
+                if(error_code==2) //this timestep was too large, try halving it
+                {
+                    current_electron->reduce_timestep_to( current_electron->timestep*0.5 );
+                    current_electron->next_timestep*=0.5;
+                    TS_halves++;
 
-                //carry on as if nothing ever happened
-                continue; //probably wind up with same electron again
+                    //carry on as if nothing ever happened
+                    continue;
+                }
+                else if(error_code==1) //need to reduce the timestep size
+                {
+                    current_electron->next_timestep*=0.5;
+                    break;
+                }
+                else
+                {
+                    //no error
+                    break;
+                }
             }
+            timestep_hist.add_data(TS_halves);
+            //print(interaction, time_to_scatter, current_electron->timestep);
+            //print("end");
+            //print();
+
+
 
             //do the scattering
+            double energy_before_scattering=current_electron->energy;
             if( (time_to_scatter <= current_electron->timestep) and interaction != -1)
             {
+                //set electron values to time of interaction
+                current_electron->reduce_timestep_to( time_to_scatter );
 
                 if(interaction==0) //moller scattering
                 {
-                    //set electron values to time of interaction
-                    current_electron->current_time += time_to_scatter - current_electron->timestep;
-                    current_electron->timestep=time_to_scatter;
-                    current_electron->position = old_position + position_rate_of_change*time_to_scatter;
-                    current_electron->momentum = old_momentum + momentum_rate_of_change*time_to_scatter;
-                    current_electron->update_energy();
-
-                    energy_before_scattering=current_electron->energy;
+                    //print("interact");
 
                     //do interaction
-                    auto new_electron=moller_engine.single_interaction(energy_before_scattering, current_electron);
+                    auto new_electron=moller_engine.single_interaction(current_electron->energy, current_electron);
 
                     if(new_electron)
                     {
@@ -286,6 +332,7 @@ public:
                         electrons.insert(new_electron->current_time, new_electron);
                     }
                 }
+
             }
 
             //remove particle if necessary
@@ -298,7 +345,7 @@ public:
             }
 
     //// shielded coulomb scattering ////
-            coulomb_scattering_engine.scatter(energy_before_scattering, current_electron);
+            coulomb_scattering_engine.scatter(energy_before_scattering, current_electron); //note that this only works if energy is relativly constant. Consider re-working this.
 
 
             save_data.update_electron(current_electron);
@@ -313,6 +360,7 @@ public:
             delete current_electron;
             current_electron=electrons.pop_first();
         }
+
     }
 };
 
@@ -322,7 +370,7 @@ int main()
     int n_seeds=10;
     double E_field=8.0;
     double B_field=0.0;
-    int N_runs=10;
+    int N_runs=20;
 
     sim_cls simulation(max_t, E_field, B_field);
     arrays_output out;
@@ -341,6 +389,7 @@ int main()
         out.add_doubles(simulation.histogramer.normalize(n_seeds));
     }
     out.to_file("./Lehtinen1999_out");
+    simulation.timestep_hist.save_data();
 
 }
 

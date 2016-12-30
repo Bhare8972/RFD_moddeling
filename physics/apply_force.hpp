@@ -72,8 +72,7 @@ class apply_charged_force
         kappa=kappa_;
     }
 
-    gsl::vector force(gsl::vector &position, gsl::vector &momentum, int charge)
-    //to make this depend on time, add double current_time as paramenter
+    gsl::vector force(gsl::vector &position, gsl::vector &momentum, double time, int charge)
     {
         //values
         double momentum_squared=momentum.sum_of_squares();
@@ -82,10 +81,10 @@ class apply_charged_force
         double inverse_gamma=1.0/G;
 
         //electric field
-        gsl::vector force=charge*E_field->get(position); //to depend on time, pass current_time to electric field
+        gsl::vector force=charge*E_field->get(position, time);
 
         //magnetic field
-        gsl::vector B=charge*B_field->get(position); //to depend on time, pass current_time to electric field
+        gsl::vector B=charge*B_field->get(position, time);
         force[0]+=inverse_gamma*(momentum[1]*B[2]-momentum[2]*B[1]);
         force[1]+=inverse_gamma*(momentum[2]*B[0]-momentum[0]*B[2]);
         force[2]+=inverse_gamma*(momentum[0]*B[1]-momentum[1]*B[0]);
@@ -122,6 +121,7 @@ class apply_charged_force
         return force;
     }
 
+/*
     void charged_particle_RungeKuttaCK(electron_T *particle)
     //to make this depend of time, add argument double current_time
     //am using cash-karp parameters for fehlberg method
@@ -145,7 +145,7 @@ class apply_charged_force
             gsl::vector mom_step=particle->momentum;
 
             gsl::vector K_1_pos=mom_step*(particle->timestep/gamma(mom_step));
-            gsl::vector K_1_mom=force(pos_step, mom_step, particle->charge);
+            gsl::vector K_1_mom=force(pos_step, mom_step, particle->current_time, particle->charge);
             K_1_mom*=particle->timestep;
 
 
@@ -154,9 +154,10 @@ class apply_charged_force
 
             pos_step+=particle->position;
             mom_step+=particle->momentum;
+            double time=particle->current_time + particle->timestep*(1.0/5.0);
 
             gsl::vector K_2_pos=mom_step*(particle->timestep/gamma(mom_step));
-            gsl::vector K_2_mom=force(pos_step, mom_step, particle->charge);
+            gsl::vector K_2_mom=force(pos_step, mom_step, time, particle->charge);
             K_2_mom*=particle->timestep;
 
 
@@ -171,9 +172,10 @@ class apply_charged_force
 
             pos_step+=particle->position;
             mom_step+=particle->momentum;
+            time=particle->current_time + particle->timestep*(3.0/10.0);
 
             gsl::vector K_3_pos=mom_step*(particle->timestep/gamma(mom_step));
-            gsl::vector K_3_mom=force(pos_step, mom_step, particle->charge);
+            gsl::vector K_3_mom=force(pos_step, mom_step, time, particle->charge);
             K_3_mom*=particle->timestep;
 
 
@@ -190,9 +192,10 @@ class apply_charged_force
 
             pos_step+=particle->position;
             mom_step+=particle->momentum;
+            time=particle->current_time + particle->timestep*(3.0/5.0);
 
             gsl::vector K_4_pos=mom_step*(particle->timestep/gamma(mom_step));
-            gsl::vector K_4_mom=force(pos_step, mom_step, particle->charge);
+            gsl::vector K_4_mom=force(pos_step, mom_step, time, particle->charge);
             K_4_mom*=particle->timestep;
 
 
@@ -212,9 +215,10 @@ class apply_charged_force
 
             pos_step+=particle->position;
             mom_step+=particle->momentum;
+            time=particle->current_time + particle->timestep*(1.0);
 
             gsl::vector K_5_pos=mom_step*(particle->timestep/gamma(mom_step));
-            gsl::vector K_5_mom=force(pos_step, mom_step, particle->charge);
+            gsl::vector K_5_mom=force(pos_step, mom_step, time, particle->charge);
             K_5_mom*=particle->timestep;
 
 
@@ -238,9 +242,10 @@ class apply_charged_force
 
             pos_step+=particle->position;
             mom_step+=particle->momentum;
+            time=particle->current_time + particle->timestep*(7.0/8.0);
 
             gsl::vector K_6_pos=mom_step*(particle->timestep/gamma(mom_step));
-            gsl::vector K_6_mom=force(pos_step, mom_step, particle->charge);
+            gsl::vector K_6_mom=force(pos_step, mom_step, time, particle->charge);
             K_6_mom*=particle->timestep;
 
 
@@ -319,6 +324,596 @@ class apply_charged_force
             }
         }
     }
+    */
+
+
+    void charged_particle_RungeKuttaDP_FSAL(electron_T *particle)
+    // run Dormand-Prince Runge-Kutta with continuous extension, uses the FSAL propery of Dormand-Prince Runge-Kutta, which may be causing issues in the simulation
+    {
+        if(particle->pos_K_interpolant.size()==0)
+        //need to initialize particle
+        {
+            particle->pos_K_interpolant.reserve(8);
+            particle->mom_K_interpolant.reserve(8);
+
+            for(int i=0; i<8; i++)
+            {
+                particle->pos_K_interpolant.push_back(gsl::vector({0,0,0}));
+                particle->mom_K_interpolant.push_back(gsl::vector({0,0,0}));
+            }
+
+            //set so that these samples will be used for K_1 in sample
+            gsl::vector pos_step=particle->position;
+            gsl::vector mom_step=particle->momentum;
+            particle->pos_K_interpolant[7]=particle->timestep* mom_step*(1.0/gamma(mom_step));
+            particle->mom_K_interpolant[7]=particle->timestep* force(pos_step, mom_step, particle->current_time, particle->charge);
+            particle->interpolant_timestep=particle->timestep;
+        }
+
+
+        bool acceptable=false;
+        //print("run:", particle.next_timestep);//(sqrt(particle.momentum.sum_of_squares()+1)-1)*510);
+        int N=0;
+        while(not acceptable)
+        {
+            N++;
+
+            particle->timestep=particle->next_timestep;
+            if(particle->timestep>maximum_timestep)
+            {
+                particle->timestep=maximum_timestep;
+            }
+            if(particle->timestep != particle->timestep)
+            {
+                throw gen_exception("timestep is Nan");
+            }
+
+            gsl::vector K_1_pos=particle->pos_K_interpolant.back()*particle->timestep/particle->interpolant_timestep; //need to readjust timestep
+            gsl::vector K_1_mom=particle->mom_K_interpolant.back()*particle->timestep/particle->interpolant_timestep;
+
+
+
+            gsl::vector pos_step=K_1_pos*(1.0/5.0);
+            gsl::vector mom_step=K_1_mom*(1.0/5.0);
+            pos_step+=particle->position;
+            mom_step+=particle->momentum;
+            double time=particle->current_time + particle->timestep*(1.0/5.0);
+
+            gsl::vector K_2_pos=mom_step*(1.0/gamma(mom_step));
+            gsl::vector K_2_mom=force(pos_step, mom_step, time, particle->charge);
+            K_2_pos*=particle->timestep;
+            K_2_mom*=particle->timestep;
+
+
+
+            pos_step=K_1_pos*(3.0/40.0);
+            mom_step=K_1_mom*(3.0/40.0);
+
+            pos_step.mult_add( K_2_pos, (9.0/40.0) );
+            mom_step.mult_add( K_2_mom, (9.0/40.0) );
+
+            pos_step+=particle->position;
+            mom_step+=particle->momentum;
+            time=particle->current_time + particle->timestep*3.0/10.0;
+
+            gsl::vector K_3_pos=mom_step*(1.0/gamma(mom_step));
+            gsl::vector K_3_mom=force(pos_step, mom_step, time, particle->charge);
+            K_3_pos*=particle->timestep;
+            K_3_mom*=particle->timestep;
+
+
+
+
+            pos_step=K_1_pos*(44.0/45.0);
+            mom_step=K_1_mom*(44.0/45.0);
+
+            pos_step.mult_add( K_2_pos, -(56.0/15.0) );
+            mom_step.mult_add( K_2_mom, -(56.0/15.0) );
+
+            pos_step.mult_add( K_3_pos, (32.0/9.0) );
+            mom_step.mult_add( K_3_mom, (32.0/9.0) );
+
+            pos_step+=particle->position;
+            mom_step+=particle->momentum;
+            time=particle->current_time + particle->timestep*(4.0/5.0);
+
+            gsl::vector K_4_pos=mom_step*(1.0/gamma(mom_step));
+            gsl::vector K_4_mom=force(pos_step, mom_step, time, particle->charge);
+            K_4_pos*=particle->timestep;
+            K_4_mom*=particle->timestep;
+
+
+
+
+            pos_step=K_1_pos*(19372.0/6561.0);
+            mom_step=K_1_mom*(19372.0/6561.0);
+
+            pos_step.mult_add( K_2_pos, -(25360.0/2187.0) );
+            mom_step.mult_add( K_2_mom, -(25360.0/2187.0) );
+
+            pos_step.mult_add( K_3_pos, (64448.0/6561.0) );
+            mom_step.mult_add( K_3_mom, (64448.0/6561.0) );
+
+            pos_step.mult_add( K_4_pos, -(212.0/729.0) );
+            mom_step.mult_add( K_4_mom, -(212.0/729.0) );
+
+            pos_step+=particle->position;
+            mom_step+=particle->momentum;
+            time=particle->current_time + particle->timestep*8.0/9.0;
+
+            gsl::vector K_5_pos=mom_step*(1.0/gamma(mom_step));
+            gsl::vector K_5_mom=force(pos_step, mom_step, time, particle->charge);
+            K_5_pos*=particle->timestep;
+            K_5_mom*=particle->timestep;
+
+
+
+
+            pos_step=K_1_pos*(9017.0/3168.0);
+            mom_step=K_1_mom*(9017.0/3168.0);
+
+            pos_step.mult_add( K_2_pos, -(355.0/33.0) );
+            mom_step.mult_add( K_2_mom, -(355.0/33.0) );
+
+            pos_step.mult_add( K_3_pos, (46732.0/5247.0) );
+            mom_step.mult_add( K_3_mom, (46732.0/5247.0) );
+
+            pos_step.mult_add( K_4_pos, (49.0/176.0) );
+            mom_step.mult_add( K_4_mom, (49.0/176.0) );
+
+            pos_step.mult_add( K_5_pos, -(5103.0/18656.0) );
+            mom_step.mult_add( K_5_mom, -(5103.0/18656.0) );
+
+            pos_step+=particle->position;
+            mom_step+=particle->momentum;
+            time=particle->current_time + particle->timestep;
+
+            gsl::vector K_6_pos=mom_step*(1.0/gamma(mom_step));
+            gsl::vector K_6_mom=force(pos_step, mom_step, time, particle->charge);
+            K_6_pos*=particle->timestep;
+            K_6_mom*=particle->timestep;
+
+
+
+
+            pos_step=K_1_pos*(35.0/384.0);
+            mom_step=K_1_mom*(35.0/384.0);
+
+            //K2 is zero
+
+
+            pos_step.mult_add( K_3_pos, (500.0/1113.0) );
+            mom_step.mult_add( K_3_mom, (500.0/1113.0) );
+
+            pos_step.mult_add( K_4_pos, (125.0/192.0) );
+            mom_step.mult_add( K_4_mom, (125.0/192.0) );
+
+            pos_step.mult_add( K_5_pos, -(2187.0/6784.0) );
+            mom_step.mult_add( K_5_mom, -(2187.0/6784.0) );
+
+            pos_step.mult_add( K_6_pos, (11.0/84.0) );
+            mom_step.mult_add( K_6_mom, (11.0/84.0) );
+
+            pos_step+=particle->position;
+            mom_step+=particle->momentum;
+            time=particle->current_time + particle->timestep;
+
+            gsl::vector K_7_pos=mom_step*(1.0/gamma(mom_step));
+            gsl::vector K_7_mom=force(pos_step, mom_step, time, particle->charge);
+            K_7_pos*=particle->timestep;
+            K_7_mom*=particle->timestep;
+
+
+
+
+
+            gsl::vector pos_O4=K_1_pos*(5179.0/57600.0);
+            gsl::vector mom_O4=K_1_mom*(5179.0/57600.0);
+
+            //pos_O4.mult_add( K_2_pos, 0.0 );
+            //mom_O4.mult_add( K_2_mom, 0.0 );
+
+            pos_O4.mult_add( K_3_pos, (7571.0/16695.0) );
+            mom_O4.mult_add( K_3_mom, (7571.0/16695.0) );
+
+            pos_O4.mult_add( K_4_pos, (393.0/640.0) );
+            mom_O4.mult_add( K_4_mom, (393.0/640.0) );
+
+            pos_O4.mult_add( K_5_pos, -(92097.0/339200.0) );
+            mom_O4.mult_add( K_5_mom, -(92097.0/339200.0) );
+
+            pos_O4.mult_add( K_6_pos, (187.0/2100.0) );
+            mom_O4.mult_add( K_6_mom, (187.0/2100.0) );
+
+            pos_O4.mult_add( K_7_pos, (1.0/40.0) );
+            mom_O4.mult_add( K_7_mom, (1.0/40.0) );
+
+            //pos_O4+=particle.position; //don't need to do this
+            //mom_O4+=particle.momentum;
+
+
+
+            gsl::vector pos_O5=K_1_pos*(35.0/384.0);
+            gsl::vector mom_O5=K_1_mom*(35.0/384.0);
+
+            //pos_O5.mult_add( K_2_pos, 0.0 );
+            //mom_O5.mult_add( K_2_mom, 0.0 );
+
+            pos_O5.mult_add( K_3_pos, (500.0/1113.0) );
+            mom_O5.mult_add( K_3_mom, (500.0/1113.0) );
+
+            pos_O5.mult_add( K_4_pos, (125.0/192.0) );
+            mom_O5.mult_add( K_4_mom, (125.0/192.0) );
+
+            pos_O5.mult_add( K_5_pos, -(2187.0/6784.0) );
+            mom_O5.mult_add( K_5_mom, -(2187.0/6784.0) );
+
+            pos_O5.mult_add( K_6_pos, (11.0/84.0) );
+            mom_O5.mult_add( K_6_mom, (11.0/84.0) );
+
+            //pos_O5.mult_add( K_7_pos, 0.0 );
+            //mom_O5.mult_add( K_7_mom, 0.0 );
+
+            pos_O4-=pos_O5;//for calculating the error
+            mom_O4-=mom_O5;
+
+            pos_O5+=particle->position;
+            mom_O5+=particle->momentum;
+
+            double pos_error_sq=pos_O4.sum_of_squares();
+            double mom_error_sq=mom_O4.sum_of_squares();
+
+            pos_error_sq=pos_tol*pos_tol/pos_error_sq;
+            mom_error_sq=mom_tol*mom_tol/mom_error_sq;
+
+
+            double err_f=std::min(pos_error_sq, mom_error_sq );//note the inverses
+
+            if(err_f>1)//error is good, exit
+            {
+                //set timestep
+                particle->interpolant_timestep=particle->timestep;
+                particle->next_timestep=particle->timestep*kappa*std::pow( std::sqrt(err_f), 0.25);
+
+                particle->pos_K_interpolant[0]=particle->position;
+                particle->mom_K_interpolant[0]=particle->momentum;
+
+                particle->pos_K_interpolant[1]=K_1_pos;
+                particle->mom_K_interpolant[1]=K_1_mom;
+
+                particle->pos_K_interpolant[2]=K_2_pos;
+                particle->mom_K_interpolant[2]=K_2_mom;
+
+                particle->pos_K_interpolant[3]=K_3_pos;
+                particle->mom_K_interpolant[3]=K_3_mom;
+
+                particle->pos_K_interpolant[4]=K_4_pos;
+                particle->mom_K_interpolant[4]=K_4_mom;
+
+                particle->pos_K_interpolant[5]=K_5_pos;
+                particle->mom_K_interpolant[5]=K_5_mom;
+
+                particle->pos_K_interpolant[6]=K_6_pos;
+                particle->mom_K_interpolant[6]=K_6_mom;
+
+                particle->pos_K_interpolant[7]=K_7_pos;
+                particle->mom_K_interpolant[7]=K_7_mom;
+
+                particle->current_time+=particle->timestep;
+                particle->position=pos_O5;
+                particle->momentum=mom_O5;
+
+                acceptable=true;
+            }
+            else
+            {//repeat with new timestep
+                if(N>1000)
+                {
+                    throw gen_exception("error in Dormand-Prince RK: ", N);
+                }
+
+                particle->next_timestep=particle->timestep*kappa*std::pow( std::sqrt(err_f), 0.20);
+                acceptable=false;
+            }
+        }
+    }
+
+
+
+
+
+
+    void charged_particle_RungeKuttaDP(electron_T *particle)
+    // run Dormand-Prince Runge-Kutta with continuous extension, does not rely on the FSAL propery
+    {
+        if(particle->pos_K_interpolant.size()==0)
+        //need to initialize particle
+        {
+            particle->pos_K_interpolant.reserve(8);
+            particle->mom_K_interpolant.reserve(8);
+
+            for(int i=0; i<8; i++)
+            {
+                particle->pos_K_interpolant.push_back(gsl::vector({0,0,0}));
+                particle->mom_K_interpolant.push_back(gsl::vector({0,0,0}));
+            }
+        }
+
+
+        bool acceptable=false;
+        //print("run:", particle.next_timestep);//(sqrt(particle.momentum.sum_of_squares()+1)-1)*510);
+        int N=0;
+        while(not acceptable)
+        {
+            N++;
+
+            particle->timestep=particle->next_timestep;
+            if(particle->timestep>maximum_timestep)
+            {
+                particle->timestep=maximum_timestep;
+            }
+            if(particle->timestep != particle->timestep)
+            {
+                throw gen_exception("timestep is Nan");
+            }
+
+            gsl::vector pos_step=particle->position;
+            gsl::vector mom_step=particle->momentum;
+            double time=particle->current_time;
+
+            gsl::vector K_1_pos=mom_step*(1.0/gamma(mom_step));
+            gsl::vector K_1_mom=force(pos_step, mom_step, time, particle->charge); //note that this is a bit redundant. We could calculate this once at the beginning. It doesn't change if stepsize changes
+            K_1_pos*=particle->timestep;
+            K_1_mom*=particle->timestep;
+
+
+
+            pos_step=K_1_pos*(1.0/5.0);
+            mom_step=K_1_mom*(1.0/5.0);
+            pos_step+=particle->position;
+            mom_step+=particle->momentum;
+            time=particle->current_time + particle->timestep*(1.0/5.0);
+
+            gsl::vector K_2_pos=mom_step*(1.0/gamma(mom_step));
+            gsl::vector K_2_mom=force(pos_step, mom_step, time, particle->charge);
+            K_2_pos*=particle->timestep;
+            K_2_mom*=particle->timestep;
+
+
+
+            pos_step=K_1_pos*(3.0/40.0);
+            mom_step=K_1_mom*(3.0/40.0);
+
+            pos_step.mult_add( K_2_pos, (9.0/40.0) );
+            mom_step.mult_add( K_2_mom, (9.0/40.0) );
+
+            pos_step+=particle->position;
+            mom_step+=particle->momentum;
+            time=particle->current_time + particle->timestep*3.0/10.0;
+
+            gsl::vector K_3_pos=mom_step*(1.0/gamma(mom_step));
+            gsl::vector K_3_mom=force(pos_step, mom_step, time, particle->charge);
+            K_3_pos*=particle->timestep;
+            K_3_mom*=particle->timestep;
+
+
+
+
+            pos_step=K_1_pos*(44.0/45.0);
+            mom_step=K_1_mom*(44.0/45.0);
+
+            pos_step.mult_add( K_2_pos, -(56.0/15.0) );
+            mom_step.mult_add( K_2_mom, -(56.0/15.0) );
+
+            pos_step.mult_add( K_3_pos, (32.0/9.0) );
+            mom_step.mult_add( K_3_mom, (32.0/9.0) );
+
+            pos_step+=particle->position;
+            mom_step+=particle->momentum;
+            time=particle->current_time + particle->timestep*(4.0/5.0);
+
+            gsl::vector K_4_pos=mom_step*(1.0/gamma(mom_step));
+            gsl::vector K_4_mom=force(pos_step, mom_step, time, particle->charge);
+            K_4_pos*=particle->timestep;
+            K_4_mom*=particle->timestep;
+
+
+
+
+            pos_step=K_1_pos*(19372.0/6561.0);
+            mom_step=K_1_mom*(19372.0/6561.0);
+
+            pos_step.mult_add( K_2_pos, -(25360.0/2187.0) );
+            mom_step.mult_add( K_2_mom, -(25360.0/2187.0) );
+
+            pos_step.mult_add( K_3_pos, (64448.0/6561.0) );
+            mom_step.mult_add( K_3_mom, (64448.0/6561.0) );
+
+            pos_step.mult_add( K_4_pos, -(212.0/729.0) );
+            mom_step.mult_add( K_4_mom, -(212.0/729.0) );
+
+            pos_step+=particle->position;
+            mom_step+=particle->momentum;
+            time=particle->current_time + particle->timestep*8.0/9.0;
+
+            gsl::vector K_5_pos=mom_step*(1.0/gamma(mom_step));
+            gsl::vector K_5_mom=force(pos_step, mom_step, time, particle->charge);
+            K_5_pos*=particle->timestep;
+            K_5_mom*=particle->timestep;
+
+
+
+
+            pos_step=K_1_pos*(9017.0/3168.0);
+            mom_step=K_1_mom*(9017.0/3168.0);
+
+            pos_step.mult_add( K_2_pos, -(355.0/33.0) );
+            mom_step.mult_add( K_2_mom, -(355.0/33.0) );
+
+            pos_step.mult_add( K_3_pos, (46732.0/5247.0) );
+            mom_step.mult_add( K_3_mom, (46732.0/5247.0) );
+
+            pos_step.mult_add( K_4_pos, (49.0/176.0) );
+            mom_step.mult_add( K_4_mom, (49.0/176.0) );
+
+            pos_step.mult_add( K_5_pos, -(5103.0/18656.0) );
+            mom_step.mult_add( K_5_mom, -(5103.0/18656.0) );
+
+            pos_step+=particle->position;
+            mom_step+=particle->momentum;
+            time=particle->current_time + particle->timestep;
+
+            gsl::vector K_6_pos=mom_step*(1.0/gamma(mom_step));
+            gsl::vector K_6_mom=force(pos_step, mom_step, time, particle->charge);
+            K_6_pos*=particle->timestep;
+            K_6_mom*=particle->timestep;
+
+
+
+
+            pos_step=K_1_pos*(35.0/384.0);
+            mom_step=K_1_mom*(35.0/384.0);
+
+            //K2 is zero
+
+
+            pos_step.mult_add( K_3_pos, (500.0/1113.0) );
+            mom_step.mult_add( K_3_mom, (500.0/1113.0) );
+
+            pos_step.mult_add( K_4_pos, (125.0/192.0) );
+            mom_step.mult_add( K_4_mom, (125.0/192.0) );
+
+            pos_step.mult_add( K_5_pos, -(2187.0/6784.0) );
+            mom_step.mult_add( K_5_mom, -(2187.0/6784.0) );
+
+            pos_step.mult_add( K_6_pos, (11.0/84.0) );
+            mom_step.mult_add( K_6_mom, (11.0/84.0) );
+
+            pos_step+=particle->position;
+            mom_step+=particle->momentum;
+            time=particle->current_time + particle->timestep;
+
+            gsl::vector K_7_pos=mom_step*(1.0/gamma(mom_step));
+            gsl::vector K_7_mom=force(pos_step, mom_step, time, particle->charge);
+            K_7_pos*=particle->timestep;
+            K_7_mom*=particle->timestep;
+
+
+
+
+
+            gsl::vector pos_O4=K_1_pos*(5179.0/57600.0);
+            gsl::vector mom_O4=K_1_mom*(5179.0/57600.0);
+
+            //pos_O4.mult_add( K_2_pos, 0.0 );
+            //mom_O4.mult_add( K_2_mom, 0.0 );
+
+            pos_O4.mult_add( K_3_pos, (7571.0/16695.0) );
+            mom_O4.mult_add( K_3_mom, (7571.0/16695.0) );
+
+            pos_O4.mult_add( K_4_pos, (393.0/640.0) );
+            mom_O4.mult_add( K_4_mom, (393.0/640.0) );
+
+            pos_O4.mult_add( K_5_pos, -(92097.0/339200.0) );
+            mom_O4.mult_add( K_5_mom, -(92097.0/339200.0) );
+
+            pos_O4.mult_add( K_6_pos, (187.0/2100.0) );
+            mom_O4.mult_add( K_6_mom, (187.0/2100.0) );
+
+            pos_O4.mult_add( K_7_pos, (1.0/40.0) );
+            mom_O4.mult_add( K_7_mom, (1.0/40.0) );
+
+            //pos_O4+=particle.position; //don't need to do this
+            //mom_O4+=particle.momentum;
+
+
+
+            gsl::vector pos_O5=K_1_pos*(35.0/384.0);
+            gsl::vector mom_O5=K_1_mom*(35.0/384.0);
+
+            //pos_O5.mult_add( K_2_pos, 0.0 );
+            //mom_O5.mult_add( K_2_mom, 0.0 );
+
+            pos_O5.mult_add( K_3_pos, (500.0/1113.0) );
+            mom_O5.mult_add( K_3_mom, (500.0/1113.0) );
+
+            pos_O5.mult_add( K_4_pos, (125.0/192.0) );
+            mom_O5.mult_add( K_4_mom, (125.0/192.0) );
+
+            pos_O5.mult_add( K_5_pos, -(2187.0/6784.0) );
+            mom_O5.mult_add( K_5_mom, -(2187.0/6784.0) );
+
+            pos_O5.mult_add( K_6_pos, (11.0/84.0) );
+            mom_O5.mult_add( K_6_mom, (11.0/84.0) );
+
+            //pos_O5.mult_add( K_7_pos, 0.0 );
+            //mom_O5.mult_add( K_7_mom, 0.0 );
+
+            pos_O4-=pos_O5;//for calculating the error
+            mom_O4-=mom_O5;
+
+            pos_O5+=particle->position;
+            mom_O5+=particle->momentum;
+
+            double pos_error_sq=pos_O4.sum_of_squares();
+            double mom_error_sq=mom_O4.sum_of_squares();
+
+            pos_error_sq=pos_tol*pos_tol/pos_error_sq;
+            mom_error_sq=mom_tol*mom_tol/mom_error_sq;
+
+
+            double err_f=std::min(pos_error_sq, mom_error_sq );//note the inverses
+
+            if(err_f>1)//error is good, exit
+            {
+                //set timestep
+                particle->interpolant_timestep=particle->timestep;
+                particle->next_timestep=particle->timestep*kappa*std::pow( std::sqrt(err_f), 0.25);
+
+                particle->pos_K_interpolant[0]=particle->position;
+                particle->mom_K_interpolant[0]=particle->momentum;
+
+                particle->pos_K_interpolant[1]=K_1_pos;
+                particle->mom_K_interpolant[1]=K_1_mom;
+
+                particle->pos_K_interpolant[2]=K_2_pos;
+                particle->mom_K_interpolant[2]=K_2_mom;
+
+                particle->pos_K_interpolant[3]=K_3_pos;
+                particle->mom_K_interpolant[3]=K_3_mom;
+
+                particle->pos_K_interpolant[4]=K_4_pos;
+                particle->mom_K_interpolant[4]=K_4_mom;
+
+                particle->pos_K_interpolant[5]=K_5_pos;
+                particle->mom_K_interpolant[5]=K_5_mom;
+
+                particle->pos_K_interpolant[6]=K_6_pos;
+                particle->mom_K_interpolant[6]=K_6_mom;
+
+                particle->pos_K_interpolant[7]=K_7_pos;
+                particle->mom_K_interpolant[7]=K_7_mom;
+
+                particle->current_time+=particle->timestep;
+                particle->position=pos_O5;
+                particle->momentum=mom_O5;
+
+                acceptable=true;
+            }
+            else
+            {//repeat with new timestep
+                if(N>1000)
+                {
+                    throw gen_exception("error in Dormand-Prince RK: ", N);
+                }
+
+                particle->next_timestep=particle->timestep*kappa*std::pow( std::sqrt(err_f), 0.20);
+                acceptable=false;
+            }
+        }
+    }
+
+
 };
 
 #endif

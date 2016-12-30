@@ -31,34 +31,16 @@ class diffusion_table
 
         gsl::vector timesteps;
         std::vector< CDF_sampler > samplers;//not sure if these are thread-safe
-        gsl::vector zero_theta_probabilities;
 
         energy_level(gsl::vector timesteps_, array_input& table_in)
         {
             timesteps=timesteps_;
             samplers.reserve(timesteps.size());
-            zero_theta_probabilities=gsl::vector(timesteps.size());
 
             for(int i=0; i<timesteps.size(); i++)
             {
                 array_input dist_X_table=table_in.get_array();
                 auto samples=dist_X_table.read_doubles();
-
-                //find number of zeros in samples
-                int N_zeros=0;
-                for( auto s : samples)
-                {
-                    if(s>0)
-                    {
-                        break;
-                    }
-                    else
-                    {
-                        N_zeros+=1;
-                    }
-                }
-                zero_theta_probabilities[i]=double(N_zeros)/double(samples.size());
-
 
                 //create the CDF, and decimate the data
                 std::list<double> CDFx_list;
@@ -68,12 +50,12 @@ class diffusion_table
 
                 int decimation_factor=10;
                 bool added_last=true;
-                for(int cdfi=0; cdfi<(samples.size()-N_zeros); cdfi++)
+                for(int cdfi=0; cdfi<samples.size(); cdfi++)
                 {
-                    if( (cdfi+1)%decimation_factor ==0 )
+                    if( (cdfi+1)%decimation_factor==0 )
                     {
-                        CDFy_list.push_back( (cdfi+1.0)/(samples.size()-N_zeros) );
-                        CDFx_list.push_back( samples[cdfi+N_zeros] );
+                        CDFy_list.push_back( (cdfi+1.0)/(samples.size()) );
+                        CDFx_list.push_back( samples[cdfi] );
                         added_last=true;
                     }
                     else
@@ -91,43 +73,16 @@ class diffusion_table
                 auto CDF_x=make_vector(CDFx_list);
                 auto CDF_y=make_vector(CDFy_list);
 
-                auto CDF_spline=linear_spline(CDF_x, CDF_y);
-                samplers.emplace_back( CDF_spline );
-
-                //test sampler
-                /*
-                if( i==10 )
-                {
-                    int N_samples=1000;
-                    auto& sampler=samplers.back();
-                    gsl::vector samples(N_samples);
-                    rand_threadsafe rand;
-                    for(int si=0; si<N_samples; si++)
-                    {
-                        samples[si]=sampler.sample( rand.uniform() );
-                    }
-
-                    arrays_output tables_out;
-                    tables_out.add_doubles(samples);
-                    tables_out.to_file("./tst_out");
-
-                }*/
-
+                samplers.emplace_back( CDF_x,  CDF_y, 1);
             }
         }
 
-        double sample(double TS, double uniform_randA, double uniform_randB)
+        double sample(double TS, double uniform_rand)
         {
             if(TS>=timesteps[timesteps.size()-1])
             {
-                if( uniform_randA <  zero_theta_probabilities.back())
-                {
-                    return 0.0;
-                }
-                else
-                {
-                    return samplers.back().sample(uniform_randB);
-                }
+
+                return samplers.back().sample(uniform_rand);
 
             }
             else
@@ -135,14 +90,7 @@ class diffusion_table
                 size_t TS_index=search_sorted_exponential(timesteps, TS);
                 TS_index=closest_interpolate(timesteps[TS_index],TS_index,  timesteps[TS_index+1],TS_index+1,  TS);
 
-                if( uniform_randA <  zero_theta_probabilities[TS_index])
-                {
-                    return 0.0;
-                }
-                else
-                {
-                    return samplers[TS_index].sample(uniform_randB);
-                }
+                return samplers[TS_index].sample(uniform_rand);
             }
         }
     };
@@ -190,8 +138,8 @@ class diffusion_table
 
         if(timestep<=timesteps[0] or energy>=energies[energies.size()-1])
         {
-            if(timestep<=timesteps[0]){slow_steps_below_timestep++;}
-            else {slow_steps_above_energy++;}
+            if(timestep<=timesteps[0]){slow_steps_below_timestep++; print("below timestep:", timestep);}
+            else {slow_steps_above_energy++; print("above energy");}
 
             return resample(energy, timestep);
         }
@@ -199,10 +147,10 @@ class diffusion_table
         {
             fast_steps++;
 
-            size_t energy_i=search_sorted_d(energies, energy);
+            size_t energy_i=search_sorted_exponential(energies, energy);
             energy_i=closest_interpolate(energies[energy_i],energy_i,  energies[energy_i+1],energy_i+1,  energy); //get closest energy
 
-            double sample=energy_samplers[energy_i].sample(timestep, rand.uniform(),rand.uniform());
+            double sample=energy_samplers[energy_i].sample(timestep, rand.uniform());
 
             return sample;
         }

@@ -36,11 +36,11 @@ public:
 
     //data needed for solving for path
     double next_timestep; //timestep that particle will have
-//    gsl::vector K_0_pos;
-//    gsl::vector K_0_mom;
-//    std::vector< gsl::vector > pos_interpolant;
-//    std::vector< gsl::vector > mom_interpolant;
-//    double timestep_reduction_factor; //if timestep and current time, above, need to be reduced, then this factor can be increased so that the interpolants still give pos and mom at current_time when T_bar=0
+
+    //Dormand-Prince Runge-Kutta
+    std::vector< gsl::vector > pos_K_interpolant;
+    std::vector< gsl::vector > mom_K_interpolant;
+    double interpolant_timestep; //timestep size that the interpolant is meant to cover
 
     electron_T()
     //some default values
@@ -109,33 +109,65 @@ public:
 		momentum=A*momentum + B*Bv + C*Cv;
 	}
 
-/*
+	void reduce_timestep_to(double new_timestep_size)
+	{
+	    current_time-=timestep;
+	    current_time+= new_timestep_size;
+        timestep=new_timestep_size;
+
+        position=interpolate_pos(1.0);
+        momentum=interpolate_mom(1.0);
+        update_energy();
+	}
+
+
 	gsl::vector interpolate_pos(double T_bar)
 	// when T_bar=0, give position at current_time-timestep, when T_bar=1, give position at current_time
 	{
-        T_bar/=timestep_reduction_factor;
-        gsl::vector ipos({0.0,0.0,0.0});
-        for(int i=pos_interpolant.size()-1; i>=0; i--)
-        {
-            ipos*=T_bar;
-            ipos+=pos_interpolant[i];
-        }
-        return ipos;
+        double theta=T_bar*timestep/interpolant_timestep;
+
+        double B1= ((((-1163.0/1152.0)*theta + (1039.0/360.0))*theta + (-1337.0/480.0))*theta + 1.0)*theta;
+        //double B2=0.0;
+        double B3= (((7580.0/3339.0)*theta + (-18728.0/3339.0))*theta + (4216.0/1113.0))*theta*theta;
+        double B4= (((-415.0/192.0)*theta + (9.0/2.0))*theta + (-27.0/16.0))*theta*theta;
+        double B5= (((-8991.0/6784.0)*theta + (2673.0/2120.0))*theta + (-2187.0/8480.0))*theta*theta;
+        double B6= (((187.0/84.0)*theta + (-319.0/105.0))*theta + (33.0/35.0))*theta*theta;
+
+
+        gsl::vector pos_interp = pos_K_interpolant[6]*B6;
+        pos_interp.mult_add(pos_K_interpolant[5], B5 );
+        pos_interp.mult_add(pos_K_interpolant[4], B4 );
+        pos_interp.mult_add(pos_K_interpolant[3], B3 );
+        //pos_interp.mult_add(pos_K_interpolant[2], B2 );
+        pos_interp.mult_add(pos_K_interpolant[1], B1 );
+        pos_interp+=pos_K_interpolant[0];
+
+        return pos_interp;
 	}
 
 	gsl::vector interpolate_mom(double T_bar)
-	// when T_bar=0, give momentum at current_time-timestep, when T_bar=1, give momentum at current_time
+	// when T_bar=0, give position at current_time-timestep, when T_bar=1, give position at current_time
 	{
-        T_bar/=timestep_reduction_factor;
-        gsl::vector imom({0.0,0.0,0.0});
-        for(int i=mom_interpolant.size()-1; i>=0; i--)
-        {
-            imom*=T_bar;
-            imom+=pos_interpolant[i];
-        }
-        return imom;
+        double theta=T_bar*timestep/interpolant_timestep;
+
+        double B1= ((((-1163.0/1152.0)*theta + (1039.0/360.0))*theta + (-1337.0/480.0))*theta + 1.0)*theta;
+        //double B2=0.0;
+        double B3= (((7580.0/3339.0)*theta + (-18728.0/3339.0))*theta + (4216.0/1113.0))*theta*theta;
+        double B4= (((-415.0/192.0)*theta + (9.0/2.0))*theta + (-27.0/16.0))*theta*theta;
+        double B5= (((-8991.0/6784.0)*theta + (2673.0/2120.0))*theta + (-2187.0/8480.0))*theta*theta;
+        double B6= (((187.0/84.0)*theta + (-319.0/105.0))*theta + (33.0/35.0))*theta*theta;
+
+
+        gsl::vector mom_interp = mom_K_interpolant[6]*B6;
+        mom_interp.mult_add(mom_K_interpolant[5], B5 );
+        mom_interp.mult_add(mom_K_interpolant[4], B4 );
+        mom_interp.mult_add(mom_K_interpolant[3], B3 );
+        //mom_interp.mult_add(mom_K_interpolant[2], B2 );
+        mom_interp.mult_add(mom_K_interpolant[1], B1 );
+        mom_interp+=mom_K_interpolant[0];
+
+        return mom_interp;
 	}
-*/
 };
 
 class photon_T : public particle_ID_T

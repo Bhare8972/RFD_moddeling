@@ -14,9 +14,9 @@
 #include "gen_ex.hpp"
 #include "rand.hpp"
 #include "root_finding.hpp"
+#include "chebyshev.hpp"
 
 #include "interaction_chooser.hpp"
-
 #include "particles.hpp"
 
 
@@ -27,6 +27,7 @@ public:
     double momentum;
     double gamma;
     double beta;
+    //notice that this actually takes the atmosphere into account
 
     moller_cross_section(double energy=lowest_physical_energy)
     {
@@ -95,11 +96,11 @@ class moller_sampler : public functor_1D
         return cross_section->integral(Ep)-current_rand;
     }
 
-    inline double sample(double rand)
+    inline double sample(double lowest_energy, double rand)
     //rand needs to be a uniformaly distributed random number between 0 to maximum rate of moller stcattering
     {
         current_rand=rand;
-        return root_finder_brent(this, 0, cross_section->energy/2.0, 0.001, 0.001, 10000);
+        return root_finder_brent(this, cross_section->energy/2.0, lowest_energy, 0.001, 0.001, 10000);
     }
 
 };
@@ -111,11 +112,10 @@ class moller_table : public physical_interaction
     rand_threadsafe rand;
 
     gsl::vector energies;
-    gsl::vector num_interactions_per_tau; //maybe turn this into a spline
-    std::vector<poly_spline> sampler_splines;
+    gsl::vector num_interactions_per_tau;
+    std::vector< CDF_sampler > samplers;
 
     double lowest_sim_energy;
-    bool lowest_energy_constant;
 
     moller_cross_section cross_section;
     method_functor_1D<moller_cross_section> cross_section_integral;
@@ -127,79 +127,59 @@ class moller_table : public physical_interaction
         zero_finding_sampler.set_cross_section(&cross_section);
 
         lowest_sim_energy=lowest_sim_energy_;
-        lowest_energy_constant=true;
 
         energies=logspace(std::log10(lowest_sim_energy*2), std::log10(upper_energy), num_energies+1);//we do not want to do the lower_energy*2 energy
         energies=energies.clone(1,num_energies ); //remove the lowest energy
 
-        sampler_splines.reserve(num_energies);
+        samplers.reserve(num_energies);
         num_interactions_per_tau=gsl::vector(num_energies);
 
 
         //make tables to save output
-        arrays_output tables_out;
-        std::shared_ptr<doubles_output> energies_table=std::make_shared<doubles_output>( energies );
-        tables_out.add_array(energies_table);
+        //arrays_output tables_out;
+        //std::shared_ptr<doubles_output> energies_table=std::make_shared<doubles_output>( energies );
+        //tables_out.add_array(energies_table);
 
-        std::shared_ptr<doubles_output> interactions_table=std::make_shared<doubles_output>(num_interactions_per_tau);
-        tables_out.add_array(interactions_table);//I THINK this will work..
+        //std::shared_ptr<doubles_output> interactions_table=std::make_shared<doubles_output>(num_interactions_per_tau);
+        //tables_out.add_array(interactions_table);//I THINK this will work..
 
 
         //loop over energies, making table
+        arrays_output tables_out;
+
+        tables_out.add_doubles(energies);
+
         for(int energy_i=0; energy_i<num_energies; energy_i++)
         {
             double energy=energies[energy_i]; //do not want to sample the precise lowest energy
             cross_section.set_energy(energy);
 
-            //sample
-            gsl::vector points;
-            gsl::vector values=adaptive_sample(&cross_section_integral, 0.001, lowest_sim_energy, energy/2.0, points);
-            values-=cross_section_integral.call(lowest_sim_energy);
 
-            //normalize
-            num_interactions_per_tau[energy_i]=values[values.size()-1];
-            values/=values[values.size()-1];
+            AdaptiveSpline_Cheby_O3 cheby_sampler(cross_section_integral, 1.0E3, lowest_sim_energy, energy/2.0);
+            auto CDF_spline=cheby_sampler.get_spline();
+            CDF_spline->add( -cross_section_integral.call(lowest_sim_energy) );
+            CDF_spline->set_upper_fill();
+            CDF_spline->set_lower_fill();
 
-/*
-            //sample
-            cum_adap_simps integrator(&cross_section, lowest_sim_energy, energy/2.0, 1E4);
-            gsl::vector points=integrator.points();
-            gsl::vector cum_quads=integrator.cum_quads();
+            num_interactions_per_tau[energy_i]=CDF_spline->call( energy/2.0 );
 
-            num_interactions_per_tau[energy_i]=cum_quads[cum_quads.size()-1];
+            samplers.emplace_back(CDF_spline);
 
-            //normalize
-            cum_quads/=cum_quads[cum_quads.size()-1]; //normalize to values from 0 to 1
-*/
+            if(save_tables)
+            {
+                gsl::vector production_energy_samples=linspace(lowest_sim_energy, energy/2.0, 1000);
+                auto CDF_samples=CDF_spline->callv(production_energy_samples);
 
-            //invert
-            gsl::vector sampler_X;
-            gsl::vector sampler_Y;
-            make_fix_spline(values, points, sampler_X, sampler_Y);
-
-            //save to external table
-            std::shared_ptr<doubles_output> distribution_points_table=std::make_shared<doubles_output>(sampler_Y);
-            std::shared_ptr<doubles_output> distribution_values_table=std::make_shared<doubles_output>(sampler_X);
-
-            tables_out.add_array(distribution_points_table);
-            tables_out.add_array(distribution_values_table);
-
-            //make spline
-            sampler_splines.emplace_back(sampler_X, sampler_Y);
+                tables_out.add_doubles(production_energy_samples);
+                tables_out.add_doubles(CDF_samples);
+            }
         }
 
 
         if(save_tables)
         {
-            binary_output fout("./moller_tables_output");
-            tables_out.write_out( &fout);
+            tables_out.to_file("./moller_tables_output");
         }
-    }
-
-    void set_lowest_energy(double lowest_energy_)
-    {
-        lowest_energy_constant=false;
-        lowest_sim_energy=lowest_energy_;
     }
 
     double lowest_scatterer_energy()
@@ -208,22 +188,18 @@ class moller_table : public physical_interaction
     }
 
     double rate(double energy)
+    //return negative if no interaction
     {
         if(energy < energies[0])
         {
-            return 0; //do not scatter if energy is too low
+            return -1; //do not scatter if energy is too low
         }
-        else if( (energy >= energies[energies.size()-1]) or (not lowest_energy_constant))
+        else if( energy >= energies.back() )
         {
             cross_section.set_energy(energy);
 
             return cross_section.integral(energy/2.0) - cross_section.integral(lowest_sim_energy);
-/*
-            cum_adap_simps integrator(&cross_section, lowest_sim_energy, energy/2.0, 1E4);
-            gsl::vector cum_quads=integrator.cum_quads();
 
-            return cum_quads[cum_quads.size()-1];
-*/
         }
         else
         {
@@ -238,34 +214,24 @@ class moller_table : public physical_interaction
     {
         double U=rand.uniform();
 
-        if( (energy >= energies[energies.size()-1]) or (not lowest_energy_constant))
+        if( energy >= energies.back() )
         {
+
             cross_section.set_energy(energy);
+            double lowest_rate=cross_section.integral(lowest_sim_energy);
+            double upper_rate=cross_section.integral(energy/2.0);
+            double R=zero_finding_sampler.sample(lowest_sim_energy, lowest_rate + U*(upper_rate-lowest_rate));
 
-            double rate=cross_section.integral(energy/2.0) - cross_section.integral(lowest_sim_energy);
-            return zero_finding_sampler.sample(U*rate);
-
-/*
-            //sample
-            cum_adap_simps integrator(&cross_section, lowest_sim_energy, energy/2.0, 1E4);
-            gsl::vector points=integrator.points();
-            gsl::vector cum_quads=integrator.cum_quads();
-
-            //normalize
-            cum_quads/=cum_quads[cum_quads.size()-1]; //normalize to values from 0 to 1
-
-            return linear_interpolate(cum_quads, points, U);
-*/
+            return R;
 
         }
         else
         {
             size_t index=search_sorted_exponential(energies, energy);
-            double factor=(energy - energies[index])/(energies[index+1] - energies[index]);
 
-            double lower=sampler_splines[index].call(U);
-            double upper=sampler_splines[index+1].call(U);
-            return lower + (upper-lower)*factor;
+            index= closest_interpolate(energies[index],index,  energies[index+1],index+1,  energy);
+
+            return samplers[index].sample(U);
         }
     }
 

@@ -98,7 +98,7 @@ public:
         }
     }
 
-    CDF_sampler(gsl::vector x_values, gsl::vector CDF_values)
+    CDF_sampler(gsl::vector x_values, gsl::vector CDF_values, int spline_type=2)
     {
         //invert
         gsl::vector sampler_X;
@@ -107,7 +107,24 @@ public:
         sampler_X/=sampler_X[sampler_X.size() - 1]; //normalize
 
         //use spline interpolation
-        auto spline_sampler=natural_cubic_spline(sampler_X, sampler_Y);
+        std::shared_ptr< poly_spline > spline_sampler;
+        if(spline_type==1)
+        {
+            spline_sampler=linear_spline(sampler_X, sampler_Y);
+        }
+        else if(spline_type==2)
+        {
+            spline_sampler=natural_cubic_spline(sampler_X, sampler_Y);
+        }
+        else if(spline_type==3)
+        {
+            spline_sampler=akima_spline(sampler_X, sampler_Y);
+        }
+        else
+        {
+            throw gen_exception("Invalid spline type");
+        }
+
 
         //get splines and weights
         splines=std::make_shared< std::vector<polynomial> >( spline_sampler->splines );

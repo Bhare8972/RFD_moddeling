@@ -292,7 +292,7 @@ a=183.8 \lambdabar Z^{-1/3}
 Expressing this as a rate of interactions in dimensionless units gives:
 
 \begin{equation} 
-\frac{d\sigma_{Coul}}{d\tau d\Omega} = \frac{1}{8\pi Z_a \beta}  \frac{N}{N_a} \left( \frac{Z }{\rho}  \right)^2\frac{1-\beta^2\sin^2(\theta/2)}{ \left(  \sin^2(\theta/2) + \frac{\hbar}{4P^2a^2}  \right)^2 }
+\frac{dn_{Coul}}{d\tau d\Omega} = \frac{1}{8\pi Z_a \beta}  \frac{N}{N_a} \left( \frac{Z }{\rho}  \right)^2\frac{1-\beta^2\sin^2(\theta/2)}{ \left(  \sin^2(\theta/2) + \frac{\hbar}{4P^2a^2}  \right)^2 }
 \end{equation}
 
 Since the atmosphere consists of multiple elements,  namely Nitrogen, Oxygen, and Argon, this cross section (as with the all following cross sections) will need to have each atmospheric component summed together.  
@@ -386,10 +386,10 @@ The rate of interactions in dimensionless units is then:
 
 \begin{equation} 
 \label{dimensionless_moller_scattering_eq}
-\frac{dn_{M\o ller}}{d\tau d E'} = \frac{1}{Z_a \beta} \frac{N}{N_a} \left[  \frac{E^2}{E'^2(E-E')^2} - \frac{2\gamma^2 + 2\gamma -1}{E'(E-E')\gamma^2}  + \frac{1}{\gamma^2}  \right]
+\frac{dn_{M\o ller}}{d\tau d E'} = \frac{1}{\beta} \left[  \frac{E^2}{E'^2(E-E')^2} - \frac{2\gamma^2 + 2\gamma -1}{E'(E-E')\gamma^2}  + \frac{1}{\gamma^2}  \right]
 \end{equation}
 
-Where E' is the dimensionless version of K, and E is the kinetic energy of the original electron before scattering. Integrating over E' (from 0 up to E/2) gives the rate of interaction. Then for various values of E, inverse transform sampling can be used to sample $E'$.
+Where E' is the dimensionless version of K, and E is the kinetic energy of the original electron before scattering. Notice that this equation already accounts for the atmosphere, since summing over $N\times Z$ for each atmospheric component is equal to $N_a Z_a$ by definition.  Integrating over E' (from 0 up to E/2) gives the rate of interaction. Then for various values of E, inverse transform sampling can be used to sample $E'$. 
 
 In the main simulation, if the electron M\o ller scatters and we sample E', we then find the angles of the two electrons.
 

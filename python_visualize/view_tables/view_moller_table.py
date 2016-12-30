@@ -46,61 +46,39 @@ class moller_cross_section(object):
 
 
 if __name__=="__main__":
-        
-    
-    energy_indexes=[0,10,20,30,40,50,60,70,80,90,100,120,140,160,180,200,220,240,260,280,300,340,380,399]
 
     ##open data
     table_in=array_input( binary_input("./moller_tables_output") )
     lowest_sim_energy=2.0/energy_units_kev
 
-    energies_table=table_in.get_array()
-    energies=energies_table.read_doubles()
-    print len(energies), "energies available"
+    energies=table_in.read_doublesArray()
+    print( len(energies), "energies available" )
     
-    interactions_table=table_in.get_array()
-    interactions_per_tau=interactions_table.read_doubles()
+    energy_indexes=np.arange(len(energies))[::10]
+    tabled_rates=[]
     
-    
-    for i in xrange(len(energies)):
+    for i in range(len(energies)):
+        production_energies=table_in.read_doublesArray()
+        un_normedCDF=table_in.read_doublesArray()
+        tabled_rates.append(un_normedCDF[-1])
+        
+        
         if i in energy_indexes: 
-            print i,":",energies[i]*energy_units_kev, "keV"
-            print "  :",interactions_per_tau[i],"interactions per tau calculated"
+            print( i,":",energies[i]*energy_units_kev, "keV" )
+            print( "  :",un_normedCDF[-1],"interactions per tau tabled")
             MC=moller_cross_section(energies[i])
             V,E=MC.integrate(lowest_sim_energy)
-            print "  :",V,"+/-", E, "interactions per tau gaussian integrated"
-
-
-    for i in xrange(len(energies)):
-
-        points_table=table_in.get_array()
-        points=points_table.read_doubles()
-
-        cumquads_table=table_in.get_array()
-        cumquads=cumquads_table.read_doubles()
-
-
-        if i in energy_indexes:
-            print energies[i]*energy_units_kev, "keV", len(cumquads), "points"
+            print( "  :",V,"+/-", E, "interactions per tau gaussian integrated")
             
-            MC=moller_cross_section(energies[i])
-            tst_quads=[]
-            integral_tsts=[]
-            quad_error=[]
-            for p in points:
-                Q, E=MC.integrate(lowest_sim_energy, p)
-                tst_quads.append(Q)
-                quad_error.append(E)
-                integral_tsts.append(MC.integral_test(p)-MC.integral_test(lowest_sim_energy))
-                
-            tst_quads=np.array(tst_quads)
-            tst_quads/=tst_quads[-1]
+            plt.plot(production_energies*energy_units_kev, un_normedCDF, 'ro-')
             
-            integral_tsts=np.array(integral_tsts)
-            integral_tsts/=integral_tsts[-1]
+            CDF_I=[]
+            for pe in production_energies:
+                CDF_I.append( MC.integrate(lowest_sim_energy, pe)  )
+            plt.plot( production_energies*energy_units_kev, CDF_I , 'b')
             
-            plt.plot(integral_tsts, points*energy_units_kev, 'go')
-            plt.plot(tst_quads, points*energy_units_kev, 'r.')
-            plt.plot(cumquads, points*energy_units_kev, 'b-')
             plt.show()
+            
+    plt.plot(energies*energy_units_kev, tabled_rates, 'o')
+    plt.show()
 

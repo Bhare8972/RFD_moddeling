@@ -159,12 +159,12 @@ int main()
 	double max_energy=100000.0/energy_units_kev; //100000/energy_units_kev;
 	int num_energies=50;
 
-    double min_timestep=6e-7;
+    double min_timestep=2e-7;
     double max_timestep=0.01;
-    size_t num_timesteps=50;
+    size_t num_timesteps=60;
 
 	size_t threads_per_energy=3; //num threads per energy
-	size_t num_samples_per_energy_per_thread_per_run=666;
+	size_t num_samples_per_energy_per_thread_per_run=1333;
 
 	gsl::vector energy_vector=logspace(log10(min_energy), log10(max_energy), num_energies);
     gsl::vector timesteps=logspace(log10(min_timestep), log10(max_timestep), num_timesteps);
