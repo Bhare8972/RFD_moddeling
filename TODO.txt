@@ -2,9 +2,6 @@ TODO:
 
 organize code
 
-add ability to turn off traced_output (rename? reorganize)
-
-test results of simulation against lehtenin.
 
 refactor binary and array IO
 	make reading/writing binary files to correctly handel big-endian machines
@@ -18,16 +15,12 @@ finish adding bremsstrahlung
 
 Then test simulation against Dwyer and find slowdowns.
 
-add new walker aliasing and cheby polys
+
+fixed constant and linear interaction samplers
+add addaptive interaction sampler
 
 
-
-
-Implement dense-output, so that when timesteps are truncated , the pos and vel change are not assumed to be linear
-change runge-kutta scheme so that error in pos/vel is relative to change in pos/vel during step (error should be smaller than step)
-when checking change in interaction rate, instead of redoing timesteps, just shorten timestep. (perhaps half timestep untill condition is true)
-
-Since we would now have dense output, also sample intreaction rate in middle of timestep, and find quadratic term to interaction rate, and we can check the error of the linear term, instead of error of constant term.
+re-do coulomb scattering to be indexed by number of interactions instead of time,to perhaps reduce energy dependance?
 
 
 
@@ -37,5 +30,5 @@ other:
 improve utility documentation.  less important.
 figure out why interpolant is not thread safe (check other utilities for thread saftey)
 
-work GSL code into project itself instead of being external dependancy\
+work GSL code into project itself instead of being external dependancy
 

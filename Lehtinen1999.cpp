@@ -109,27 +109,35 @@ public:
 
 };
 
-
-class timestep_halving_histogramer
+class timestep_halving_histogramer //turn this into some kind of utility that can re-used
 {
 public:
-    gsl::vector histogram;
+    std::list<double> energy;
+    std::list<double> initial_timestep;
+    std::list<double> N_halves;
 
-    timestep_halving_histogramer(int max_points)
+    void add_energy(double energy_)
     {
-        histogram=make_vector(max_points+1, 0.0);
+        energy.push_back(energy_);
     }
 
-    void add_data(int num_halved)
+    void add_TS(double i_TS_)
     {
-        histogram[num_halved]++;
+        initial_timestep.push_back(i_TS_);
+    }
+
+    void add_halves(double N_halves_)
+    {
+        N_halves.push_back(N_halves_);
     }
 
     void save_data()
     {
         arrays_output out;
-        out.add_doubles(histogram);
-        out.to_file("./timestep_halving");
+        out.add_doubles( make_vector(energy) );
+        out.add_doubles( make_vector(initial_timestep) );
+        out.add_doubles( make_vector(N_halves) );
+        out.to_file("./timestep_halving_hist");
     }
 
 };
@@ -144,8 +152,7 @@ class sim_cls
 {
 public:
     ////constants////  (What will happen to results if we vary these?)
-    const double pos_tol=0.0000001;
-    const double mom_tol=0.0000001;
+    const double RK_rel_err_tol=0.001; //0.00001  I have no idea what to set this att
     const double initial_energy=1000.0/energy_units_kev; //lehtininin is 1 Gev. How does this affect results?
     double max_t;
 
@@ -158,7 +165,6 @@ public:
 	////physics engines////
     moller_table moller_engine; //moller scattering
     diffusion_table coulomb_scattering_engine;  //elastic scattering off air mollecules
-    //interaction_chooser_quadratic<1> interaction_engine; //interaction chooser (only one potential interaction at the moment
     interaction_chooser_quadratic<1> interaction_engine; //interaction chooser (only one potential interaction at the moment
     apply_charged_force force_engine; //apply classical forces
 
@@ -172,11 +178,10 @@ public:
 
     sim_cls(double _max_t, double E_delta, double B_tsi) :
 
-	save_data(false), //set this to true to save particle histories
+	save_data(true), //set this to true to save particle histories
     moller_engine(particle_removal_energy, 200000/energy_units_kev, 500, false),
 	histogramer(_max_t, 1000),
     interaction_engine(moller_engine),
-    timestep_hist(10),
     force_engine(particle_removal_energy, E_field.pntr(), B_field.pntr() )
 
     {
@@ -194,8 +199,9 @@ public:
 
         ////force engine setup////
         force_engine.set_max_timestep( coulomb_scattering_engine.max_timestep() );
-        //force_engine.set_max_timestep( 0.001 );
-        force_engine.set_errorTol(pos_tol, mom_tol);
+        force_engine.set_errorTol(RK_rel_err_tol);
+
+        //AT some point I need to expliclitly set interaction_engine tollarances
 
 
     }
@@ -248,11 +254,14 @@ public:
 
         /////solve equations of motion////
             double old_energy=current_electron->energy;
-            //auto old_position=current_electron->position;
-            //auto old_momentum=current_electron->momentum;
 
             force_engine.charged_particle_RungeKuttaDP(current_electron);
             current_electron->update_energy();
+
+            double pre_E=current_electron->energy;
+            double pre_TS=current_electron->timestep;
+
+
 
             //remove particle if necisary
             if(current_electron->energy < particle_removal_energy)
@@ -263,13 +272,6 @@ public:
                 continue;
             }
 
-            //for linear interpolation of position and momentum
-            //auto position_rate_of_change=current_electron->position-old_position;
-            //auto momentum_rate_of_change=current_electron->momentum-old_momentum;
-            //position_rate_of_change/=current_electron->timestep;
-            //momentum_rate_of_change/=current_electron->timestep;
-
-            //double energy_before_scattering=current_electron->energy;
 
         //// scattering (moller only presently) ////
             int interaction=-1;
@@ -280,7 +282,6 @@ public:
             {
                 //sample interaction rates
                 time_to_scatter=interaction_engine.sample(old_energy,  mom_to_KE(current_electron->interpolate_mom(0.5)),    current_electron->energy,     current_electron->timestep, interaction);
-                //time_to_scatter=interaction_engine.sample(old_energy, current_electron->energy,     current_electron->timestep, interaction);
 
                 //check error code
                 auto error_code=interaction_engine.get_error_flag();
@@ -304,10 +305,10 @@ public:
                     break;
                 }
             }
-            timestep_hist.add_data(TS_halves);
-            //print(interaction, time_to_scatter, current_electron->timestep);
-            //print("end");
-            //print();
+
+            timestep_hist.add_energy(pre_E);
+            timestep_hist.add_TS(pre_TS);
+            timestep_hist.add_halves(TS_halves);
 
 
 

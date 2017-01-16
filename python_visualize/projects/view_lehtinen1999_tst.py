@@ -31,9 +31,5 @@ if __name__=="__main__":
     print(np.average(R_values), np.std(R_values)/np.sqrt(len(R_values)))
     plt.show()
     
-    
-    table_in=array_input( binary_input("./timestep_halving_00000") )
-    print( table_in.read_doublesArray() )
-    
         
     
